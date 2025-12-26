@@ -6,21 +6,21 @@
   name: Check for hardcoded secrets
   entry: npx vibe-check --only secrets --fail-on error
   language: node
-  types_or: [python, javascript, typescript, json, yaml]
+  types_or: [python, javascript, ts, json, yaml]
   pass_filenames: true
 
 - id: check-hardcoded-urls
   name: Check for hardcoded URLs
   entry: npx vibe-check --only urls --fail-on error
   language: node
-  types_or: [python, javascript, typescript]
+  types_or: [python, javascript, ts]
   pass_filenames: true
 
 - id: check-unsafe-html
   name: Check for unsafe HTML manipulation
   entry: npx vibe-check --only unsafe-html --fail-on error
   language: node
-  types_or: [javascript, typescript]
+  types_or: [javascript, ts]
   pass_filenames: true
 
 # Code quality checks (warnings - informational)
@@ -28,28 +28,28 @@
   name: Check for debug statements
   entry: npx vibe-check --only debug --fail-on error
   language: node
-  types_or: [python, javascript, typescript]
+  types_or: [python, javascript, ts]
   pass_filenames: true
 
 - id: check-empty-catch
   name: Check for empty catch blocks
   entry: npx vibe-check --only empty-catch --fail-on warning
   language: node
-  types_or: [python, javascript, typescript]
+  types_or: [python, javascript, ts]
   pass_filenames: true
 
 - id: check-any-types
   name: Check for any types in TypeScript
   entry: npx vibe-check --only any-types --fail-on warning
   language: node
-  types: [typescript]
+  types: [ts]
   pass_filenames: true
 
 - id: check-snake-case
   name: Check for snake_case in TypeScript
   entry: npx vibe-check --only snake-case --fail-on warning
   language: node
-  types: [typescript]
+  types: [ts]
   pass_filenames: true
 
 # Comprehensive check (all hooks)
@@ -57,7 +57,7 @@
   name: Vibe Check (all)
   entry: npx vibe-check
   language: node
-  types_or: [python, javascript, typescript, json, yaml]
+  types_or: [python, javascript, ts, json, yaml]
   pass_filenames: true
 
 # Quick security-only check
@@ -65,7 +65,7 @@
   name: Vibe Check (security only)
   entry: npx vibe-check --only secrets,urls,unsafe-html --fail-on error
   language: node
-  types_or: [python, javascript, typescript, json, yaml]
+  types_or: [python, javascript, ts, json, yaml]
   pass_filenames: true
 
 # Quality-only check (non-blocking)
@@ -73,5 +73,5 @@
   name: Vibe Check (quality only)
   entry: npx vibe-check --skip secrets,urls,unsafe-html --fail-on none
   language: node
-  types_or: [python, javascript, typescript]
+  types_or: [python, javascript, ts]
   pass_filenames: true
