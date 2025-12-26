@@ -1,175 +1,77 @@
-# Hook definitions for vibe-and-thrive
-# These hooks help catch common issues when coding with AI agents
+# vibe-and-thrive pre-commit hooks
+# All hooks use language: node for consistency
 
-- id: check-dry-violations-python
-  name: Check DRY Violations (Python)
-  description: Detect duplicate code blocks, repeated strings, and similar functions in Python
-  entry: hooks/check_dry_violations.py
-  language: python
-  types: [python]
-  exclude: |
-    (?x)^(
-      .*/tests/.*|
-      .*_test\.py$|
-      .*test_.*\.py$|
-      .*/migrations/.*|
-      .*/conftest\.py$|
-      .*/fixtures/.*
-    )$
-
-- id: check-dry-violations-js
-  name: Check DRY Violations (JavaScript/TypeScript)
-  description: Detect duplicate code blocks, repeated strings, and className patterns in JS/TS
-  entry: hooks/check_dry_violations.js
+# Security checks (blocking - these will fail the commit)
+- id: check-secrets
+  name: Check for hardcoded secrets
+  entry: npx vibe-check --only secrets --fail-on error
   language: node
-  types_or: [javascript, jsx, ts, tsx]
-  exclude: |
-    (?x)^(
-      .*/tests/.*|
-      .*\.test\.(ts|tsx|js|jsx)$|
-      .*\.spec\.(ts|tsx|js|jsx)$|
-      .*/node_modules/.*|
-      .*/fixtures/.*
-    )$
-
-- id: check-magic-numbers
-  name: Check Magic Numbers
-  description: Detect hardcoded numbers that should be named constants
-  entry: hooks/check_magic_numbers.py
-  language: python
-  types: [python]
-  exclude: |
-    (?x)^(
-      .*/tests/.*|
-      .*/migrations/.*|
-      .*/constants\.py$
-    )$
+  types_or: [python, javascript, typescript, json, yaml]
+  pass_filenames: true
 
 - id: check-hardcoded-urls
-  name: Check Hardcoded URLs
-  description: Detect localhost/127.0.0.1 URLs that should use configuration
-  entry: hooks/check_hardcoded_urls.py
-  language: python
-  types_or: [python, javascript, jsx, ts, tsx]
-  exclude: |
-    (?x)^(
-      .*/tests/.*|
-      .*/fixtures/.*|
-      .*\.config\.(js|ts)$
-    )$
-
-- id: check-docker-platform
-  name: Check Docker Platform
-  description: Ensure Docker builds specify platform for ARM/x86 compatibility
-  entry: hooks/check_docker_platform.py
-  language: python
-  files: (Dockerfile\.prod|docker-compose.*\.ya?ml|\.sh)$
-
-- id: check-snake-case-ts
-  name: Check snake_case in TypeScript
-  description: Detect snake_case property names in TypeScript interfaces/types that should be camelCase
-  entry: hooks/check_snake_case_ts.js
+  name: Check for hardcoded URLs
+  entry: npx vibe-check --only urls --fail-on error
   language: node
-  types_or: [ts, tsx]
-  exclude: |
-    (?x)^(
-      .*/tests/.*|
-      .*\.test\.(ts|tsx)$|
-      .*\.spec\.(ts|tsx)$|
-      .*\.d\.ts$|
-      .*/node_modules/.*
-    )$
-
-- id: check-debug-statements
-  name: Check Debug Statements
-  description: Warn about console.log, print(), debugger statements left in code
-  entry: hooks/check_debug_statements.py
-  language: python
-  types_or: [python, javascript, jsx, ts, tsx]
-  exclude: |
-    (?x)^(
-      .*/tests/.*|
-      .*\.test\.(ts|tsx|js|jsx|py)$|
-      .*\.spec\.(ts|tsx|js|jsx)$
-    )$
-
-- id: check-todo-fixme
-  name: Check TODO/FIXME
-  description: Warn about TODO, FIXME, XXX, HACK comments that should be addressed
-  entry: hooks/check_todo_fixme.py
-  language: python
-  types_or: [python, javascript, jsx, ts, tsx]
-
-- id: check-empty-catch
-  name: Check Empty Catch Blocks
-  description: Warn about empty catch/except blocks that silently swallow errors
-  entry: hooks/check_empty_catch.py
-  language: python
-  types_or: [python, javascript, jsx, ts, tsx]
-
-- id: check-secrets
-  name: Check for Secrets
-  description: Block commits containing hardcoded API keys, passwords, and tokens
-  entry: hooks/check_secrets.py
-  language: python
-  types_or: [python, javascript, jsx, ts, tsx, json, yaml, toml]
-  exclude: |
-    (?x)^(
-      .*\.env\.example$|
-      .*\.env\.sample$|
-      .*package-lock\.json$|
-      .*yarn\.lock$|
-      .*pnpm-lock\.yaml$
-    )$
-
-- id: check-any-types
-  name: Check TypeScript any Types
-  description: Warn about TypeScript 'any' type usage that defeats type safety
-  entry: hooks/check_any_types.js
-  language: node
-  types_or: [ts, tsx]
-  exclude: |
-    (?x)^(
-      .*\.d\.ts$|
-      .*/node_modules/.*
-    )$
-
-- id: check-function-length
-  name: Check Function Length
-  description: Warn about functions over 50 lines that should be broken up
-  entry: hooks/check_function_length.py
-  language: python
-  types_or: [python, javascript, jsx, ts, tsx]
-  exclude: |
-    (?x)^(
-      .*/tests/.*|
-      .*/migrations/.*
-    )$
-
-- id: check-commented-code
-  name: Check Commented Code
-  description: Warn about large blocks of commented-out code
-  entry: hooks/check_commented_code.py
-  language: python
-  types_or: [python, javascript, jsx, ts, tsx]
-
-- id: check-deep-nesting
-  name: Check Deep Nesting
-  description: Warn about deeply nested code (pyramid of doom)
-  entry: hooks/check_deep_nesting.py
-  language: python
-  types_or: [python, javascript, jsx, ts, tsx]
-
-- id: check-console-error
-  name: Check Console Error Handling
-  description: Warn about using console.log for error handling in catch blocks
-  entry: hooks/check_console_error.py
-  language: python
-  types_or: [python, javascript, jsx, ts, tsx]
+  types_or: [python, javascript, typescript]
+  pass_filenames: true
 
 - id: check-unsafe-html
-  name: Check Unsafe HTML
-  description: Warn about innerHTML/dangerouslySetInnerHTML without sanitization
-  entry: hooks/check_unsafe_html.js
+  name: Check for unsafe HTML manipulation
+  entry: npx vibe-check --only unsafe-html --fail-on error
   language: node
-  types_or: [javascript, jsx, ts, tsx, vue, html]
+  types_or: [javascript, typescript]
+  pass_filenames: true
+
+# Code quality checks (warnings - informational)
+- id: check-debug
+  name: Check for debug statements
+  entry: npx vibe-check --only debug --fail-on error
+  language: node
+  types_or: [python, javascript, typescript]
+  pass_filenames: true
+
+- id: check-empty-catch
+  name: Check for empty catch blocks
+  entry: npx vibe-check --only empty-catch --fail-on warning
+  language: node
+  types_or: [python, javascript, typescript]
+  pass_filenames: true
+
+- id: check-any-types
+  name: Check for any types in TypeScript
+  entry: npx vibe-check --only any-types --fail-on warning
+  language: node
+  types: [typescript]
+  pass_filenames: true
+
+- id: check-snake-case
+  name: Check for snake_case in TypeScript
+  entry: npx vibe-check --only snake-case --fail-on warning
+  language: node
+  types: [typescript]
+  pass_filenames: true
+
+# Comprehensive check (all hooks)
+- id: vibe-check
+  name: Vibe Check (all)
+  entry: npx vibe-check
+  language: node
+  types_or: [python, javascript, typescript, json, yaml]
+  pass_filenames: true
+
+# Quick security-only check
+- id: vibe-check-security
+  name: Vibe Check (security only)
+  entry: npx vibe-check --only secrets,urls,unsafe-html --fail-on error
+  language: node
+  types_or: [python, javascript, typescript, json, yaml]
+  pass_filenames: true
+
+# Quality-only check (non-blocking)
+- id: vibe-check-quality
+  name: Vibe Check (quality only)
+  entry: npx vibe-check --skip secrets,urls,unsafe-html --fail-on none
+  language: node
+  types_or: [python, javascript, typescript]
+  pass_filenames: true

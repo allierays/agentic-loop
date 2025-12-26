@@ -1,59 +1,146 @@
 # Vibe and Thrive
 
-**Tools and guardrails that catch common AI coding mistakes before they hit your codebase.**
+**Catch common AI-generated code issues before they hit your codebase.**
 
-Whether you're using AI coding agents or building your own agents, MCPs, or applications—these tools catch patterns that lead to technical debt automatically.
+Whether you're using AI coding agents or building your own—these tools catch patterns that lead to technical debt automatically.
 
 ## Install
 
 ```bash
-# Using uv
-uv pip install vibe-and-thrive
-
-# Using pip
-pip install vibe-and-thrive
-```
-
-Then run the setup script to install Claude Code skills, pre-commit hooks, and templates:
-
-```bash
-git clone https://github.com/allthriveai/vibe-and-thrive.git
-./vibe-and-thrive/setup-vibe-and-thrive.sh ~/path/to/your-project
+npm install vibe-and-thrive
 ```
 
 ## Usage
 
-### Claude Code (recommended)
-
-Run `/vibe-check` in Claude Code for a full code quality audit:
-
-```
-/vibe-check
-```
-
-This scans your codebase for secrets, debug statements, empty catches, deep nesting, long functions, and more.
-
 ### CLI
 
 ```bash
-vibe-check-secrets src/         # Hardcoded secrets
-vibe-check-urls src/            # Localhost URLs
-vibe-check-nesting src/         # Deep nesting
-vibe-check-length src/          # Long functions
+# Check all files in current directory
+npx vibe-check .
+
+# Check specific files
+npx vibe-check src/app.ts src/utils.ts
+
+# Check with specific hooks only
+npx vibe-check . --only secrets,urls,debug
+
+# Skip specific hooks
+npx vibe-check . --skip any-types,snake-case
+
+# Output formats
+npx vibe-check . --format pretty   # Default: colored terminal output
+npx vibe-check . --format json     # JSON for CI/scripts
+npx vibe-check . --format compact  # One line per issue
+
+# Severity filtering
+npx vibe-check . --fail-on error   # Only fail on blocking issues (default)
+npx vibe-check . --fail-on warning # Fail on warnings too
 ```
 
-### Pre-commit (automatic)
+### ESLint Plugin
 
-Runs automatically on every commit. See [Pre-commit Hooks](#pre-commit-hooks) below.
+```bash
+npm install -D vibe-and-thrive eslint
+```
 
-## What's Included
+```javascript
+// eslint.config.js
+import vibe from 'vibe-and-thrive/eslint-plugin';
 
-### Claude Code Skills
+export default [
+  // Use recommended config
+  vibe.configs.recommended,
+
+  // Or configure individually
+  {
+    plugins: { vibe },
+    rules: {
+      'vibe/no-any-type': 'warn',
+      'vibe/no-snake-case-props': 'warn',
+      'vibe/no-debug-statements': 'error',
+      'vibe/no-empty-catch': 'warn',
+      'vibe/no-magic-numbers': 'off',
+      'vibe/no-deep-nesting': 'warn',
+      'vibe/max-function-length': ['warn', { max: 50 }],
+    }
+  }
+];
+```
+
+### Pre-commit Hooks
+
+Add to your `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/allthriveai/vibe-and-thrive
+    rev: v1.0.0
+    hooks:
+      - id: check-secrets          # BLOCKS commits
+      - id: check-hardcoded-urls   # BLOCKS commits
+      - id: check-debug            # Warns
+      - id: check-empty-catch      # Warns
+      - id: check-any-types        # Warns (TypeScript only)
+      - id: check-snake-case       # Warns (TypeScript only)
+      - id: vibe-check             # All checks
+      - id: vibe-check-security    # Security only (blocking)
+      - id: vibe-check-quality     # Quality only (non-blocking)
+```
+
+Then: `pre-commit install`
+
+### lint-staged
+
+```json
+{
+  "lint-staged": {
+    "*.{js,ts,jsx,tsx}": "vibe-check --fail-on error"
+  }
+}
+```
+
+### Claude Code
+
+Run `/vibe-check` in Claude Code for a full code quality audit.
+
+## Available Checks
+
+| Check | ID | Description | Severity |
+|-------|-----|-------------|----------|
+| Secrets | `secrets` | Hardcoded API keys, passwords, tokens | Error |
+| URLs | `urls` | Hardcoded localhost/production URLs | Error |
+| Unsafe HTML | `unsafe-html` | innerHTML, dangerouslySetInnerHTML, eval | Error |
+| Debug | `debug` | console.log, print(), debugger statements | Warning |
+| Empty Catch | `empty-catch` | Empty catch/except blocks | Warning |
+| Any Types | `any-types` | TypeScript `any` type usage | Warning |
+| Snake Case | `snake-case` | snake_case in TypeScript interfaces | Warning |
+| Magic Numbers | `magic-numbers` | Hardcoded numbers without names | Warning |
+| Function Length | `function-length` | Functions over 50 lines | Warning |
+| Deep Nesting | `deep-nesting` | Code nested more than 4 levels | Warning |
+| DRY | `dry` | Duplicated code blocks | Warning |
+| TODO/FIXME | `todo` | Incomplete work markers | Info |
+| Commented Code | `commented-code` | Commented-out code blocks | Info |
+| Console Error | `console-error` | console.error in catch blocks | Info |
+| Docker Platform | `docker-platform` | Missing --platform in Dockerfiles | Info |
+
+## ESLint Rules
+
+| Rule | Fixable | Description |
+|------|---------|-------------|
+| `vibe/no-any-type` | No | Disallow `any` type |
+| `vibe/no-snake-case-props` | Yes | Disallow snake_case properties |
+| `vibe/no-debug-statements` | No | Disallow console.log, debugger |
+| `vibe/no-empty-catch` | No | Disallow empty catch blocks |
+| `vibe/no-magic-numbers` | No | Disallow magic numbers |
+| `vibe/no-deep-nesting` | No | Disallow deep nesting |
+| `vibe/max-function-length` | No | Enforce max function length |
+
+## Claude Code Skills
 
 | Skill | Purpose |
 |-------|---------|
 | `/vibe-check` | Full code quality audit |
-| `/styleguide` | Generate a styleguide from your design preferences |
+| `/styleguide` | Generate a styleguide from design preferences |
 | `/tdd-feature` | Build features test-first with AI |
 | `/e2e-scaffold` | Generate E2E test structure |
 | `/review` | Code review for issues |
@@ -63,58 +150,13 @@ Runs automatically on every commit. See [Pre-commit Hooks](#pre-commit-hooks) be
 | `/fix-types` | Fix TypeScript without `any` |
 | `/security-check` | Check for vulnerabilities |
 
-### Also Included
-
-| Tool | Purpose |
-|------|---------|
-| **16 Pre-commit Hooks** | Automatically check code at commit time |
-| **ESLint + Ruff Configs** | Linter configs tuned for AI-generated code |
-| **Stack Templates** | CLAUDE.md templates for React, Django, FastAPI, FastMCP, Node |
-
-## Pre-commit Hooks
-
-Add to your `.pre-commit-config.yaml`:
-
-```yaml
-repos:
-  - repo: https://github.com/allthriveai/vibe-and-thrive
-    rev: v0.3.0
-    hooks:
-      - id: check-secrets           # BLOCKS commits
-      - id: check-hardcoded-urls    # BLOCKS commits
-      - id: check-debug-statements  # Warns
-      - id: check-empty-catch       # Warns
-      - id: check-any-types         # Warns
-      - id: check-deep-nesting      # Warns
-      - id: check-function-length   # Warns
-```
-
-Then: `pre-commit install`
-
-See [docs/HOOKS.md](docs/HOOKS.md) for all 16 hooks.
-
-## Documentation
-
-| Doc | Description |
-|-----|-------------|
-| [PROMPTS.md](docs/PROMPTS.md) | Copy-paste prompt templates |
-| [PROMPTING-GUIDE.md](docs/PROMPTING-GUIDE.md) | How to prompt AI effectively |
-| [STYLEGUIDE.md](docs/STYLEGUIDE.md) | Why you need an HTML styleguide |
-| [HOOKS.md](docs/HOOKS.md) | All hooks and configuration options |
-| [SKILLS.md](docs/SKILLS.md) | Claude Code skills reference |
-| [TDD.md](docs/TDD.md) | Test-driven development with AI |
-| [BAD-PATTERNS.md](docs/BAD-PATTERNS.md) | Common AI mistakes and fixes |
-| [CHEATSHEET.md](docs/CHEATSHEET.md) | Quick reference |
-| [CONTRIBUTING.md](docs/CONTRIBUTING.md) | How to add new hooks |
-
 ## Philosophy
 
 These are **guardrails, not gatekeepers**:
 - Warn about most issues (awareness > blocking)
 - Block only security-critical problems
-- Support `# noqa:` suppression
+- Support `# noqa:` and `// eslint-disable` suppression
 - Little and often make much
-- Sleep, code, test, code, sleep, repeat
 
 ## License
 

@@ -1,15 +1,81 @@
 {
   "name": "vibe-and-thrive",
-  "version": "0.3.0",
-  "private": true,
-  "description": "Pre-commit hooks to catch common AI-generated code issues",
+  "version": "1.0.0",
+  "description": "Catch common AI-generated code issues before they hit your codebase",
+  "author": "AllThrive AI <hello@allthrive.ai>",
+  "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/allthriveai/vibe-and-thrive"
   },
-  "author": "AllThrive AI",
-  "license": "MIT",
+  "homepage": "https://github.com/allthriveai/vibe-and-thrive#readme",
+  "bugs": {
+    "url": "https://github.com/allthriveai/vibe-and-thrive/issues"
+  },
+  "keywords": [
+    "ai",
+    "vibe-coding",
+    "pre-commit",
+    "eslint-plugin",
+    "lint-staged",
+    "code-quality",
+    "claude",
+    "copilot",
+    "cursor",
+    "linting"
+  ],
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "vibe-check": "./bin/vibe-check.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./eslint-plugin": {
+      "types": "./dist/eslint-plugin/index.d.ts",
+      "import": "./dist/eslint-plugin/index.js"
+    },
+    "./lint-staged": {
+      "types": "./dist/lint-staged/config.d.ts",
+      "import": "./dist/lint-staged/config.js"
+    }
+  },
+  "files": [
+    "dist",
+    "bin",
+    ".claude",
+    ".pre-commit-hooks.yaml",
+    "integrations"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "lint": "eslint src",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "prepublishOnly": "npm run clean && npm run build && npm run test:run"
+  },
   "engines": {
-    "node": ">=14.0.0"
+    "node": ">=18.0.0"
+  },
+  "peerDependencies": {
+    "eslint": ">=8.0.0"
+  },
+  "peerDependenciesMeta": {
+    "eslint": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "eslint": "^9.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
   }
 }
