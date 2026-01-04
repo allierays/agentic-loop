@@ -139,10 +139,11 @@ Run `/vibe-check` in Claude Code for a full code quality audit.
 
 | Skill | Purpose |
 |-------|---------|
-| `/vibe-check` | Full code quality audit |
-| `/styleguide` | Generate a styleguide from design preferences |
+| `/prd` | Generate PRD by asking questions |
 | `/tdd-feature` | Build features test-first with AI |
 | `/e2e-scaffold` | Generate E2E test structure |
+| `/vibe-check` | Full code quality audit |
+| `/styleguide` | Generate a styleguide from design preferences |
 | `/review` | Code review for issues |
 | `/explain` | Explain code line by line |
 | `/refactor` | Guided refactoring |
