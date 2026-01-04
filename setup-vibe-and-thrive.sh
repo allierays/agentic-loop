@@ -12,7 +12,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_JSON="$HOME/.claude.json"
-VERSION="v0.3.0"  # Update this when releasing new versions
+VERSION="v1.0.0"  # Update this when releasing new versions
 
 # Colors for output
 RED='\033[0;31m'
