@@ -12,7 +12,13 @@ npm install vibe-and-thrive
 
 ## Usage
 
-### CLI
+### Claude Code
+
+Run `/vibe-check` in Claude Code for a full code quality audit.
+
+
+
+###  Other ways to use in a CLI
 
 ```bash
 # Check all files in current directory
