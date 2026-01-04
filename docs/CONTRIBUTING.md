@@ -9,136 +9,91 @@ Found a pattern that AI agents commonly introduce? We'd love to add it!
 ```bash
 git clone https://github.com/allthriveai/vibe-and-thrive.git
 cd vibe-and-thrive
+npm install
 ```
 
 ### 2. Create your hook
 
-Create a new file in `hooks/`:
+Create a new file in `src/hooks/`:
 
-```python
-#!/usr/bin/env python3
-"""Pre-commit hook to check for [your pattern].
+```typescript
+// src/hooks/check-your-pattern.ts
+import type { CheckResult, Finding } from '../utils/types';
 
-Part of vibe-and-thrive: https://github.com/allthriveai/vibe-and-thrive
+const PATTERNS = [
+  // Your regex patterns here
+  { regex: /problematic_pattern/, message: 'Description of issue' },
+];
 
-[Explain what this hook catches and why it matters]
+export function checkYourPattern(
+  filePath: string,
+  content: string
+): CheckResult {
+  const findings: Finding[] = [];
+  const lines = content.split('\n');
 
-Warns but doesn't block commits.
-"""
+  lines.forEach((line, index) => {
+    for (const { regex, message } of PATTERNS) {
+      if (regex.test(line)) {
+        findings.push({
+          line: index + 1,
+          column: 0,
+          message,
+          severity: 'warning', // or 'error' for blocking issues
+        });
+      }
+    }
+  });
 
-import sys
-from pathlib import Path
-
-
-def check_file(filepath: Path) -> list[tuple[int, str]]:
-    """Check a file for [your pattern].
-
-    Returns:
-        List of (line_number, description) tuples
-    """
-    findings = []
-
-    try:
-        with open(filepath, encoding='utf-8') as f:
-            for line_num, line in enumerate(f, 1):
-                # Your detection logic here
-                if should_flag(line):
-                    findings.append((line_num, 'Description of issue'))
-
-    except Exception as e:
-        print(f'Error reading {filepath}: {e}', file=sys.stderr)
-
-    return findings
-
-
-def main(filenames: list[str]) -> int:
-    """Main entry point for pre-commit hook."""
-    all_findings: dict[str, list[tuple[int, str]]] = {}
-
-    for filename in filenames:
-        filepath = Path(filename)
-        findings = check_file(filepath)
-
-        if findings:
-            all_findings[filename] = findings
-
-    if all_findings:
-        total = sum(len(f) for f in all_findings.values())
-
-        print(f'\n⚠️  [Your issue] detected: {total} instance(s)\n')
-
-        for filepath, findings in all_findings.items():
-            print(f'  {filepath}:')
-            for line_num, description in findings:
-                print(f'    Line {line_num}: {description}')
-
-        print('\n💡 Tip: [How to fix this issue]\n')
-
-        # Return 0 for warnings, 1 to block commits
-        return 0
-
-    return 0
-
-
-def cli() -> int:
-    """CLI entry point."""
-    return main(sys.argv[1:])
-
-
-if __name__ == '__main__':
-    sys.exit(cli())
+  return {
+    filePath,
+    findings,
+    hookId: 'your-pattern',
+  };
+}
 ```
 
-### 3. Register it in `.pre-commit-hooks.yaml`
+### 3. Register it in `src/hooks/index.ts`
+
+```typescript
+import { checkYourPattern } from './check-your-pattern';
+
+export const hooks = {
+  // ... existing hooks
+  'your-pattern': checkYourPattern,
+};
+```
+
+### 4. Add to `.pre-commit-hooks.yaml`
 
 ```yaml
 - id: check-your-pattern
   name: Check Your Pattern
-  description: What it does
-  entry: hooks/check_your_pattern.py
-  language: python
-  types_or: [python, javascript, ts, tsx]
-```
-
-### 4. Add to `pyproject.toml`
-
-Add a CLI entry point:
-
-```toml
-[project.scripts]
-vibe-check-yourpattern = "hooks.check_your_pattern:cli"
+  entry: npx vibe-check --only your-pattern --fail-on warning
+  language: node
+  types_or: [python, javascript, ts]
+  pass_filenames: true
 ```
 
 ### 5. Add tests
 
-Create `tests/test_check_your_pattern.py`:
+Create `src/hooks/__tests__/check-your-pattern.test.ts`:
 
-```python
-"""Tests for check_your_pattern.py hook."""
-import sys
-from pathlib import Path
+```typescript
+import { describe, it, expect } from 'vitest';
+import { checkYourPattern } from '../check-your-pattern';
 
-sys.path.insert(0, str(Path(__file__).parent.parent / 'hooks'))
+describe('checkYourPattern', () => {
+  it('detects problematic code', () => {
+    const result = checkYourPattern('test.ts', 'problematic_pattern here');
+    expect(result.findings).toHaveLength(1);
+  });
 
-from check_your_pattern import check_file
-
-
-class TestYourPattern:
-    def test_detects_issue(self, tmp_path):
-        test_file = tmp_path / 'test.py'
-        test_file.write_text('problematic code here')
-
-        findings = check_file(test_file)
-
-        assert len(findings) == 1
-
-    def test_ignores_valid_code(self, tmp_path):
-        test_file = tmp_path / 'test.py'
-        test_file.write_text('valid code here')
-
-        findings = check_file(test_file)
-
-        assert len(findings) == 0
+  it('ignores valid code', () => {
+    const result = checkYourPattern('test.ts', 'valid code here');
+    expect(result.findings).toHaveLength(0);
+  });
+});
 ```
 
 ### 6. Update documentation
@@ -150,6 +105,8 @@ class TestYourPattern:
 
 ```bash
 git checkout -b add-check-your-pattern
+npm run build
+npm test
 git add .
 git commit -m "Add check-your-pattern hook"
 git push origin add-check-your-pattern
@@ -157,12 +114,11 @@ git push origin add-check-your-pattern
 
 ## Hook Guidelines
 
-- **Warn by default** - Return `0` to allow commits, `1` only for security issues
+- **Warn by default** - Use `severity: 'warning'` unless it's a security issue
 - **Be specific** - Catch real problems, not style preferences
-- **Allow suppression** - Support `# noqa:` comments
+- **Allow suppression** - Check for `// noqa:` comments
 - **Skip tests** - Don't flag test files unless relevant
 - **Clear messages** - Tell users what's wrong and how to fix it
-- **Include tip** - Show how to fix the issue
 
 ## Ideas for New Hooks
 
@@ -173,24 +129,29 @@ Have an idea? We'd love contributions:
 - `check-react-keys` - Missing keys in React lists
 - `check-sql-injection` - SQL string concatenation
 - `check-circular-imports` - Circular import detection
-- `check-type-ignore` - Excessive `# type: ignore` comments
+- `check-type-ignore` - Excessive `// type: ignore` comments
 
 ## Running Tests
 
 ```bash
-pip install -e ".[dev]"
-pytest
+npm install
+npm test           # Run all tests
+npm run test:run   # Run tests once (no watch)
+npm run build      # Build TypeScript
+npm run typecheck  # Type check only
 ```
 
 ## Code Style
 
 We use:
-- **Ruff** for Python linting and formatting
-- **ESLint** for JavaScript/TypeScript
+- **TypeScript** for all hooks
+- **ESLint** for linting
+- **Vitest** for testing
 
 Run before committing:
 
 ```bash
-ruff check hooks/
-ruff format hooks/
+npm run lint
+npm run typecheck
+npm run build
 ```

@@ -102,20 +102,28 @@ pre-commit run check-dry-violations-python --all-files --verbose
 
 ## CLI Commands
 
-If you install via pip/uv, you get CLI commands:
+Install via npm and use the `vibe-check` CLI:
 
 ```bash
-vibe-check-secrets src/
-vibe-check-urls src/
-vibe-check-debug src/
-vibe-check-todo src/
-vibe-check-catch src/
-vibe-check-dry src/
-vibe-check-nesting src/
-vibe-check-length src/
-vibe-check-comments src/
-vibe-check-console src/
-vibe-check-magic src/
+# Install
+npm install vibe-and-thrive
+
+# Check all files
+npx vibe-check .
+
+# Check specific files
+npx vibe-check src/app.ts src/utils.ts
+
+# Run specific checks only
+npx vibe-check . --only secrets,urls,debug
+
+# Skip specific checks
+npx vibe-check . --skip any-types,snake-case
+
+# Different output formats
+npx vibe-check . --format pretty   # Default: colored terminal
+npx vibe-check . --format json     # JSON for CI/scripts
+npx vibe-check . --format compact  # One line per issue
 ```
 
 ## Updating

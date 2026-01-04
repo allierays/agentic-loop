@@ -184,27 +184,18 @@ repos:
   - repo: https://github.com/allthriveai/vibe-and-thrive
     rev: $VERSION
     hooks:
-      # Security (blocks commits)
-      - id: check-secrets
-      - id: check-hardcoded-urls
+      # Run all checks (recommended)
+      - id: vibe-check
 
-      # Code quality (warnings)
-      - id: check-debug-statements
-      - id: check-todo-fixme
-      - id: check-empty-catch
-      - id: check-snake-case-ts
-      - id: check-dry-violations-python
-      - id: check-dry-violations-js
-      - id: check-magic-numbers
-      - id: check-docker-platform
-
-      # AI-specific issues (warnings)
-      - id: check-any-types
-      - id: check-function-length
-      - id: check-commented-code
-      - id: check-deep-nesting
-      - id: check-console-error
-      - id: check-unsafe-html
+      # Or use individual checks:
+      # - id: vibe-check-security  # Security only (blocking)
+      # - id: vibe-check-quality   # Quality only (non-blocking)
+      # - id: check-secrets        # Hardcoded secrets
+      # - id: check-hardcoded-urls # Localhost URLs
+      # - id: check-debug          # Debug statements
+      # - id: check-empty-catch    # Empty catch blocks
+      # - id: check-any-types      # TypeScript any usage
+      # - id: check-snake-case     # snake_case in TS
 PRECOMMITEOF
         print_success "Created .pre-commit-config.yaml"
     fi
@@ -296,7 +287,7 @@ echo "  /add-tests       - Add tests to existing code"
 echo "  /fix-types       - Fix TypeScript without any"
 echo "  /security-check  - Check for vulnerabilities"
 echo ""
-echo "Pre-commit hooks (16 total) will run automatically on each commit."
+echo "Pre-commit hooks will run automatically on each commit."
 echo ""
 echo "Documentation:"
 echo "  docs/BAD-PATTERNS.md    - Common AI coding mistakes"
