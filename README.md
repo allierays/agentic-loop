@@ -2,11 +2,7 @@
 
 **Go from idea to shipped code with AI agents.**
 
-Vibe-and-thrive is a toolkit for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that turns your ideas into working software. You describe what you want, approve the plan, and an autonomous agent writes the code, tests it, validates it in a browser, and commits when everything passes.
-
-No more copy-pasting between ChatGPT and your editor. No more manually running tests after every change. Just describe → approve → ship.
-
-Inspired by [RALPH](https://ghuntley.com/ralph/).
+Vibe-and-thrive is a toolkit for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that turns your ideas into working software. Inspired by [RALPH](https://ghuntley.com/ralph/).
 
 ## How It Works
 
@@ -15,25 +11,36 @@ Inspired by [RALPH](https://ghuntley.com/ralph/).
 │  /idea   │ ──▶ │ Approve  │ ──▶ │  ralph   │ ──▶ │   Ship   │
 │          │     │   PRD    │     │   run    │     │          │
 └──────────┘     └──────────┘     └──────────┘     └──────────┘
-  Brainstorm       Review &         Autonomous        Done!
-  with Claude      tweak plan       coding loop
 ```
 
-1. **`/idea`** - Describe your feature. Claude brainstorms with you, explores your codebase, and creates a detailed plan.
+### 1. `/idea` → `docs/ideas/feature.md`
 
-2. **Approve** - Review the plan in your editor. Nothing happens without your approval.
+Describe your feature to Claude. Together you brainstorm, explore the codebase, and write a feature doc to `docs/ideas/`. You review and approve the idea.
 
-3. **`ralph run`** - The autonomous loop takes over. For each story in the plan:
-   - Writes code
-   - Runs code review (security, error handling, edge cases)
-   - Runs linters and type checks
-   - Runs unit tests
-   - Runs E2E tests (Playwright) or API tests
-   - Validates in browser via MCP
-   - If anything fails → fixes and retries
-   - When everything passes → commits and moves to next story
+### 2. Approve → `.ralph/prd.json`
 
-4. **Ship** - All stories done, all tests passing, all commits made. You're ready to push.
+Claude splits your approved idea into small, testable stories and writes them to `.ralph/prd.json`. Each story has acceptance criteria, test steps, error handling requirements, and more. You review and approve the PRD.
+
+### 3. `ralph run` → Loop until done
+
+Ralph picks the first incomplete story from `prd.json` and loops:
+
+1. **Claude writes code** to implement the story
+2. **6-step verification** runs:
+   - Code review (security, error handling, edge cases)
+   - Lint/build checks
+   - Unit tests
+   - E2E tests (Playwright) or API tests
+   - Browser validation via MCP
+   - PRD test steps
+3. **If verification fails** → errors saved, Claude tries again
+4. **If verification passes** → story marked `done` in `prd.json`, git commit, next story
+
+Ralph keeps looping until all stories are done.
+
+### 4. Ship
+
+All stories complete. All tests passing. All commits made. Push when ready.
 
 ## Install
 
@@ -131,17 +138,6 @@ Ralph doesn't just write code—it verifies everything actually works:
 | `ralph signs` | Show learned patterns |
 | `ralph sign "pattern"` | Teach Ralph a pattern |
 | `ralph init` | Set up Ralph in a project |
-
-## Why This Exists
-
-AI coding assistants are powerful but manual. You prompt, copy, paste, test, fix, repeat. Vibe-and-thrive automates the loop:
-
-- **No manual testing** - Ralph runs your tests and validates in browser
-- **No forgotten edge cases** - PRDs require error handling and a11y specs upfront
-- **No security slip-ups** - Code review checks for OWASP issues before tests run
-- **No context loss** - Failed attempts feed back into the next iteration
-
-The goal: you think about *what* to build, the agent handles *how*.
 
 ## License
 
