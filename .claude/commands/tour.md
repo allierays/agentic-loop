@@ -29,7 +29,6 @@ Then say: "Welcome to the tour! Let me show you how vibe-and-thrive works."
 3. **`ralph run`** - Autonomous coding until all tests pass
 4. **Pre-commit hooks** - Guard every commit
 
-Start messy. End with working code.
 
 ---
 

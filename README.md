@@ -1,6 +1,6 @@
 # Vibe and Thrive
 
-**Start messy. End with working code.**
+**Tools to help you thrive with agentic coding.**
 
 A complete system for agentic coding. Inspired by [RALPH](https://ghuntley.com/ralph/).
 
