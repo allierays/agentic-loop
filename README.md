@@ -19,9 +19,21 @@ In your project:
 npm install vibe-and-thrive
 ```
 
+This launches an interactive setup that:
+- Installs slash commands to `.claude/commands/`
+- Sets up pre-commit hooks
+- Initializes Ralph (`.ralph/` directory)
+- Configures Chrome DevTools MCP for browser validation
+
 ## Quick Start
 
-New here? Run `/tour` in Claude Code for an interactive walkthrough that explains the workflow, auto-detects your tech stack, and sets up your preferences.
+After install, open Claude Code and run:
+
+```
+/tour
+```
+
+This walks you through the workflow, auto-detects your tech stack, and sets up your preferences.
 
 Or jump right in:
 
