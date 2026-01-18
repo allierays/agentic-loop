@@ -1,6 +1,6 @@
 # Vibe and Thrive
 
-**From idea to shipped code with AI.**
+**Start messy. End with working code.**
 
 A complete system for agentic coding. Inspired by [RALPH](https://ghuntley.com/ralph/).
 
