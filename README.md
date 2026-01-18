@@ -22,12 +22,19 @@ Start messy. End with working code.
 # Install in your project
 npm install vibe-and-thrive
 
-# In Claude Code, start with an idea
-/idea "add user authentication"
-
-# Review and approve the PRD, then run Ralph
-ralph run
+# In Claude Code, take the tour
+/tour
 ```
+
+## Take the Tour
+
+Run `/tour` in Claude Code for an interactive walkthrough. The tour:
+
+- Explains the idea → PRD → Ralph → ship workflow
+- Offers to **auto-detect your tech stack** and add it to CLAUDE.md
+- Offers to **set up your DNA** - your personal coding preferences
+
+New to vibe-and-thrive? Start with `/tour`.
 
 ## The Workflow
 
@@ -83,12 +90,6 @@ Every `git commit` runs checks automatically:
 - Empty catch blocks
 - Debug statements
 
-## Install
-
-```bash
-npm install vibe-and-thrive
-```
-
 ## CLI: vibe-check
 
 ### Claude Code
@@ -136,18 +137,6 @@ Then: `pre-commit install`
 | Function Length | `function-length` | Functions over 50 lines | Warning |
 | Deep Nesting | `deep-nesting` | Code nested more than 4 levels | Warning |
 
-## Claude Code Commands
-
-| Command | Purpose |
-|---------|---------|
-| `/idea` | Brainstorm → PRD → Ready for Ralph |
-| `/vibe-help` | Quick reference cheatsheet |
-| `/tour` | Interactive tour of vibe-and-thrive |
-| `/vibe-check` | Full code quality audit |
-| `/review` | Code review with security checks |
-| `/explain` | Explain code line by line |
-| `/styleguide` | Generate design system reference |
-
 ## ESLint Plugin
 
 ```javascript
@@ -165,6 +154,45 @@ export default [
 - **Human in the loop** - Two approval gates before any code runs
 - **Start messy, end clean** - Brainstorm freely, then structure for execution
 - **Little and often make much** - Small PRDs, frequent commits, steady progress
+
+## All Commands (vibe-list)
+
+Run `/vibe-list` in Claude Code for the full reference, or see below.
+
+### Slash Commands (Claude Code)
+
+| Command | Description |
+|---------|-------------|
+| `/idea "feature"` | Brainstorm in plan mode, generate PRD for Ralph |
+| `/tour` | Interactive walkthrough of vibe-and-thrive |
+| `/my-dna` | Set up your personal style preferences |
+| `/vibe-check` | Audit code quality before shipping |
+| `/review` | Code review with OWASP security checks |
+| `/explain` | Explain code line by line |
+| `/styleguide` | Generate UI component design system |
+| `/vibe-help` | Quick reference cheatsheet |
+| `/vibe-list` | Complete command reference |
+
+### Ralph CLI (Terminal)
+
+| Command | Description |
+|---------|-------------|
+| `ralph run` | Run autonomous loop until all stories pass |
+| `ralph run --max 10` | Limit to N iterations |
+| `ralph status` | Show feature, stories, pass/fail counts |
+| `ralph check` | Run all configured checks |
+| `ralph verify US-001` | Verify a specific story |
+| `ralph signs` | List all learned patterns |
+| `ralph sign "pattern"` | Add a pattern Ralph should follow |
+| `ralph progress` | Show last 50 lines of progress log |
+| `ralph init` | Initialize .ralph/ in current directory |
+| `ralph prd "notes"` | Generate PRD interactively |
+
+### Vibe CLI (Terminal)
+
+| Command | Description |
+|---------|-------------|
+| `vibe help` | Show terminal quick reference |
 
 ## License
 
