@@ -1,8 +1,8 @@
 # Vibe and Thrive
 
-**Go from idea to shipped code with AI agents.**
+**Tools to help you thrive with agentic coding in the Claude CLI.**
 
-Vibe-and-thrive is a toolkit for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that turns your ideas into working software. Inspired by [RALPH](https://ghuntley.com/ralph/).
+Vibe-and-thrive is a toolkit for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that includes: an autonomous coding loop ([Ralph](https://ghuntley.com/ralph/)), code quality checks (`/vibe-check`), pre-commit hooks, code review (`/review`), a UI styleguide generator (`/styleguide`), and personal coding preferences (`/my-dna`).
 
 ## How It Works
 
