@@ -4,6 +4,22 @@ description: Take an interactive tour of vibe-and-thrive - the system for going 
 
 # Vibe & Thrive Tour
 
+Print this welcome message exactly as shown:
+
+```
+  ╦  ╦╦╔╗ ╔═╗   ┬   ╔╦╗╦ ╦╦═╗╦╦  ╦╔═╗
+  ╚╗╔╝║╠╩╗║╣   ┌┼─   ║ ╠═╣╠╦╝║╚╗╔╝║╣
+   ╚╝ ╩╚═╝╚═╝  └┘    ╩ ╩ ╩╩╚═╩ ╚╝ ╚═╝
+
+  Tools to help you thrive with agentic coding
+  by AllThrive.ai
+  ─────────────────────────────────
+```
+
+Then say: "Welcome to the tour! Let me show you how vibe-and-thrive works."
+
+---
+
 ## The System
 
 **Idea → PRD → Ralph → Ship**
