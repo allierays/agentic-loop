@@ -1,96 +1,153 @@
 # Vibe and Thrive
 
-**Tools to help you thrive with agentic coding.**
+**Go from idea to shipped code with AI agents.**
 
-A complete system for agentic coding. Inspired by [RALPH](https://ghuntley.com/ralph/).
+Vibe-and-thrive is a toolkit for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that turns your ideas into working software. You describe what you want, approve the plan, and an autonomous agent writes the code, tests it, validates it in a browser, and commits when everything passes.
 
-## TL;DR
+No more copy-pasting between ChatGPT and your editor. No more manually running tests after every change. Just describe → approve → ship.
+
+Inspired by [RALPH](https://ghuntley.com/ralph/).
+
+## How It Works
+
+```
+┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
+│  /idea   │ ──▶ │ Approve  │ ──▶ │  ralph   │ ──▶ │   Ship   │
+│          │     │   PRD    │     │   run    │     │          │
+└──────────┘     └──────────┘     └──────────┘     └──────────┘
+  Brainstorm       Review &         Autonomous        Done!
+  with Claude      tweak plan       coding loop
+```
+
+1. **`/idea`** - Describe your feature. Claude brainstorms with you, explores your codebase, and creates a detailed plan.
+
+2. **Approve** - Review the plan in your editor. Nothing happens without your approval.
+
+3. **`ralph run`** - The autonomous loop takes over. For each story in the plan:
+   - Writes code
+   - Runs code review (security, error handling, edge cases)
+   - Runs linters and type checks
+   - Runs unit tests
+   - Runs E2E tests (Playwright) or API tests
+   - Validates in browser via MCP
+   - If anything fails → fixes and retries
+   - When everything passes → commits and moves to next story
+
+4. **Ship** - All stories done, all tests passing, all commits made. You're ready to push.
+
+## Install
 
 ```bash
-npm install vibe-and-thrive
+npm install -g vibe-and-thrive
 ```
 
-```
-/idea "your feature"  →  PRD  →  ralph run  →  Ship
-```
-
-## The Flow
-
-### Step 1: /idea - Brainstorm to PRD
-
-```
-/idea "add user profiles"
-    ↓
-Plan mode: brainstorm, explore, ask questions
-    ↓
-Write docs/ideas/user-profiles.md
-    ↓
-You approve → auto-split into PRDs
-    ↓
-Write .ralph/prd.json
-    ↓
-You approve → ready for ralph run
-```
-
-Two approval gates. Nothing happens without your say-so.
-
-### Step 2: Ralph - Autonomous Execution
+Then in any project:
 
 ```bash
-ralph run      # Start the autonomous loop
-ralph status   # Check progress anytime
+ralph init
 ```
 
-Ralph works through PRD stories one by one:
-- Writes code → writes tests → validates in browser → iterates until passing → runs linters → runs pre-commit hooks → commits → next story
+## Quick Start
 
-You can step away. Ralph keeps going until everything passes.
+In Claude Code:
+
+```
+/idea "add a contact form with email validation"
+```
+
+Review and approve the generated PRD, then:
+
+```bash
+ralph run
+```
+
+Watch it work. Check progress anytime with `ralph status`.
 
 ## Take the Tour
 
-New to vibe-and-thrive? Run `/tour` in Claude Code.
+New here? Run `/tour` in Claude Code for an interactive walkthrough that:
+- Explains the full workflow
+- Auto-detects your tech stack
+- Sets up your personal coding preferences
 
-The tour:
-- Walks through the idea → PRD → Ralph → ship workflow
-- Offers to auto-detect your tech stack and add it to CLAUDE.md
-- Offers to set up your DNA (personal coding preferences)
+## The Ralph Loop
 
-## All Commands
+Ralph doesn't just write code—it verifies everything actually works:
 
-### Slash Commands (Claude Code)
+```
+              ┌─────────────────────────┐
+              │ Get next incomplete     │
+              │ story (TODO)            │
+              └─────────────────────────┘
+                            │
+                            ▼
+              ┌─────────────────────────┐
+              │  Claude writes code     │
+              └─────────────────────────┘
+                            │
+                            ▼
+              ┌─────────────────────────┐
+              │  6-Step Verification    │
+              │  1. Code review         │
+              │  2. Lint/build          │
+              │  3. Unit tests          │
+              │  4. E2E/API tests       │
+              │  5. Browser validation  │
+              │  6. PRD test steps      │
+              └─────────────────────────┘
+                            │
+                   ┌────────┴────────┐
+                   ▼                 ▼
+              ┌─────────┐      ┌──────────┐
+              │  DONE   │      │ NOT YET  │───┐
+              └─────────┘      └──────────┘   │
+                   │                          │
+                   ▼                          │
+              ┌─────────────────────────┐     │
+              │  git commit             │     │
+              │  → Next story           │     │
+              └─────────────────────────┘     │
+                                              │
+                   ◄──────────────────────────┘
+                      Save errors, try again
+```
 
-| Command | Description |
-|---------|-------------|
-| `/idea "feature"` | Brainstorm in plan mode, generate PRD for Ralph |
-| `/tour` | Interactive walkthrough of vibe-and-thrive |
-| `/my-dna` | Set up your personal style preferences |
+## Commands
+
+### Claude Code Slash Commands
+
+| Command | What it does |
+|---------|--------------|
+| `/idea "feature"` | Brainstorm and generate PRD for Ralph |
+| `/tour` | Interactive walkthrough for new users |
 | `/vibe-check` | Audit code quality before shipping |
-| `/review` | Code review with OWASP security checks |
-| `/explain` | Explain code line by line |
-| `/styleguide` | Generate UI component design system |
+| `/review` | Code review with security checks |
+| `/explain` | Understand existing code line by line |
+| `/styleguide` | Generate UI component reference |
 | `/vibe-help` | Quick reference cheatsheet |
-| `/vibe-list` | Complete command reference |
 
-### Ralph CLI (Terminal)
+### Terminal Commands
 
-| Command | Description |
-|---------|-------------|
-| `ralph run` | Run autonomous loop until all stories pass |
-| `ralph run --max 10` | Limit to N iterations |
-| `ralph status` | Show feature, stories, pass/fail counts |
-| `ralph check` | Run all configured checks |
-| `ralph verify US-001` | Verify a specific story |
-| `ralph signs` | List all learned patterns |
-| `ralph sign "pattern"` | Add a pattern Ralph should follow |
-| `ralph progress` | Show last 50 lines of progress log |
-| `ralph init` | Initialize .ralph/ in current directory |
-| `ralph prd "notes"` | Generate PRD interactively |
+| Command | What it does |
+|---------|--------------|
+| `ralph run` | Start autonomous loop |
+| `ralph status` | Check progress |
+| `ralph check` | Run verification only |
+| `ralph verify US-001` | Verify specific story |
+| `ralph signs` | Show learned patterns |
+| `ralph sign "pattern"` | Teach Ralph a pattern |
+| `ralph init` | Set up Ralph in a project |
 
-### Vibe CLI (Terminal)
+## Why This Exists
 
-| Command | Description |
-|---------|-------------|
-| `vibe help` | Show terminal quick reference |
+AI coding assistants are powerful but manual. You prompt, copy, paste, test, fix, repeat. Vibe-and-thrive automates the loop:
+
+- **No manual testing** - Ralph runs your tests and validates in browser
+- **No forgotten edge cases** - PRDs require error handling and a11y specs upfront
+- **No security slip-ups** - Code review checks for OWASP issues before tests run
+- **No context loss** - Failed attempts feed back into the next iteration
+
+The goal: you think about *what* to build, the agent handles *how*.
 
 ## License
 
