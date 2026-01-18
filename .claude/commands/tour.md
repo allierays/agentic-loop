@@ -67,15 +67,18 @@ Nothing happens without your say-so.
 
 ## Step 2: Ralph - Autonomous Execution
 
-**What it does:** Works through your PRD stories one by one, coding until tests pass.
+**What it does:** Takes your approved idea, breaks it into small PRDs, and executes them autonomously.
 
-**How it works:**
+**The loop:**
 1. Picks one story from `.ralph/prd.json`
-2. Writes code to make it pass
-3. Runs test steps to verify
-4. Commits when tests pass
-5. Moves to next story
-6. Repeats until done
+2. Writes code to implement it
+3. Writes tests for the code
+4. Validates through the browser (if configured)
+5. Iterates until tests pass
+6. Runs linters and pre-commit hooks
+7. Commits when everything passes
+8. Moves to next story
+9. Repeats until done
 
 **Commands:**
 ```bash
@@ -85,7 +88,7 @@ ralph check    # Run verification only
 ralph signs    # Show learned patterns
 ```
 
-**The loop runs autonomously.** You can step away. Ralph commits working code as it goes.
+**The loop runs autonomously.** You can step away. Ralph keeps iterating until tests pass, then commits and moves on.
 
 ---
 

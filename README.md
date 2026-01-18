@@ -42,11 +42,9 @@ ralph status   # Check progress anytime
 ```
 
 Ralph works through PRD stories one by one:
-- Picks a story → writes code → runs tests → commits when passing → next story
+- Writes code → writes tests → validates in browser → iterates until passing → runs linters → runs pre-commit hooks → commits → next story
 
-### Step 3: Pre-commit Hooks - Guardrails
-
-Every `git commit` runs checks automatically. Secrets and security issues are blocked. Code quality issues are warned.
+You can step away. Ralph keeps going until everything passes.
 
 ## Take the Tour
 
