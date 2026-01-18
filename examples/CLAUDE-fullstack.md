@@ -228,12 +228,11 @@ make format          # Format all code
 make typecheck       # Check TypeScript types
 ```
 
-## TDD Workflow
+## Workflow
 
-1. **Describe** - Write clear requirements
-2. **Test** - Write failing E2E test with `/tdd-feature`
-3. **Fail** - Run test, confirm it fails correctly
-4. **Implement** - Build backend API, then frontend
-5. **Pass** - Run test, confirm it passes
-6. **Review** - Run `/review` on the code
-7. **Commit** - Pre-commit hooks catch remaining issues
+1. **Idea** - Run `/idea "feature description"` to brainstorm
+2. **Approve** - Review the idea file, then approve
+3. **PRD** - Review generated stories in `.ralph/prd.json`
+4. **Run** - Execute `ralph run` for autonomous coding
+5. **Audit** - Run `/vibe-check` before shipping
+6. **Commit** - Pre-commit hooks catch remaining issues

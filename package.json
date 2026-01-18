@@ -28,7 +28,11 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "vibe-check": "./bin/vibe-check.js"
+    "vibe": "./bin/vibe.sh",
+    "vibe-check": "./bin/vibe-check.js",
+    "vibe-and-thrive": "./bin/vibe-and-thrive.sh",
+    "ralph": "./bin/ralph.sh",
+    "ralph-setup": "./bin/ralph-setup.sh"
   },
   "exports": {
     ".": {
@@ -47,6 +51,8 @@
   "files": [
     "dist",
     "bin",
+    "lib",
+    "templates",
     ".claude",
     ".pre-commit-hooks.yaml",
     "integrations"
@@ -59,7 +65,8 @@
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "prepublishOnly": "npm run clean && npm run build"
+    "prepublishOnly": "npm run clean && npm run build",
+    "postinstall": "./bin/vibe-and-thrive.sh --quick"
   },
   "engines": {
     "node": ">=18.0.0"

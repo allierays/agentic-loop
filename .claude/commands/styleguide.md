@@ -1,3 +1,7 @@
+---
+description: Generate a complete HTML/React styleguide page for your project based on your design preferences.
+---
+
 # Styleguide Generator
 
 Generate a complete HTML/React styleguide page for your project based on your design preferences.

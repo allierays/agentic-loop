@@ -1,131 +1,196 @@
-# Claude Code Skills Reference
+# Claude Code Commands Reference
 
-9 slash commands for Claude Code that help with code quality.
+Slash commands for Claude Code that power the vibe-and-thrive workflow.
 
 ## Installation
 
-Copy the skills to your project:
-
 ```bash
-cp -r vibe-and-thrive/.claude your-project/
+npm install vibe-and-thrive
 ```
 
-Or use the setup script:
+The postinstall automatically copies commands to your project's `.claude/commands/`.
 
-```bash
-./vibe-and-thrive/setup-vibe-and-thrive.sh ~/path/to/your-project
+---
+
+## Available Commands
+
+### `/idea`
+
+**The core workflow command.** Brainstorm a feature and generate a PRD for Ralph.
+
+```
+/idea "add user authentication with OAuth"
 ```
 
-## Available Skills
+Claude will:
+1. Enter plan mode
+2. Explore your codebase
+3. Ask clarifying questions
+4. Write idea to `docs/ideas/{feature}.md`
+5. Open for your approval
+6. Split into stories in `.ralph/prd.json`
+7. Open PRD for your approval
+
+Two approval gates. Nothing executes without your say-so.
+
+---
+
+### `/vibe-help`
+
+Quick reference cheatsheet for all commands.
+
+```
+/vibe-help
+```
+
+Shows the workflow, all slash commands, Ralph commands, and setup instructions.
+
+---
+
+### `/tour`
+
+Interactive walkthrough of vibe-and-thrive.
+
+```
+/tour
+```
+
+Great for new users. Explains:
+- The /idea → Ralph → Ship workflow
+- How pre-commit hooks work
+- Available commands
+
+---
 
 ### `/vibe-check`
 
-Full code quality audit. Scans your codebase for common AI-generated issues.
+Full code quality audit. Scans for common AI-generated issues.
+
+```
+/vibe-check
+```
+
+**Checks for:**
+- Debug statements (console.log, print)
+- Hardcoded secrets
+- Empty catch blocks
+- TODO/FIXME comments
+- TypeScript `any` usage
+- Hardcoded URLs
 
 **Output:**
 ```
 ## Vibe Check Report
 
 ### High Priority
-- secrets.py:42 - Looks like an API key
 - api.ts:15 - localhost URL should use env var
-
-### Medium Priority
-- service.py:88 - except: pass (silently swallows errors)
-- types.ts:12 - `user_id` should be `userId`
+- config.py:42 - Looks like an API key
 
 ### Low Priority
 - utils.py:23 - print() statement
 - auth.py:67 - TODO: implement refresh token
 ```
 
-### `/tdd-feature`
-
-Implement features using Test-Driven Development:
-
-1. Describe your feature: "Users can reset their password via email"
-2. Claude generates a failing Playwright test
-3. You run the test, confirm it fails for the right reason
-4. Claude implements the feature
-5. You run the test again, it passes
-
-The skill adapts to your project's auth patterns, API setup, and existing test helpers.
-
-### `/e2e-scaffold`
-
-Generate a complete E2E test file structure:
-
-```typescript
-test.describe('Feature Name', () => {
-  test('user can perform action', async ({ page }) => {
-    /**
-     * SCENARIO: As a user, when I do X, I should see Y
-     * EXPECTED: Success criteria
-     * FAILURE: What indicates failure
-     */
-  });
-});
-```
-
-Includes:
-- SCENARIO/EXPECTED/FAILURE documentation pattern
-- Screenshot capture on failure
-- API helper functions for test data setup
-- Flexible locators with fallbacks
-
-### `/explain`
-
-Explain code line by line. Great for understanding complex or unfamiliar code.
+---
 
 ### `/review`
 
-Review code for issues. Checks for:
-- Security vulnerabilities
+Code review with security checks. More thorough than `/vibe-check`.
+
+```
+/review
+/review src/api/auth.ts
+```
+
+**Checks for:**
+- OWASP Top 10 vulnerabilities
+- SQL injection, XSS, CSRF
+- Error handling gaps
+- Type safety issues
 - Performance problems
-- Code smells
-- Best practice violations
+- Code quality
 
-### `/refactor`
+**Output includes severity levels:**
+- Critical (must fix before merge)
+- High (should fix)
+- Medium (consider fixing)
+- Low (nice to have)
 
-Guided refactoring with explanations. Helps you:
-- Extract functions
-- Reduce complexity
-- Improve naming
-- Apply design patterns
+---
 
-### `/add-tests`
+### `/explain`
 
-Add tests to existing code. Generates:
-- Unit tests for functions
-- Integration tests for APIs
-- Edge case coverage
+Explain code line by line. Great for understanding unfamiliar code.
 
-### `/fix-types`
+```
+/explain
+/explain src/services/auth.ts
+```
 
-Fix TypeScript without using `any`. Helps create proper interfaces and types instead of reaching for `any` as a quick fix.
+Claude will:
+1. Provide high-level overview
+2. Walk through each section
+3. Highlight key patterns
+4. Note potential gotchas
 
-### `/security-check`
+---
 
-Check for OWASP vulnerabilities:
-- SQL injection
-- XSS
-- CSRF
-- Insecure dependencies
-- Hardcoded secrets
+### `/styleguide`
 
-## CLAUDE.md Template
+Generate a design system reference page.
 
-The repo includes a `CLAUDE.md.template` that teaches AI agents your coding standards:
+```
+/styleguide
+```
+
+Claude will:
+1. Detect your tech stack
+2. Ask about your design preferences (vibe, colors, radius)
+3. Generate a `/styleguide` route
+4. Create components if needed
+
+Great for ensuring consistent UI across AI-generated code.
+
+---
+
+## CLAUDE.md
+
+The setup also creates a `CLAUDE.md` file that teaches Claude your coding standards:
 
 - Don't leave debug statements
 - Use environment variables for URLs
 - Use camelCase in TypeScript
 - Handle errors properly
-- Complete TODOs before committing
 - Never hardcode secrets
 
-Copy and customize for your project:
+Customize it for your project's patterns.
 
-```bash
-cp vibe-and-thrive/CLAUDE.md.template your-project/CLAUDE.md
-```
+---
+
+## Pre-commit Hooks
+
+The setup installs pre-commit hooks that run on every `git commit`:
+
+| Hook | Blocks? | What it catches |
+|------|---------|-----------------|
+| `check-secrets` | Yes | API keys, passwords, tokens |
+| `check-hardcoded-urls` | Yes | localhost URLs |
+| `check-debug-statements` | No | console.log, print() |
+| `check-empty-catch` | No | Empty catch blocks |
+| `check-any-types` | No | TypeScript `any` usage |
+
+Hooks that block will prevent the commit. Warnings let you commit but alert you.
+
+---
+
+## Quick Reference
+
+| Command | Purpose |
+|---------|---------|
+| `/idea` | Brainstorm → PRD → Ready for Ralph |
+| `/vibe-help` | Quick reference cheatsheet |
+| `/tour` | Interactive walkthrough |
+| `/vibe-check` | Code quality audit |
+| `/review` | Deep code review |
+| `/explain` | Explain code line by line |
+| `/styleguide` | Generate design system |

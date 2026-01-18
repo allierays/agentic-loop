@@ -1,0 +1,15 @@
+{
+  "checks": {
+    "typescript": "cd frontend && npx tsc --noEmit",
+    "lint": "make lint",
+    "tests": "make test-backend",
+    "e2e": "npx playwright test"
+  },
+  "maxIterations": 20,
+  "maxSessionSeconds": 600,
+  "testUrlBase": "http://localhost:3000",
+  "contextRotThreshold": {
+    "maxStories": 10,
+    "maxFilesChanged": 20
+  }
+}

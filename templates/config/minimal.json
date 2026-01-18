@@ -1,0 +1,10 @@
+{
+  "checks": {},
+  "maxIterations": 20,
+  "maxSessionSeconds": 600,
+  "testUrlBase": "http://localhost:3000",
+  "contextRotThreshold": {
+    "maxStories": 10,
+    "maxFilesChanged": 20
+  }
+}

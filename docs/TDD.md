@@ -1,245 +1,227 @@
-# Test-Driven Development with AI
+# Ralph: Autonomous Execution
 
-## What is TDD in the AI Era?
+Ralph is the autonomous coding agent that executes your PRDs.
 
-Test-Driven Development (TDD) is a practice where you write tests before writing code. The classic cycle is: **Red → Green → Refactor**.
+---
 
-1. **Red**: Write a failing test
-2. **Green**: Write minimal code to pass the test
-3. **Refactor**: Clean up while keeping tests green
-
-With AI coding agents, TDD becomes even more powerful. Instead of writing both the test and implementation yourself, you:
-
-1. **Describe** what you want in plain English
-2. **AI writes** a failing test that captures your intent
-3. **You verify** the test fails for the right reason
-4. **AI implements** code to make it pass
-5. **You verify** it works
-
-This keeps you in control while letting AI do the heavy lifting. The test becomes a **contract**—AI can't just generate code that "looks right" but doesn't work.
-
-## Why TDD Matters More with AI
-
-AI coding agents are great at generating code fast, but they often:
-
-- Write code that "looks right" but has subtle bugs
-- Skip edge cases
-- Create implementations that are hard to test
-- Produce code without verifying it works
-
-TDD flips this: **write the test first, then let AI implement to pass it.**
-
-## The TDD Workflow
+## How Ralph Works
 
 ```
-1. Describe what you want
-2. AI writes a failing test
-3. You verify the test fails for the right reason
-4. AI implements the feature
-5. You verify the test passes
-6. Refactor if needed
+┌─────────────────────────────────────────────────────────────┐
+│  Pick Story  →  Code  →  Test  →  Commit  →  Next Story     │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-This gives you:
-- **Confidence** - you know the code works
-- **Specification** - the test documents behavior
-- **Safety net** - catch regressions immediately
+1. **Pick Story** - Gets next failing story from `.ralph/prd.json`
+2. **Code** - Spawns Claude to implement the story
+3. **Test** - Runs verification steps to check if it works
+4. **Commit** - Auto-commits with `feat(US-001): Story title`
+5. **Next** - Moves to next story, repeats until done
 
-## Vibe and Thrive TDD Tools
+---
 
-### `/tdd-feature`
-
-The main TDD skill. Use it like this:
-
-```
-/tdd-feature Users can reset their password via email
-```
-
-Claude will:
-1. Ask clarifying questions if needed
-2. Write a failing Playwright E2E test
-3. Wait for you to confirm the test fails
-4. Implement the feature
-5. Wait for you to confirm the test passes
-
-### `/e2e-scaffold`
-
-Generate test structure for a feature:
-
-```
-/e2e-scaffold user authentication flow
-```
-
-Creates:
-```typescript
-test.describe('User Authentication', () => {
-  test('user can log in with valid credentials', async ({ page }) => {
-    /**
-     * SCENARIO: User logs in successfully
-     * EXPECTED: Redirected to dashboard
-     * FAILURE: Error message or stuck on login
-     */
-  });
-
-  test('user sees error with invalid password', async ({ page }) => {
-    /**
-     * SCENARIO: User enters wrong password
-     * EXPECTED: Error message displayed
-     * FAILURE: Logs in anyway or crashes
-     */
-  });
-});
-```
-
-### `/add-tests`
-
-Add tests to existing code:
-
-```
-/add-tests src/services/auth.ts
-```
-
-Generates unit tests for functions that don't have coverage.
-
-## Example: TDD in Practice
-
-### Step 1: Describe the Feature
-
-You: "I want users to be able to bookmark articles"
-
-### Step 2: AI Writes Failing Test
-
-```typescript
-// tests/e2e/bookmarks.spec.ts
-test('user can bookmark an article', async ({ page }) => {
-  // Login
-  await page.goto('/login');
-  await page.fill('[name="email"]', 'test@example.com');
-  await page.fill('[name="password"]', 'password123');
-  await page.click('button[type="submit"]');
-
-  // Navigate to article
-  await page.goto('/articles/1');
-
-  // Bookmark it
-  await page.click('[data-testid="bookmark-button"]');
-
-  // Verify bookmark saved
-  await expect(page.locator('[data-testid="bookmark-button"]')).toHaveAttribute(
-    'data-bookmarked',
-    'true'
-  );
-
-  // Verify in bookmarks list
-  await page.goto('/bookmarks');
-  await expect(page.locator('article')).toContainText('Article Title');
-});
-```
-
-### Step 3: You Run the Test
+## Commands
 
 ```bash
-npx playwright test bookmarks.spec.ts
+ralph run                # Start the autonomous loop
+ralph run --max 10       # Limit to 10 iterations
+ralph status             # Show progress
+ralph check              # Run verification only
+ralph verify US-001      # Verify specific story
 ```
 
-Test fails: `bookmark-button not found` ✓ (expected)
+---
 
-### Step 4: AI Implements
+## The PRD Format
 
-Claude adds:
-- Bookmark button component
-- API endpoint `POST /api/bookmarks`
-- Database model
-- Bookmarks list page
+Ralph reads from `.ralph/prd.json`:
 
-### Step 5: You Run Again
+```json
+{
+  "feature": {
+    "name": "User Authentication",
+    "status": "in_progress"
+  },
+  "stories": [
+    {
+      "id": "US-001",
+      "title": "Add login endpoint",
+      "passes": false,
+      "acceptanceCriteria": [
+        "POST /api/auth/login accepts email and password",
+        "Returns JWT token on success",
+        "Returns 401 on invalid credentials"
+      ],
+      "testSteps": [
+        "curl -X POST http://localhost:3000/api/auth/login -d '{\"email\":\"test@example.com\",\"password\":\"password123\"}' returns 200",
+        "curl -X POST http://localhost:3000/api/auth/login -d '{\"email\":\"test@example.com\",\"password\":\"wrong\"}' returns 401"
+      ],
+      "dependsOn": []
+    }
+  ]
+}
+```
+
+### Key Fields
+
+| Field | Purpose |
+|-------|---------|
+| `id` | Unique story identifier (US-001, US-002, etc.) |
+| `title` | Short description for commit messages |
+| `passes` | Whether story verification succeeded |
+| `acceptanceCriteria` | What the code must do |
+| `testSteps` | How to verify it works (curl, scripts, etc.) |
+| `dependsOn` | Stories that must pass first |
+
+---
+
+## Writing Good Test Steps
+
+Test steps should be **concrete and executable**.
+
+### Good Test Steps
+
+```json
+"testSteps": [
+  "curl http://localhost:3000/api/users returns 200",
+  "curl http://localhost:3000/api/users | jq '.users | length' returns > 0",
+  "npm test -- --grep 'user api' passes"
+]
+```
+
+### Bad Test Steps
+
+```json
+"testSteps": [
+  "The API should work",
+  "Users can log in",
+  "Check the database"
+]
+```
+
+### Test Step Types
+
+**API checks:**
+```
+curl http://localhost:3000/api/health returns 200
+curl -X POST http://localhost:3000/api/users -d '{"name":"test"}' returns 201
+```
+
+**Script execution:**
+```
+npm test passes
+python -m pytest tests/test_auth.py passes
+```
+
+**File checks:**
+```
+test -f src/components/Button.tsx exists
+grep "export function Button" src/components/Button.tsx found
+```
+
+---
+
+## Signs: Learned Patterns
+
+Ralph learns from past sessions. Use signs to teach patterns:
 
 ```bash
-npx playwright test bookmarks.spec.ts
+ralph sign "Always use camelCase for API response fields" api
+ralph sign "Import from @/components, not relative paths" frontend
+ralph signs  # List all signs
 ```
 
-Test passes ✓
+Signs are stored in `.ralph/signs.json` and injected into every Claude session.
 
-### Step 6: Refactor
+---
 
-Now you can safely refactor knowing the test will catch any breakage.
+## Configuration
+
+`.ralph/config.json`:
+
+```json
+{
+  "maxSessionSeconds": 600,
+  "autoCommit": true
+}
+```
+
+| Setting | Default | Purpose |
+|---------|---------|---------|
+| `maxSessionSeconds` | 600 | Timeout per story (10 min) |
+| `autoCommit` | true | Commit after each story passes |
+
+---
+
+## Progress Tracking
+
+Ralph logs to `.ralph/progress.txt`:
+
+```
+[2024-01-15T10:30:00] STARTED US-001
+[2024-01-15T10:32:15] COMPLETED US-001
+[2024-01-15T10:32:20] STARTED US-002
+[2024-01-15T10:35:45] FAILED US-002 Verification failed, will retry
+[2024-01-15T10:38:00] COMPLETED US-002
+```
+
+View recent progress:
+```bash
+ralph progress
+```
+
+---
+
+## Archiving
+
+When all stories pass, Ralph archives the PRD:
+
+```
+.ralph/archive/prd-20240115-103800.json
+```
+
+Start a new feature with:
+```bash
+/idea "next feature"
+# or
+ralph prd "feature description"
+```
+
+---
+
+## Troubleshooting
+
+### Story keeps failing
+
+1. Check `ralph status` for which story
+2. Run `ralph verify US-001` to see the failure
+3. Check if test steps are correct in `.ralph/prd.json`
+4. Manually edit the PRD if needed
+
+### Ralph times out
+
+Increase timeout in `.ralph/config.json`:
+```json
+{
+  "maxSessionSeconds": 900
+}
+```
+
+### Want to skip a story
+
+Mark it as passing manually:
+```bash
+jq '.stories[0].passes = true' .ralph/prd.json > tmp.json && mv tmp.json .ralph/prd.json
+```
+
+Or remove it from the PRD entirely.
+
+---
 
 ## Best Practices
 
-### Write Tests That Fail for the Right Reason
-
-Bad: Test fails because page doesn't load at all
-Good: Test fails because the specific feature doesn't exist yet
-
-### Test Behavior, Not Implementation
-
-```typescript
-// Bad - tests implementation details
-await expect(page.locator('.bookmark-icon-svg-filled')).toBeVisible();
-
-// Good - tests user-visible behavior
-await expect(page.getByRole('button', { name: 'Bookmarked' })).toBeVisible();
-```
-
-### One Feature Per Test
-
-```typescript
-// Bad - tests too much
-test('user flow', async ({ page }) => {
-  // login, browse, bookmark, unbookmark, logout...
-});
-
-// Good - focused
-test('user can bookmark article', async ({ page }) => { ... });
-test('user can remove bookmark', async ({ page }) => { ... });
-```
-
-### Use Test IDs Sparingly
-
-```typescript
-// Prefer accessible selectors
-page.getByRole('button', { name: 'Save' })
-page.getByLabel('Email')
-page.getByText('Welcome back')
-
-// Fall back to test IDs when needed
-page.locator('[data-testid="complex-widget"]')
-```
-
-## Pre-commit Hooks for TDD
-
-These hooks support the TDD workflow:
-
-| Hook | How It Helps |
-|------|--------------|
-| `check-empty-catch` | Ensures errors aren't silently swallowed |
-| `check-console-error` | Catches `console.log` in catch blocks |
-| `check-debug-statements` | Removes debug code before commit |
-| `check-todo-fixme` | Reminds you to finish incomplete tests |
-
-## CI Integration
-
-Add the GitHub Action to run checks on PRs:
-
-```yaml
-# .github/workflows/vibe-check.yml
-name: Vibe Check
-on: [pull_request]
-
-jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-      - run: pip install pre-commit
-      - run: pre-commit run --all-files
-```
-
-See `integrations/vibe-check.yml` for the full config.
-
-## Resources
-
-- [Playwright Docs](https://playwright.dev)
-- [pytest Docs](https://pytest.org)
-- [TDD by Example](https://www.amazon.com/Test-Driven-Development-Kent-Beck/dp/0321146530) - Kent Beck
+1. **Small stories** - Each story should be completable in one session
+2. **Concrete test steps** - Use curl, scripts, or file checks
+3. **Clear acceptance criteria** - Tell Claude exactly what to build
+4. **Use signs** - Teach patterns that apply across stories
+5. **Monitor progress** - Check `ralph status` periodically

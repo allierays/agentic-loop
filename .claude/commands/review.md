@@ -1,3 +1,7 @@
+---
+description: Review code for issues, improvements, and best practices.
+---
+
 # Code Review
 
 Review code for issues, improvements, and best practices.
@@ -6,14 +10,35 @@ Review code for issues, improvements, and best practices.
 
 When asked to review code, perform a thorough analysis looking for:
 
-### 1. Security Issues (Critical)
+### 1. Security Issues (Critical) - OWASP Top 10
 
-- [ ] SQL injection vulnerabilities
-- [ ] XSS (cross-site scripting) risks
-- [ ] Hardcoded secrets or credentials
-- [ ] Unsafe data handling
-- [ ] Missing authentication/authorization checks
-- [ ] Insecure dependencies
+- [ ] **Injection**: SQL, command, LDAP injection via string concatenation
+- [ ] **XSS**: innerHTML, dangerouslySetInnerHTML, v-html with user data
+- [ ] **Broken Auth**: Hardcoded credentials, weak passwords, missing rate limiting
+- [ ] **Sensitive Data Exposure**: Secrets in code, sensitive data in logs/URLs
+- [ ] **Broken Access Control**: Missing auth checks, IDOR, privilege escalation
+- [ ] **Security Misconfiguration**: Debug mode, default credentials, verbose errors
+- [ ] **Insecure Deserialization**: pickle, eval() with user input
+- [ ] **Vulnerable Dependencies**: Outdated packages with known CVEs
+
+```typescript
+// VULNERABLE - SQL injection
+const query = `SELECT * FROM users WHERE name = '${userInput}'`;
+
+// SAFE - parameterized query
+const query = "SELECT * FROM users WHERE name = ?";
+db.execute(query, [userInput]);
+```
+
+```typescript
+// VULNERABLE - XSS
+element.innerHTML = userInput;
+
+// SAFE
+element.textContent = userInput;
+// or with sanitization
+element.innerHTML = DOMPurify.sanitize(userInput);
+```
 
 ### 2. Error Handling (High)
 
@@ -119,13 +144,19 @@ Focus only on critical and high-severity issues:
 Check everything:
 > "Full review of src/api/users.ts"
 
-### Security Review
-Focus on security concerns:
+### Security Review (OWASP Top 10)
+Deep dive on security - injection, XSS, auth, access control, secrets:
 > "Security review of the authentication flow"
+> "Check for SQL injection vulnerabilities"
+> "Full security audit of the API endpoints"
 
 ### Performance Review
 Focus on performance:
 > "Performance review of the dashboard page"
+
+### Dependency Audit
+Check for vulnerable dependencies:
+> "Check our dependencies for known vulnerabilities"
 
 ## Be Constructive
 

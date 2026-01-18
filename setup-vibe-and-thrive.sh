@@ -2,13 +2,14 @@
 # setup-vibe-and-thrive.sh
 #
 # Sets up vibe-and-thrive for a project:
-# - Copies Claude Code skills (/vibe-check, /tdd-feature, /e2e-scaffold)
+# - Copies Claude Code commands (/idea, /vibe-check, /review, etc.)
 # - Copies CLAUDE.md template
+# - Initializes Ralph (.ralph/, PROMPT.md)
 # - Creates .pre-commit-config.yaml
 # - Installs pre-commit hooks
 # - Configures Chrome DevTools MCP server
 
-set -e
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CLAUDE_JSON="$HOME/.claude.json"
@@ -47,6 +48,7 @@ Arguments:
   PROJECT_PATH    Path to your project (default: current directory)
 
 Options:
+  --quick         Skip intro banner (for postinstall)
   --mcp-only      Only configure MCP servers (no project setup)
   --no-mcp        Skip MCP server configuration
   --no-hooks      Skip pre-commit hooks setup
@@ -87,7 +89,7 @@ setup_mcp() {
   "mcpServers": {
     "chrome-devtools": {
       "command": "npx",
-      "args": ["-y", "@anthropic-ai/mcp-server-chrome-devtools@latest"]
+      "args": ["-y", "@anthropic-ai/mcp-server-chrome-devtools@0.0.5"]
     }
   }
 }
@@ -103,7 +105,7 @@ MCPEOF
     }
     if jq '.mcpServers["chrome-devtools"] = {
         "command": "npx",
-        "args": ["-y", "@anthropic-ai/mcp-server-chrome-devtools@latest"]
+        "args": ["-y", "@anthropic-ai/mcp-server-chrome-devtools@0.0.5"]
     }' "$CLAUDE_JSON" > "$tmp_file"; then
         mv "$tmp_file" "$CLAUDE_JSON"
     else
@@ -135,10 +137,13 @@ setup_project() {
     fi
     mkdir -p "$project_path/.claude/commands"
     cp -r "$SCRIPT_DIR/.claude/commands/"* "$project_path/.claude/commands/"
-    print_success "Copied 10 Claude skills:"
-    echo "    /prd, /tdd-feature, /e2e-scaffold, /vibe-check"
-    echo "    /explain, /review, /refactor"
-    echo "    /add-tests, /fix-types, /security-check"
+    print_success "Copied Claude commands:"
+    echo "    /idea       - Brainstorm to PRD workflow"
+    echo "    /tour       - Interactive tour of vibe-and-thrive"
+    echo "    /vibe-check - Run code quality audit"
+    echo "    /review     - Code review (includes security)"
+    echo "    /explain    - Explain code line by line"
+    echo "    /styleguide - Generate HTML/React styleguide"
 
     # Copy CLAUDE.md template
     print_step "Setting up CLAUDE.md..."
@@ -150,6 +155,35 @@ setup_project() {
         print_success "Created CLAUDE.md from template"
         echo "    Edit this file to customize for your project."
     fi
+
+    # Initialize Ralph
+    print_step "Initializing Ralph..."
+    (cd "$project_path" && ralph init 2>/dev/null) || {
+        # ralph init might not be in PATH yet, do it manually
+        mkdir -p "$project_path/.ralph/archive" "$project_path/.ralph/screenshots"
+        if [ ! -f "$project_path/.ralph/config.json" ]; then
+            cp "$SCRIPT_DIR/templates/config/minimal.json" "$project_path/.ralph/config.json" 2>/dev/null || \
+            echo '{"maxSessionSeconds": 600, "autoCommit": true}' > "$project_path/.ralph/config.json"
+        fi
+        echo '{"signs": []}' > "$project_path/.ralph/signs.json"
+        if [ ! -f "$project_path/PROMPT.md" ]; then
+            cp "$SCRIPT_DIR/templates/PROMPT.md" "$project_path/PROMPT.md" 2>/dev/null || \
+            cat > "$project_path/PROMPT.md" << 'PROMPTEOF'
+# System Prompt for Ralph
+
+You are an AI developer working on this project. Complete the current story by:
+
+1. Reading the acceptance criteria carefully
+2. Writing code to satisfy each criterion
+3. Running the test steps to verify
+
+Keep changes minimal and focused. Commit when tests pass.
+PROMPTEOF
+        fi
+    }
+    print_success "Ralph initialized"
+    echo "    .ralph/ directory created"
+    echo "    PROMPT.md created (customize for your project)"
 
     echo ""
 }
@@ -212,10 +246,15 @@ PRECOMMITEOF
 MCP_ONLY=false
 NO_MCP=false
 NO_HOOKS=false
+QUICK=false
 PROJECT_PATH=""
 
 while [[ $# -gt 0 ]]; do
     case $1 in
+        --quick)
+            QUICK=true
+            shift
+            ;;
         --mcp-only)
             MCP_ONLY=true
             shift
@@ -245,12 +284,14 @@ while [[ $# -gt 0 ]]; do
 done
 
 # Main execution
-echo ""
-echo "┌─────────────────────────────────────┐"
-echo "│     vibe-and-thrive setup           │"
-echo "│     Better AI-assisted coding       │"
-echo "└─────────────────────────────────────┘"
-echo ""
+if [ "$QUICK" = false ]; then
+    echo ""
+    echo "┌─────────────────────────────────────┐"
+    echo "│     vibe-and-thrive setup           │"
+    echo "│     Better AI-assisted coding       │"
+    echo "└─────────────────────────────────────┘"
+    echo ""
+fi
 
 if [ "$MCP_ONLY" = true ]; then
     setup_mcp
@@ -271,28 +312,31 @@ else
     fi
 fi
 
-echo ""
-echo "┌─────────────────────────────────────┐"
-echo "│           Setup complete!           │"
-echo "└─────────────────────────────────────┘"
-echo ""
-echo "Available Claude Code commands:"
-echo "  /prd             - Generate PRD via questions"
-echo "  /tdd-feature     - Build feature with TDD"
-echo "  /e2e-scaffold    - Generate E2E test structure"
-echo "  /vibe-check      - Run code quality audit"
-echo "  /explain         - Explain code line by line"
-echo "  /review          - Review code for issues"
-echo "  /refactor        - Guided refactoring"
-echo "  /add-tests       - Add tests to existing code"
-echo "  /fix-types       - Fix TypeScript without any"
-echo "  /security-check  - Check for vulnerabilities"
-echo ""
-echo "Pre-commit hooks will run automatically on each commit."
-echo ""
-echo "Documentation:"
-echo "  docs/BAD-PATTERNS.md    - Common AI coding mistakes"
-echo "  docs/PROMPTING-GUIDE.md - How to prompt AI effectively"
-echo "  docs/WORKFLOW.md        - The TDD workflow"
-echo "  CHEATSHEET.md           - Quick reference"
-echo ""
+if [ "$QUICK" = true ]; then
+    echo ""
+    print_success "vibe-and-thrive ready! Run /vibe-help in Claude Code for commands."
+    echo ""
+else
+    echo ""
+    echo "┌─────────────────────────────────────┐"
+    echo "│           Setup complete!           │"
+    echo "└─────────────────────────────────────┘"
+    echo ""
+    echo "The workflow:"
+    echo "  /idea        - Brainstorm → PRD → Ready for Ralph"
+    echo "  ralph run    - Autonomous coding until tests pass"
+    echo ""
+    echo "Commands:"
+    echo "  /tour        - Interactive tour of vibe-and-thrive"
+    echo "  /my-dna      - Set up your personal style preferences"
+    echo "  /vibe-check  - Run code quality audit"
+    echo "  /review      - Code review (includes security)"
+    echo "  /explain     - Explain code line by line"
+    echo "  /styleguide  - Generate HTML/React styleguide"
+    echo "  /vibe-help   - Quick reference cheatsheet"
+    echo ""
+    echo "Tip: Run /my-dna to teach Claude your preferred working style."
+    echo ""
+    echo "Pre-commit hooks will run automatically on each commit."
+    echo ""
+fi

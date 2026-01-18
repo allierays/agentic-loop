@@ -1,0 +1,14 @@
+{
+  "checks": {
+    "build": "cargo build",
+    "lint": "cargo clippy -- -D warnings",
+    "tests": "cargo test"
+  },
+  "maxIterations": 20,
+  "maxSessionSeconds": 600,
+  "testUrlBase": "http://localhost:8080",
+  "contextRotThreshold": {
+    "maxStories": 10,
+    "maxFilesChanged": 20
+  }
+}

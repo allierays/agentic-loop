@@ -1,6 +1,17 @@
 # Vibe and Thrive Cheatsheet
 
-Quick reference for AI-assisted coding best practices.
+Extended reference for AI-assisted coding. For quick reference, use `/vibe-help` in Claude Code.
+
+---
+
+## The Loop
+
+```
+/idea "your feature"     Brainstorm & generate PRD
+ralph run                Autonomous coding, commits when done
+ralph status             Check progress
+/vibe-check              Audit before shipping
+```
 
 ---
 
@@ -33,15 +44,28 @@ pre-commit run check-secrets        # Run specific hook
 
 | Command | Purpose |
 |---------|---------|
+| `/idea` | Brainstorm → PRD → Ready for Ralph |
+| `/vibe-help` | Quick reference cheatsheet |
+| `/tour` | Interactive walkthrough |
 | `/vibe-check` | Full code quality audit |
-| `/tdd-feature` | TDD workflow (test first) |
-| `/e2e-scaffold` | Generate E2E test structure |
+| `/review` | Code review with security checks |
 | `/explain` | Explain code line by line |
-| `/review` | Review code for issues |
-| `/refactor` | Guided refactoring |
-| `/add-tests` | Add tests to existing code |
-| `/fix-types` | Fix TypeScript without `any` |
-| `/security-check` | Check for vulnerabilities |
+| `/styleguide` | Generate design system reference |
+
+---
+
+## Ralph Commands (terminal)
+
+| Command | Purpose |
+|---------|---------|
+| `ralph run` | Execute stories autonomously |
+| `ralph run --max 10` | Limit iterations |
+| `ralph status` | Show progress |
+| `ralph check` | Run verification only |
+| `ralph verify US-001` | Verify specific story |
+| `ralph signs` | List learned patterns |
+| `ralph sign "pattern"` | Teach Ralph a pattern |
+| `ralph prd "idea"` | Generate PRD from description |
 
 ---
 
@@ -105,16 +129,16 @@ Before committing AI code:
 
 ---
 
-## The TDD Workflow
+## The Vibe Workflow
 
 ```
-1. DESCRIBE  - Tell AI what you want (be specific)
-2. TEST      - Write failing test first
-3. FAIL      - Run test, confirm it fails correctly
-4. IMPLEMENT - Write code to make test pass
-5. PASS      - Run test, confirm it passes
-6. REVIEW    - Check for issues (/review)
-7. COMMIT    - Hooks catch remaining issues
+1. IDEA      - /idea "your feature" (brainstorm in plan mode)
+2. APPROVE   - Review idea file, approve or edit
+3. PRD       - Auto-split into small stories
+4. APPROVE   - Review PRD, approve or edit
+5. RUN       - ralph run (autonomous execution)
+6. CHECK     - ralph status (monitor progress)
+7. AUDIT     - /vibe-check (before shipping)
 ```
 
 ---
@@ -136,14 +160,10 @@ console.log('Initializing...'); // noqa: debug
 ## Quick Setup
 
 ```bash
-# One command setup
-./setup-vibe-and-thrive.sh ~/path/to/your-project
-
-# Manual
-cp -r .claude your-project/
-cp CLAUDE.md.template your-project/CLAUDE.md
-pre-commit install
+npm install vibe-and-thrive
 ```
+
+That's it. The postinstall sets up everything automatically.
 
 ---
 

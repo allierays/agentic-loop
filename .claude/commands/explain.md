@@ -1,3 +1,7 @@
+---
+description: Explain what code does line by line so you can understand and learn from it.
+---
+
 # Explain Code
 
 Explain what code does, line by line, so you can understand and learn from it.

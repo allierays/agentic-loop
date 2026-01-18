@@ -1,3 +1,7 @@
+---
+description: Run a comprehensive code quality check looking for common patterns that AI coding agents introduce.
+---
+
 # Vibe Check
 
 Run a comprehensive code quality check on the current codebase, looking for common patterns that AI coding agents introduce.

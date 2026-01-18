@@ -1,0 +1,14 @@
+{
+  "checks": {
+    "build": "go build ./...",
+    "lint": "golangci-lint run",
+    "tests": "go test ./..."
+  },
+  "maxIterations": 20,
+  "maxSessionSeconds": 600,
+  "testUrlBase": "http://localhost:8080",
+  "contextRotThreshold": {
+    "maxStories": 10,
+    "maxFilesChanged": 20
+  }
+}
