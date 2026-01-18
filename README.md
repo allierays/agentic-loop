@@ -13,6 +13,8 @@ Vibe-and-thrive is a toolkit for [Claude Code](https://docs.anthropic.com/en/doc
 
 ## Install
 
+In your project:
+
 ```bash
 npm install vibe-and-thrive
 ```
