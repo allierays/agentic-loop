@@ -14,7 +14,7 @@ Vibe-and-thrive is a toolkit for [Claude Code](https://docs.anthropic.com/en/doc
 ## Install
 
 ```bash
-npm install -g vibe-and-thrive
+npm install vibe-and-thrive
 ```
 
 ## Quick Start
