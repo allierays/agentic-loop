@@ -4,12 +4,12 @@
 
 Vibe-and-thrive is a toolkit for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that helps you ship quality code faster with AI. It includes:
 
-- **Ralph** - Autonomous coding loop that writes, tests, and commits until done ([inspired by](https://ghuntley.com/ralph/))
+- **Ralph** - Autonomous coding loop that writes, tests, and commits until done (inspired by [RALPH](https://ghuntley.com/ralph/))
 - **`/vibe-check`** - Code quality audits to catch common AI-generated issues
 - **`/review`** - Security-focused code review with OWASP checks
 - **Pre-commit hooks** - Block secrets, localhost URLs, and security issues
 - **`/styleguide`** - Generate a UI component reference from your codebase
-- **`/my-dna`** - Capture your personal coding preferences so Claude works your way
+- **`/my-dna`** - Interactive guide to adding your personal voice to CLAUDE.md
 
 ## How It Works
 
