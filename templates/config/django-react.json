@@ -2,8 +2,22 @@
   "checks": {
     "typescript": "cd frontend && npx tsc --noEmit",
     "lint": "make lint",
-    "tests": "make test-backend",
+    "test": "make test-backend",
     "e2e": "npx playwright test"
+  },
+  "api": {
+    "baseUrl": "http://localhost:8000"
+  },
+  "playwright": {
+    "enabled": true,
+    "testDir": "frontend/tests/e2e",
+    "projects": ["chromium", "mobile"]
+  },
+  "verification": {
+    "codeReviewEnabled": true,
+    "mcpEnabled": true,
+    "a11yEnabled": true,
+    "mobileViewport": 375
   },
   "maxIterations": 20,
   "maxSessionSeconds": 600,

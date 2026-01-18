@@ -2,7 +2,21 @@
   "checks": {
     "typescript": "npx tsc --noEmit",
     "lint": "npm run lint",
-    "tests": "npm test"
+    "test": "npm test"
+  },
+  "api": {
+    "baseUrl": "http://localhost:3000"
+  },
+  "playwright": {
+    "enabled": true,
+    "testDir": "tests/e2e",
+    "projects": ["chromium", "mobile"]
+  },
+  "verification": {
+    "codeReviewEnabled": true,
+    "mcpEnabled": true,
+    "a11yEnabled": true,
+    "mobileViewport": 375
   },
   "maxIterations": 20,
   "maxSessionSeconds": 600,

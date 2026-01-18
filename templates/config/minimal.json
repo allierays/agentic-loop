@@ -1,5 +1,19 @@
 {
   "checks": {},
+  "api": {
+    "baseUrl": "http://localhost:3000"
+  },
+  "playwright": {
+    "enabled": false,
+    "testDir": "tests/e2e",
+    "projects": ["chromium"]
+  },
+  "verification": {
+    "codeReviewEnabled": false,
+    "mcpEnabled": false,
+    "a11yEnabled": false,
+    "mobileViewport": 375
+  },
   "maxIterations": 20,
   "maxSessionSeconds": 600,
   "testUrlBase": "http://localhost:3000",

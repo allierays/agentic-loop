@@ -14,7 +14,7 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
+# Note: lib/ is NOT ignored here because we use lib/ralph for shell scripts
 lib64/
 parts/
 sdist/

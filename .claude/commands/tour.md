@@ -67,18 +67,59 @@ Nothing happens without your say-so.
 
 ## Step 2: Ralph - Autonomous Execution
 
-**What it does:** Takes your approved idea, breaks it into small PRDs, and executes them autonomously.
+**What it does:** Takes your approved PRD and executes stories autonomously until done.
 
 **The loop:**
-1. Picks one story from `.ralph/prd.json`
-2. Writes code to implement it
-3. Writes tests for the code
-4. Validates through the browser (if configured)
-5. Iterates until tests pass
-6. Runs linters and pre-commit hooks
-7. Commits when everything passes
-8. Moves to next story
-9. Repeats until done
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     ralph run                                │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+              ┌─────────────────────────┐
+              │ Get next incomplete     │
+              │ story (TODO)            │
+              └─────────────────────────┘
+                            │
+                            ▼
+              ┌─────────────────────────┐
+              │  Build prompt with:     │
+              │  - Story details        │
+              │  - Previous errors      │◄──────────────┐
+              │  - Signs (patterns)     │               │
+              └─────────────────────────┘               │
+                            │                          │
+                            ▼                          │
+              ┌─────────────────────────┐               │
+              │  Claude writes code     │               │
+              └─────────────────────────┘               │
+                            │                          │
+                            ▼                          │
+              ┌─────────────────────────┐               │
+              │  6-Step Verification    │               │
+              │  1. Code review         │               │
+              │  2. Lint/build          │               │
+              │  3. Unit tests          │               │
+              │  4. E2E/API tests       │               │
+              │  5. Browser/API check   │               │
+              │  6. PRD test steps      │               │
+              └─────────────────────────┘               │
+                            │                          │
+                   ┌────────┴────────┐                 │
+                   │                 │                 │
+                   ▼                 ▼                 │
+              ┌─────────┐      ┌──────────┐            │
+              │  DONE   │      │ NOT YET  │────────────┘
+              └─────────┘      └──────────┘
+                   │             Save errors,
+                   ▼             try again
+              ┌─────────────────────────┐
+              │  git commit             │
+              │  Mark story DONE        │
+              │  → Next story           │
+              └─────────────────────────┘
+```
 
 **Commands:**
 ```bash
@@ -88,7 +129,7 @@ ralph check    # Run verification only
 ralph signs    # Show learned patterns
 ```
 
-**The loop runs autonomously.** You can step away. Ralph keeps iterating until tests pass, then commits and moves on.
+**The loop runs autonomously.** You can step away. Ralph keeps iterating until verification passes, then commits and moves on.
 
 ---
 

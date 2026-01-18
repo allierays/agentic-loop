@@ -1,0 +1,224 @@
+#!/usr/bin/env bash
+# utils.sh - Shared utility functions for ralph
+
+# Constants
+readonly MAX_LOG_LINES=30
+readonly MAX_PROGRESS_LINES=10
+readonly MAX_GIT_STATUS_LINES=10
+readonly MAX_OUTPUT_PREVIEW_LINES=20
+readonly ITERATION_DELAY_SECONDS=2
+readonly DEFAULT_TIMEOUT_SECONDS=600
+readonly DEFAULT_MAX_ITERATIONS=20
+
+# Track temp files for safe cleanup
+RALPH_TEMP_FILES=()
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Print colored output
+print_error() { echo -e "${RED}Error: $1${NC}" >&2; }
+print_success() { echo -e "${GREEN}$1${NC}"; }
+print_warning() { echo -e "${YELLOW}$1${NC}"; }
+print_info() { echo -e "${BLUE}$1${NC}"; }
+
+# Require a file to exist
+require_file() {
+  local file="$1"
+  local msg="${2:-File not found: $file}"
+  if [[ ! -f "$file" ]]; then
+    print_error "$msg"
+    exit 1
+  fi
+}
+
+# Require a directory to exist
+require_dir() {
+  local dir="$1"
+  local msg="${2:-Directory not found: $dir}"
+  if [[ ! -d "$dir" ]]; then
+    print_error "$msg"
+    exit 1
+  fi
+}
+
+# Require a command to be available
+require_command() {
+  local cmd="$1"
+  local msg="${2:-Command not found: $cmd}"
+  if ! command -v "$cmd" &>/dev/null; then
+    print_error "$msg"
+    exit 1
+  fi
+}
+
+# Check all required dependencies
+check_dependencies() {
+  local missing=()
+
+  # Required
+  command -v jq &>/dev/null || missing+=("jq (brew install jq)")
+  command -v claude &>/dev/null || missing+=("claude CLI (npm install -g @anthropic-ai/claude-code)")
+
+  # Optional but recommended
+  if ! command -v git &>/dev/null; then
+    print_warning "Warning: git not found, auto-commit disabled"
+  fi
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    print_error "Missing required dependencies:"
+    printf '  - %s\n' "${missing[@]}"
+    exit 1
+  fi
+}
+
+# Log progress to progress.txt
+log_progress() {
+  local story="$1"
+  local status="$2"
+  local msg="${3:-}"
+  local timestamp
+  timestamp=$(date -Iseconds 2>/dev/null || date +%Y-%m-%dT%H:%M:%S)
+  echo "[$timestamp] $status $story $msg" >> "$RALPH_DIR/progress.txt"
+}
+
+# Get a value from config.json with a default
+get_config() {
+  local key="$1"
+  local default="$2"
+  local config="$RALPH_DIR/config.json"
+
+  if [[ -f "$config" ]]; then
+    local value
+    value=$(jq -r "$key // empty" "$config" 2>/dev/null)
+    if [[ -n "$value" && "$value" != "null" ]]; then
+      echo "$value"
+      return
+    fi
+  fi
+  echo "$default"
+}
+
+# Cross-platform timeout (macOS needs gtimeout from coreutils)
+run_with_timeout() {
+  local seconds="$1"
+  shift
+
+  if command -v timeout &>/dev/null; then
+    timeout "$seconds" "$@"
+  elif command -v gtimeout &>/dev/null; then
+    gtimeout "$seconds" "$@"
+  else
+    # Fallback: just run without timeout
+    print_warning "Warning: timeout command not found, running without timeout"
+    "$@"
+  fi
+}
+
+# Safely update JSON file atomically
+# Usage: update_json <file> [jq args...] <filter>
+# Example: update_json file.json --arg id "US-001" '.stories[] | select(.id==$id)'
+update_json() {
+  local file="$1"
+  shift
+  local tmpfile
+  tmpfile=$(mktemp)
+
+  # All remaining args go to jq (supports --arg, --argjson, etc.)
+  if jq "$@" "$file" > "$tmpfile" 2>/dev/null; then
+    mv "$tmpfile" "$file"
+    return 0
+  else
+    rm -f "$tmpfile"
+    return 1
+  fi
+}
+
+# Create a temp file and track it for cleanup
+create_temp_file() {
+  local suffix="${1:-.tmp}"
+  local tmpfile
+  tmpfile=$(mktemp "${TMPDIR:-/tmp}/ralph_XXXXXX${suffix}") || {
+    print_error "Failed to create temp file"
+    return 1
+  }
+  RALPH_TEMP_FILES+=("$tmpfile")
+  echo "$tmpfile"
+}
+
+# Clean up only tracked temp files on exit
+cleanup() {
+  for f in "${RALPH_TEMP_FILES[@]}"; do
+    rm -f "$f" 2>/dev/null
+  done
+}
+
+# Set up trap for cleanup
+trap cleanup EXIT
+
+# Validate a command doesn't contain dangerous patterns
+# Returns 0 if safe, 1 if dangerous
+validate_command() {
+  local cmd="$1"
+
+  # Block dangerous patterns
+  local dangerous_patterns=(
+    'rm[[:space:]]+-rf[[:space:]]+/'      # rm -rf /
+    'rm[[:space:]]+-rf[[:space:]]+\*'     # rm -rf *
+    'curl.*\|.*bash'                       # curl | bash
+    'curl.*\|.*sh'                         # curl | sh
+    'wget.*\|.*bash'                       # wget | bash
+    'wget.*\|.*sh'                         # wget | sh
+    '\$\([^)]*eval'                        # $(eval ...)
+    'eval[[:space:]]+\$'                   # eval $var
+    '>[[:space:]]*/dev/sd'                 # write to disk devices
+    'mkfs\.'                               # format filesystems
+    'dd[[:space:]]+if='                    # dd commands
+  )
+
+  for pattern in "${dangerous_patterns[@]}"; do
+    if [[ "$cmd" =~ $pattern ]]; then
+      print_error "Command contains dangerous pattern: $cmd"
+      return 1
+    fi
+  done
+
+  return 0
+}
+
+# Validate a URL is safe (http/https only, no internal IPs in production)
+validate_url() {
+  local url="$1"
+
+  # Must start with http:// or https://
+  if [[ ! "$url" =~ ^https?:// ]]; then
+    print_error "Invalid URL scheme (must be http or https): $url"
+    return 1
+  fi
+
+  # Block file:// and other dangerous schemes
+  if [[ "$url" =~ ^(file|ftp|data|javascript): ]]; then
+    print_error "Dangerous URL scheme: $url"
+    return 1
+  fi
+
+  return 0
+}
+
+# Safely execute a command (validates first, uses bash -c instead of eval)
+safe_exec() {
+  local cmd="$1"
+  local log_file="${2:-/dev/null}"
+
+  # Validate command first
+  if ! validate_command "$cmd"; then
+    return 1
+  fi
+
+  # Execute with bash -c instead of eval
+  bash -c "$cmd" > "$log_file" 2>&1
+}

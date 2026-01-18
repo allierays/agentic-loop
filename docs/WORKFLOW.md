@@ -62,12 +62,56 @@ ralph run
 ```
 
 Ralph works through stories autonomously:
-1. Picks the next failing story
-2. Codes to satisfy acceptance criteria
-3. Runs test steps to verify
-4. Commits when tests pass
-5. Moves to next story
-6. Repeats until done
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     ralph run                                │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+              ┌─────────────────────────┐
+              │ Get next incomplete     │
+              │ story (TODO)            │
+              └─────────────────────────┘
+                            │
+                            ▼
+              ┌─────────────────────────┐
+              │  Build prompt with:     │
+              │  - Story details        │
+              │  - Previous errors      │◄──────────────┐
+              │  - Signs (patterns)     │               │
+              └─────────────────────────┘               │
+                            │                          │
+                            ▼                          │
+              ┌─────────────────────────┐               │
+              │  Claude writes code     │               │
+              └─────────────────────────┘               │
+                            │                          │
+                            ▼                          │
+              ┌─────────────────────────┐               │
+              │  6-Step Verification    │               │
+              │  1. Code review         │               │
+              │  2. Lint/build          │               │
+              │  3. Unit tests          │               │
+              │  4. E2E/API tests       │               │
+              │  5. Browser/API check   │               │
+              │  6. PRD test steps      │               │
+              └─────────────────────────┘               │
+                            │                          │
+                   ┌────────┴────────┐                 │
+                   │                 │                 │
+                   ▼                 ▼                 │
+              ┌─────────┐      ┌──────────┐            │
+              │  DONE   │      │ NOT YET  │────────────┘
+              └─────────┘      └──────────┘
+                   │             Save errors,
+                   ▼             try again
+              ┌─────────────────────────┐
+              │  git commit             │
+              │  Mark story DONE        │
+              │  → Next story           │
+              └─────────────────────────┘
+```
 
 Monitor progress anytime:
 

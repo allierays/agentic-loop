@@ -99,7 +99,8 @@ Once the idea is approved, break it into small, executable PRDs:
    - Specific test steps (curl commands, UI checks, etc.)
    - Dependencies on other PRDs (if any)
 
-Generate the PRD JSON structure:
+Generate the PRD JSON structure. **Each story must define error handling and edge cases to prevent bugs.**
+
 ```json
 {
   "feature": {
@@ -114,17 +115,101 @@ Generate the PRD JSON structure:
     "complexity": "low|medium|high"
   },
   "stories": [
+    // FRONTEND STORY EXAMPLE
     {
       "id": "US-001",
-      "title": "Story title",
+      "type": "frontend",
+      "title": "User can submit contact form",
       "passes": false,
-      "acceptanceCriteria": ["AC 1", "AC 2"],
-      "testSteps": ["curl command or manual verification step"],
+      "testUrl": "http://localhost:3000/contact",
+
+      "acceptanceCriteria": [
+        "Form has name, email, message fields",
+        "Submit button sends data to API",
+        "Success message shown after submit"
+      ],
+
+      "errorHandling": [
+        "Show validation errors for empty fields",
+        "Show error message if API fails",
+        "Disable submit while loading"
+      ],
+
+      "emptyState": null,
+      "loadingState": "Submit button shows spinner, is disabled",
+
+      "a11y": [
+        "All inputs have labels",
+        "Errors announced to screen readers"
+      ],
+
+      "mobile": "Form stacks vertically",
+
+      "testSteps": [
+        "Navigate to /contact",
+        "Fill form and submit",
+        "Verify success message"
+      ],
+
+      "dependsOn": []
+    },
+
+    // BACKEND STORY EXAMPLE
+    {
+      "id": "US-002",
+      "type": "backend",
+      "title": "Contact form API endpoint",
+      "passes": false,
+      "apiEndpoints": ["POST /api/contact"],
+
+      "acceptanceCriteria": [
+        "Accepts name, email, message",
+        "Saves to database",
+        "Returns 201 on success"
+      ],
+
+      "errorHandling": [
+        "Returns 400 if required fields missing",
+        "Returns 400 if email format invalid",
+        "Returns 500 with message if DB fails"
+      ],
+
+      "validation": {
+        "name": "required, max 100 chars",
+        "email": "required, valid email format",
+        "message": "required, max 1000 chars"
+      },
+
+      "auth": "None (public endpoint)",
+
+      "testSteps": [
+        "curl -X POST /api/contact with valid data → 201",
+        "curl -X POST /api/contact with missing email → 400",
+        "curl -X POST /api/contact with invalid email → 400"
+      ],
+
       "dependsOn": []
     }
   ]
 }
 ```
+
+### Required Fields by Story Type
+
+**Frontend stories MUST have:**
+- `testUrl` - URL to test
+- `acceptanceCriteria` - What it should do
+- `errorHandling` - What happens when things fail
+- `loadingState` - What shows during async operations
+- `a11y` - Accessibility requirements
+- `mobile` - How it works on mobile
+
+**Backend stories MUST have:**
+- `apiEndpoints` - Endpoints to test
+- `acceptanceCriteria` - What it should do
+- `errorHandling` - Error responses (400, 401, 500)
+- `validation` - Input validation rules
+- `auth` - Authentication requirements
 
 ### Step 6: Write PRD and Review
 
@@ -174,6 +259,10 @@ Ralph will work through each story, running tests and committing as it goes. You
 - **Order by dependency** - Stories that depend on others should come later
 - **Max 10 stories** - If more, suggest splitting into phases
 - **Stay in plan mode** - Don't write code during brainstorming
+- **Define error handling** - Every story must specify what happens when things fail
+- **Think about edge cases** - Empty states, loading states, validation errors
+- **Consider accessibility** - Frontend stories need a11y requirements
+- **Consider mobile** - Frontend stories need mobile behavior defined
 
 ## Error Handling
 

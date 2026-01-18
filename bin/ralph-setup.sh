@@ -195,6 +195,61 @@ fi
 echo ""
 print_success "Setup complete!"
 echo ""
+
+# Show the Ralph loop diagram
+cat << 'EOF'
+How Ralph works:
+
+┌─────────────────────────────────────────────────────────────┐
+│                     ralph run                                │
+└─────────────────────────────────────────────────────────────┘
+                            │
+                            ▼
+              ┌─────────────────────────┐
+              │ Get next incomplete     │
+              │ story (TODO)            │
+              └─────────────────────────┘
+                            │
+                            ▼
+              ┌─────────────────────────┐
+              │  Build prompt with:     │
+              │  - Story details        │
+              │  - Previous errors      │◄──────────────┐
+              │  - Signs (patterns)     │               │
+              └─────────────────────────┘               │
+                            │                          │
+                            ▼                          │
+              ┌─────────────────────────┐               │
+              │  Claude writes code     │               │
+              └─────────────────────────┘               │
+                            │                          │
+                            ▼                          │
+              ┌─────────────────────────┐               │
+              │  6-Step Verification    │               │
+              │  1. Code review         │               │
+              │  2. Lint/build          │               │
+              │  3. Unit tests          │               │
+              │  4. E2E/API tests       │               │
+              │  5. Browser/API check   │               │
+              │  6. PRD test steps      │               │
+              └─────────────────────────┘               │
+                            │                          │
+                   ┌────────┴────────┐                 │
+                   │                 │                 │
+                   ▼                 ▼                 │
+              ┌─────────┐      ┌──────────┐            │
+              │  DONE   │      │ NOT YET  │────────────┘
+              └─────────┘      └──────────┘
+                   │             Save errors,
+                   ▼             try again
+              ┌─────────────────────────┐
+              │  git commit             │
+              │  Mark story DONE        │
+              │  → Next story           │
+              └─────────────────────────┘
+
+EOF
+
 echo "Next steps:"
 if $has_makefile; then
   echo "  1. Generate PRD: make ralph-prd NOTES='your feature description'"

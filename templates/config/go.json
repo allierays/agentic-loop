@@ -2,7 +2,21 @@
   "checks": {
     "build": "go build ./...",
     "lint": "golangci-lint run",
-    "tests": "go test ./..."
+    "test": "go test ./..."
+  },
+  "api": {
+    "baseUrl": "http://localhost:8080"
+  },
+  "playwright": {
+    "enabled": false,
+    "testDir": "tests/e2e",
+    "projects": ["chromium"]
+  },
+  "verification": {
+    "codeReviewEnabled": true,
+    "mcpEnabled": true,
+    "a11yEnabled": false,
+    "mobileViewport": 375
   },
   "maxIterations": 20,
   "maxSessionSeconds": 600,

@@ -10,27 +10,91 @@ Before writing any code, verify:
 3. Run `git status` to check for uncommitted work
 4. Review the current story details below
 
+## Your Task
+
+For each story, you must:
+
+### 1. Write Tests First
+
+**For frontend stories:**
+- Write a Playwright test that validates the acceptance criteria
+- Include tests for error handling (API fails, validation errors)
+- Include tests for empty/loading states
+- Include accessibility checks (axe-core)
+- Include mobile viewport test (375px)
+
+**For backend stories:**
+- Write unit tests for the business logic
+- Write API tests that validate all endpoints
+- Test error responses (400, 401, 500)
+- Test validation rules
+
+### 2. Implement the Feature
+
+- Write code to make all tests pass
+- Follow existing patterns in the codebase
+- Handle ALL error cases defined in the story
+- Implement loading states for async operations
+
+### 3. Verify It Actually Works
+
+**Do NOT say you're done until:**
+- All unit tests pass
+- All Playwright tests pass
+- You've opened the browser via MCP and visually verified
+- Console has no errors
+- It works on mobile (375px viewport)
+- Error states are handled gracefully
+
 ## Rules
 
 1. **Focus**: Implement ONLY the current story. Do not work on other stories.
-2. **Test frequently**: Run tests after each significant change.
-3. **Small commits**: Make atomic commits for each logical change.
-4. **Document blockers**: If stuck, add notes to `.ralph/progress.txt`.
-5. **Verification**: Never consider a story complete until ALL testSteps pass.
+2. **Test first**: Write failing tests before implementation when possible.
+3. **Test frequently**: Run tests after each significant change.
+4. **Error handling is required**: Every story defines error cases - implement them all.
+5. **Verification**: Never complete until browser validation passes.
 
 ## Verification Checklist
 
 Before considering any story complete:
+
+### Code
 - [ ] All acceptance criteria are met
-- [ ] All testSteps execute successfully
-- [ ] TypeScript compiles without errors (if applicable)
+- [ ] All error handling from story is implemented
+- [ ] Loading states implemented (if frontend)
+- [ ] Validation implemented (if backend)
+- [ ] TypeScript compiles without errors
+
+### Tests
+- [ ] Unit tests written and passing
+- [ ] Playwright test written and passing (frontend)
+- [ ] API tests written and passing (backend)
+- [ ] Error cases tested
+- [ ] Edge cases tested (empty state, etc.)
+
+### Browser/API Validation
+- [ ] MCP browser check passes (frontend) - no console errors
+- [ ] Mobile viewport works (375px)
+- [ ] Accessibility passes (can Tab through, focus visible)
+- [ ] API returns correct responses (backend)
+
+### Quality
 - [ ] Linting passes
 - [ ] Existing tests still pass
-- [ ] New functionality has been manually tested
+
+## If Verification Fails
+
+If any check fails:
+1. Read the error message carefully
+2. Fix the issue
+3. Re-run verification
+4. Iterate until ALL checks pass
+
+Do NOT give up. Keep iterating until it works.
 
 ## If Blocked
 
-If you encounter a blocker:
+If you encounter a blocker you cannot resolve:
 1. Document the issue in `.ralph/progress.txt`
 2. Note what you tried and why it didn't work
 3. Suggest potential solutions for the next session
@@ -39,10 +103,11 @@ If you encounter a blocker:
 ## Code Quality Standards
 
 - Follow existing code patterns in the codebase
-- Add appropriate error handling
+- Handle ALL error cases defined in the story
+- Implement loading states for async operations
 - Keep functions small and focused
 - Use meaningful variable and function names
-- Add comments only for complex logic
+- Add data-testid attributes for Playwright
 
 ---
 
