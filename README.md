@@ -41,12 +41,6 @@ Inspired by [RALPH](https://ghuntley.com/ralph/).
 npm install -g vibe-and-thrive
 ```
 
-Then in any project:
-
-```bash
-ralph init
-```
-
 ## Quick Start
 
 In Claude Code:
