@@ -2,7 +2,7 @@
 
 **From idea to shipped code with AI.**
 
-A complete system for agentic coding: brainstorm ideas, generate PRDs, execute autonomously, ship with guardrails.
+A complete system for agentic coding: brainstorm ideas, generate PRDs, execute autonomously, ship with guardrails. Inspired by [RALPH](https://ghuntley.com/ralph/).
 
 ## The System
 
