@@ -158,7 +158,27 @@ EOF
   fi
 }
 
+ensure_gitignore() {
+  # Ensure node_modules is in .gitignore
+  if [[ -f ".gitignore" ]]; then
+    # Check if node_modules is already ignored
+    if ! grep -q "^node_modules" .gitignore 2>/dev/null; then
+      echo "node_modules/" >> .gitignore
+    fi
+  else
+    # Create .gitignore with common entries
+    cat > .gitignore << 'EOF'
+node_modules/
+.env
+.env.local
+*.log
+.DS_Store
+EOF
+  fi
+}
+
 # Run silent setup
+ensure_gitignore
 install_claude_skills
 install_precommit_hooks
 install_ralph
