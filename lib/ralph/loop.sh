@@ -60,8 +60,12 @@ run_loop() {
     startup_checklist
 
     # 3. Build prompt with current story context (including failure context if any)
+    print_info "Preparing prompt for $story..."
     local prompt_file
-    prompt_file=$(create_temp_file ".md") || return 1
+    prompt_file=$(create_temp_file ".md") || {
+      print_error "Failed to create temp file for prompt"
+      return 1
+    }
 
     local failure_context=""
     if [[ -f "$RALPH_DIR/last_failure.txt" ]]; then
