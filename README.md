@@ -44,19 +44,15 @@ If you see the command reference, you're ready to go.
 claude
 ```
 
-### Step 2: Enter Plan Mode
+### Step 2: Brainstorm in Plan Mode
 
-Press `Shift+Tab` twice to enter plan mode.
+Press `Shift+Tab` twice to enter plan mode. Describe what you want to build. Claude explores the codebase and helps you think through the design.
 
-### Step 3: Brainstorm Your Feature
-
-Describe what you want to build. Claude explores the codebase and helps you think through the design.
-
-### Step 4: Save to docs/ideas
+### Step 3: Save to docs/ideas
 
 When ready, tell Claude to write the plan to `docs/ideas/your-feature.md`. Exit plan mode.
 
-### Step 5: Generate PRD
+### Step 4: Generate PRD
 
 ```
 /prd your-feature
@@ -64,7 +60,7 @@ When ready, tell Claude to write the plan to `docs/ideas/your-feature.md`. Exit 
 
 Claude converts your idea into atomic stories in `.ralph/prd.json`. Review and approve.
 
-### Step 6: Execute with Ralph
+### Step 5: Execute with Ralph
 
 Exit Claude, then in your **terminal**:
 
