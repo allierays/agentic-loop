@@ -72,7 +72,17 @@ run_loop() {
       failure_context=$(cat "$RALPH_DIR/last_failure.txt")
     fi
 
-    build_prompt "$story" "$failure_context" > "$prompt_file"
+    # Temporarily disable errexit to capture build_prompt errors
+    set +e
+    build_prompt "$story" "$failure_context" > "$prompt_file" 2>&1
+    local build_status=$?
+    set -e
+
+    if [[ $build_status -ne 0 ]]; then
+      print_error "Failed to build prompt (see $prompt_file for errors)"
+      cat "$prompt_file" | head -20
+      return 1
+    fi
 
     # Save git state before Claude runs (for migration detection)
     local pre_story_sha=""

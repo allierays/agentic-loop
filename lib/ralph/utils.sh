@@ -143,12 +143,16 @@ create_temp_file() {
   local suffix="${1:-.tmp}"
   local tmpfile
   # macOS mktemp doesn't support suffixes, so create then rename
-  tmpfile=$(mktemp) || {
-    print_error "Failed to create temp file"
+  tmpfile=$(mktemp 2>&1) || {
+    print_error "mktemp failed: $tmpfile"
     return 1
   }
   if [[ "$suffix" != ".tmp" && -n "$suffix" ]]; then
-    mv "$tmpfile" "${tmpfile}${suffix}"
+    if ! mv "$tmpfile" "${tmpfile}${suffix}" 2>/dev/null; then
+      print_error "Failed to rename temp file"
+      rm -f "$tmpfile"
+      return 1
+    fi
     tmpfile="${tmpfile}${suffix}"
   fi
   RALPH_TEMP_FILES+=("$tmpfile")
