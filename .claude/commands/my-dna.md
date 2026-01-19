@@ -2,152 +2,121 @@
 description: Set up your personal DNA - how you like to work and communicate with Claude.
 ---
 
-# My DNA - Personal Preferences Setup
+# My DNA - Personal Style Setup
 
-You are helping the user define their DNA - their core values, communication style, and working preferences - so Claude can adapt to them.
+You are helping the user define their DNA - their personal voice and project values. This makes Claude's output match their style.
 
-This creates `~/.claude/DNA.md` - a global file that applies to all their projects.
+This updates `CLAUDE.md` in the project root with their values and style.
 
-## Instructions
+## Step 1: Introduction
 
-Guide the user through these questions using the AskUserQuestion tool. After collecting answers, generate their DNA.md file.
+Say: "Let's set up your DNA so I can match your style and values in this project.
 
-### Step 1: Introduction
+Your values shape everything - how we communicate, what we prioritize, and what the product feels like. A few quick questions."
 
-Say:
-"Let's set up your DNA. This helps me understand who you are and how you like to work.
+## Step 2: Ask About Core Values
 
-I'll ask a few questions about:
-- Your core values as a developer
-- How you like explanations and communication
-- Your working preferences
+Use AskUserQuestion:
 
-This creates `~/.claude/DNA.md` which applies to all your projects. Takes about 2 minutes."
+**Question:** "What values should guide this project? Pick any that resonate."
+**Header:** "Core values"
+**multiSelect:** true
+**Options:**
+- **Respect / Kindness** - "Treat people well, in code and communication"
+- **Simplicity / Clarity** - "Avoid jargon, make things understandable"
+- **Sustainability** - "Build things that last, think long-term"
 
-### Step 2: Ask About Core Values
+## Step 3: Ask About Their Voice
 
-Use AskUserQuestion to ask:
+Use AskUserQuestion:
 
-**Question:** "What values matter most to you when coding? Pick your top 3."
+**Question:** "How would you describe your writing style?"
+**Header:** "Your voice"
+**Options:**
+- **Casual & direct** - "I write like I talk, no fluff"
+- **Friendly & warm** - "Approachable, conversational"
+- **Professional & clear** - "Polished but not stiff"
+- **Minimal & precise** - "Say less, mean more"
 
-Options (multiSelect: true):
-- **Simplicity** - Clear, straightforward code over clever solutions
-- **Speed** - Ship fast, iterate later
-- **Correctness** - Get it right the first time, even if slower
-- **Pragmatism** - Good enough beats perfect
-- **Security** - Never compromise on security
-- **User focus** - User experience above all else
-- **Maintainability** - Code that's easy to change later
-- **Testing** - If it's not tested, it doesn't work
+## Step 4: Ask About Project Priority
 
-### Step 3: Ask About Communication Style
+Use AskUserQuestion:
 
-Use AskUserQuestion to ask:
+**Question:** "What matters most for this project right now?"
+**Header:** "Priority"
+**Options:**
+- **Ship it** - "Get it working and out the door"
+- **Make it solid** - "Quality and reliability first"
+- **Make it beautiful** - "Design and UX matter most"
+- **Make it scale** - "Building for growth"
 
-**Question 1:** "How detailed should my explanations be?"
+## Step 5: Ask About Audience
 
-Options:
-- **Brief** - Just the essentials, I'll ask if I need more
-- **Moderate** - Enough context to understand, not overwhelming
-- **Detailed** - Thorough explanations help me learn
+Use AskUserQuestion:
 
-**Question 2:** "What tone works best for you?"
+**Question:** "Who's this for?"
+**Header:** "Audience"
+**Options:**
+- **Developers** - "Technical users who get it"
+- **Everyone** - "Non-technical users, needs to be simple"
+- **Business users** - "Professional, but not coders"
+- **Just me** - "Personal project, I'm the user"
 
-Options:
-- **Casual** - Relaxed, like talking to a colleague
-- **Professional** - Clear and businesslike
-- **Direct** - Straight to the point, no fluff
-- **Encouraging** - Supportive, positive framing
+## Step 6: Ask About Product Tone
 
-### Step 4: Ask About Working Preferences
+Use AskUserQuestion:
 
-Use AskUserQuestion to ask:
+**Question:** "What vibe should the product have?"
+**Header:** "Product tone"
+**Options:**
+- **Friendly** - "Warm, approachable, maybe playful"
+- **Professional** - "Clean, trustworthy, serious"
+- **Minimal** - "Say less, let the product speak"
+- **Bold** - "Confident, opinionated, distinctive"
 
-**Question 1:** "When you're stuck on something, what should I do?"
-
-Options:
-- **Ask first** - Check with me before trying solutions
-- **Try then ask** - Attempt a solution, then ask if it doesn't work
-- **Just try** - Take initiative, I'll redirect if needed
-
-**Question 2:** "How do you feel about suggestions beyond what you asked?"
-
-Options:
-- **Love them** - Proactive suggestions help me improve
-- **Sometimes** - Only for significant improvements
-- **Stick to task** - Just do what I asked
-
-### Step 5: Ask About Learning Style
-
-Use AskUserQuestion to ask:
-
-**Question:** "When showing code, what else is helpful?"
-
-Options (multiSelect: true):
-- **Explain why** - Not just how, but why this approach
-- **Show alternatives** - Other ways to solve this with tradeoffs
-- **Reference docs** - Links to relevant documentation
-- **Just the code** - I prefer to figure out the details myself
-
-### Step 6: Optional Writing Samples
+## Step 7: Optional Writing Sample
 
 Ask:
-"Optional: Do you have any writing samples or code snippets that show your preferred style?
 
-Paste them here, or say 'skip' to continue.
+"Optional: Paste a writing sample so I can match your voice. Could be anything - an email, a doc, a tweet. Or just say 'skip'."
 
-These help me match your voice and coding patterns."
+If they provide a sample, note the patterns and include it. If they skip, move on.
 
-If they provide samples, include them in the DNA.md.
+## Step 8: Update CLAUDE.md
 
-### Step 7: Generate DNA.md
+Add a DNA section to `CLAUDE.md` in the project root. If CLAUDE.md exists, append. If not, create it.
 
-Create the file at `~/.claude/DNA.md` with this structure:
+Use a marker `<!-- my-dna -->` to identify the section. If marker exists, replace that section.
 
 ```markdown
-# My DNA
+<!-- my-dna -->
+## DNA
 
-## Core Values
+### Core Values
 - [List their selected values]
 
-## Communication
-- **Explanations:** [brief/moderate/detailed]
-- **Tone:** [casual/professional/direct/encouraging]
+### Voice
+[Their style + any notes from writing sample]
 
-## Working Together
-- **When stuck:** [ask first/try then ask/just try]
-- **Proactive suggestions:** [yes/sometimes/no]
-
-## Learning
-- [List their selected learning preferences]
-
-## Writing Samples
-[Include any samples they provided, or omit this section]
-
----
-*Generated by vibe-and-thrive /my-dna*
-*Update anytime by running /my-dna again*
+### Project
+- **Priority:** [ship it / solid / beautiful / scale]
+- **Audience:** [developers / everyone / business / just me]
+- **Tone:** [friendly / professional / minimal / bold]
 ```
 
-### Step 8: Confirm and Explain
+## Step 9: Confirm
 
-After writing the file, say:
+Say:
 
-"Done! Your DNA is saved to `~/.claude/DNA.md`.
+"Done! Added DNA to `CLAUDE.md`.
 
-**What happens now:**
-- Ralph will include your preferences when working on stories
-- You can update this anytime by running `/my-dna` again
-- This file is global - it applies to all your projects
+**Your style:** [One sentence summary, e.g., "Casual and direct, shipping fast for developers with a friendly vibe."]
 
-**Your DNA summary:**
-[Brief summary of their key preferences]
+I'll match this in code, docs, and commits. Run `/my-dna` again anytime to update."
 
-Want to see the full file? Run: `cat ~/.claude/DNA.md`"
+## Notes
 
-## Important Notes
-
-- Always create the `~/.claude/` directory if it doesn't exist
-- If DNA.md already exists, ask if they want to update it or start fresh
-- Keep the generated file concise and readable
-- The file should be useful context for Claude, not just a data dump
+- Keep it short - 5 questions max
+- No scanning, just ask
+- If DNA section exists in CLAUDE.md (marker: `<!-- my-dna -->`), replace it
+- The goal is to make Claude's output match their style and values

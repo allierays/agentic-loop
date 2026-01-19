@@ -66,7 +66,7 @@
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
     "prepublishOnly": "npm run clean && npm run build",
-    "postinstall": "./bin/vibe-and-thrive.sh --quick"
+    "postinstall": "./bin/postinstall.sh"
   },
   "engines": {
     "node": ">=18.0.0"

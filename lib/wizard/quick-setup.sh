@@ -23,6 +23,15 @@ quick_setup() {
   echo -e "    ${CYAN}•${NC} vibe-check CLI"
   echo ""
 
+  # Non-interactive mode: skip prompts (CI, Claude Code, piped input)
+  if [[ ! -t 0 ]] || [[ -n "${CI:-}" ]] || [[ -n "${CLAUDE_CODE:-}" ]]; then
+    echo -e "  ${DIM}(Non-interactive mode detected, auto-installing...)${NC}"
+    echo ""
+    do_install
+    show_completion
+    return
+  fi
+
   # Ask how they want to proceed
   echo -e "  ${BOLD}How would you like to proceed?${NC}"
   echo ""

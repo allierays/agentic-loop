@@ -4,327 +4,129 @@ description: Take an interactive tour of vibe-and-thrive - the system for going 
 
 # Vibe & Thrive Tour
 
-Print this welcome message exactly as shown:
+## Step 1: Welcome
+
+Print this exactly:
 
 ```
   ╦  ╦╦╔╗ ╔═╗   ┬   ╔╦╗╦ ╦╦═╗╦╦  ╦╔═╗
   ╚╗╔╝║╠╩╗║╣   ┌┼─   ║ ╠═╣╠╦╝║╚╗╔╝║╣
    ╚╝ ╩╚═╝╚═╝  └┘    ╩ ╩ ╩╩╚═╩ ╚╝ ╚═╝
 
-  Tools to help you thrive with agentic coding
-  by AllThrive.ai
-  ─────────────────────────────────
+  Setup complete! Here's what's configured:
 ```
 
-Then say: "Welcome to the tour! Let me show you how vibe-and-thrive works."
+Then check what was set up and list it:
+- ✓ Slash commands installed (check `.claude/commands/` exists)
+- ✓ Pre-commit hooks (check `.pre-commit-config.yaml` exists)
+- ✓ Ralph initialized (check `.ralph/` exists)
+- ✓ CLAUDE.md created (check `CLAUDE.md` exists)
 
 ---
 
-## The System
+## Step 2: Check for DNA
 
-**Idea → PRD → Ralph → Ship**
+Check if `~/.claude/DNA.md` exists.
 
-1. **`/idea`** - Brainstorm in plan mode, write to `docs/ideas/`, approve
-2. **Auto-split** - Your idea becomes small, testable PRDs
-3. **`ralph run`** - Autonomous coding until all tests pass
-4. **Pre-commit hooks** - Guard every commit
+**If DNA.md does NOT exist:**
 
+Use AskUserQuestion:
+- **Question:** "Want to set up your personal preferences? This teaches me how you like to work."
+- **Header:** "DNA setup"
+- **Options:**
+  - **Yes, set up my DNA** - "Takes ~2 minutes, makes our collaboration better"
+  - **Skip for now** - "You can run /my-dna anytime"
 
----
+If user selects "Yes, set up my DNA":
+- Run the `/my-dna` command inline (execute its full flow)
+- After completing, continue to Step 3
 
-## Step 1: /idea - Brainstorm to PRD
+If user selects "Skip for now":
+- Say: "No problem! Run `/my-dna` anytime."
+- Continue to Step 3
 
-**What it does:** Takes you from a rough idea to executable PRDs.
+**If DNA.md EXISTS:**
 
-**The flow:**
-```
-/idea "add user profiles"
-    ↓
-Plan mode: brainstorm, explore, ask questions
-    ↓
-Write docs/ideas/user-profiles.md
-    ↓
-Open in TextEdit for review
-    ↓
-You approve → auto-split into PRDs
-    ↓
-Write .ralph/prd.json
-    ↓
-Open in TextEdit for review
-    ↓
-You approve → ready for ralph run
-```
-
-**Two approval gates:**
-- Approve the idea before splitting
-- Approve the PRDs before executing
-
-Nothing happens without your say-so.
-
-**Try it:** `/idea "your feature here"`
+Skip this step entirely. Move to Step 3.
 
 ---
 
-## Step 2: Ralph - Autonomous Execution
+## Step 3: What's Next?
 
-**What it does:** Takes your approved PRD and executes stories autonomously until done.
-
-**The loop:**
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     ralph run                                │
-└─────────────────────────────────────────────────────────────┘
-                            │
-                            ▼
-              ┌─────────────────────────┐
-              │ Get next incomplete     │
-              │ story (TODO)            │
-              └─────────────────────────┘
-                            │
-                            ▼
-              ┌─────────────────────────┐
-              │  Build prompt with:     │
-              │  - Story details        │
-              │  - Previous errors      │◄──────────────┐
-              │  - Signs (patterns)     │               │
-              └─────────────────────────┘               │
-                            │                          │
-                            ▼                          │
-              ┌─────────────────────────┐               │
-              │  Claude writes code     │               │
-              └─────────────────────────┘               │
-                            │                          │
-                            ▼                          │
-              ┌─────────────────────────┐               │
-              │  6-Step Verification    │               │
-              │  1. Code review         │               │
-              │  2. Lint/build          │               │
-              │  3. Unit tests          │               │
-              │  4. E2E/API tests       │               │
-              │  5. Browser/API check   │               │
-              │  6. PRD test steps      │               │
-              └─────────────────────────┘               │
-                            │                          │
-                   ┌────────┴────────┐                 │
-                   │                 │                 │
-                   ▼                 ▼                 │
-              ┌─────────┐      ┌──────────┐            │
-              │  DONE   │      │ NOT YET  │────────────┘
-              └─────────┘      └──────────┘
-                   │             Save errors,
-                   ▼             try again
-              ┌─────────────────────────┐
-              │  git commit             │
-              │  Mark story DONE        │
-              │  → Next story           │
-              └─────────────────────────┘
-```
-
-**Commands:**
-```bash
-ralph run      # Start the loop
-ralph status   # Check progress
-ralph check    # Run verification only
-ralph signs    # Show learned patterns
-```
-
-**The loop runs autonomously.** You can step away. Ralph keeps iterating until verification passes, then commits and moves on.
+Use AskUserQuestion:
+- **Question:** "What would you like to do?"
+- **Header:** "Next step"
+- **Options:**
+  - **Walk me through the workflow** - "See how /idea → ralph → ship works"
+  - **Show quick reference** - "Just the commands cheatsheet"
+  - **I'm good, let me explore** - "You know where to find me"
 
 ---
 
-## Step 3: Pre-commit Hooks - Guardrails
+### If "Walk me through the workflow":
 
-**What it does:** Catches problems on every `git commit`.
+Print this:
 
-**What gets blocked:**
-- Hardcoded secrets and API keys
-- Hardcoded localhost URLs
-- Security vulnerabilities
+```
+The System: Idea → PRD → Ralph → Ship
 
-**What gets warned:**
-- TypeScript `any` types
-- Empty catch blocks
-- Debug statements
-- Overly complex functions
-
-```bash
-git commit -m "add feature"
-# ✓ check-secrets........passed
-# ✗ check-hardcoded-urls..FAILED
-# Commit blocked! Fix the issue first.
+┌─────────────────────────────────────────────────┐
+│  /idea "add user auth"                          │
+│      ↓                                          │
+│  Brainstorm → Write idea doc → You approve      │
+│      ↓                                          │
+│  Auto-split into testable stories (PRD)         │
+│      ↓                                          │
+│  ralph run                                      │
+│      ↓                                          │
+│  Autonomous loop: code → verify → fix → repeat  │
+│      ↓                                          │
+│  All tests pass → commit → next story           │
+│      ↓                                          │
+│  Done! Pre-commit hooks guard the code.         │
+└─────────────────────────────────────────────────┘
 ```
 
-Pre-commit hooks run automatically. Bad code doesn't ship.
+Then say:
+
+"**Try it:** Run `/idea "your feature here"` to start.
+
+**Key commands:**
+- `/idea` - Brainstorm and create PRDs
+- `ralph run` - Execute PRDs autonomously
+- `ralph status` - Check progress
+- `/review` - Review changes before committing
+- `/vibe-check` - Audit code quality"
 
 ---
 
-## CLAUDE.md - Teaching Claude Your Project
+### If "Show quick reference":
 
-**What it is:** A markdown file that teaches Claude about your project.
+Print this:
 
-**What goes in it:**
-- Tech stack (Python, React, PostgreSQL, etc.)
-- Coding standards (naming conventions, patterns)
-- Project-specific rules ("always use our Button component")
-- Architecture notes and gotchas
+```
+Quick Reference
+───────────────
 
-**Where it lives:** `CLAUDE.md` in your project root
+Workflow:
+  /idea "feature"     Brainstorm → PRD
+  ralph run           Execute autonomously
+  ralph status        Check progress
 
-**Why it matters:** Claude reads this file automatically. A good CLAUDE.md means Claude writes code that fits your project from the start.
+Quality:
+  /vibe-check         Audit code quality
+  /review             Review changes
+  ralph check         Run verification
 
-**Example:**
-```markdown
-## Tech Stack
-- Backend: Django 4.2, Python 3.11
-- Frontend: React 18, TypeScript
-- Database: PostgreSQL 15
-
-## Patterns
-- Use `@api_view` decorator for all endpoints
-- Frontend components go in `src/components/`
-- Always use our custom `useApi` hook for data fetching
+Other:
+  /my-dna             Personal preferences
+  /explain            Understand code
+  /styleguide         Generate design system
+  /vibe-help          This cheatsheet
 ```
 
 ---
 
-### Interactive: Detect Project Info
+### If "I'm good, let me explore":
 
-Now use the AskUserQuestion tool to ask:
-
-**Question:** "Want me to scan your project and add detected info to CLAUDE.md?"
-
-**Header:** "Auto-detect"
-
-**Options:**
-- **Yes, scan my project** - I'll detect your tech stack and append it to CLAUDE.md
-- **No, skip this** - You can always do this manually later
-
-**If user selects "Yes, scan my project":**
-
-1. Scan for config files and detect tech stack:
-   - `package.json` → Node.js, check for react/next/vue dependencies
-   - `tsconfig.json` → TypeScript
-   - `tailwind.config.js` or `tailwind.config.ts` → Tailwind CSS
-   - `requirements.txt` or `pyproject.toml` → Python
-   - `manage.py` → Django
-   - `Cargo.toml` → Rust
-   - `go.mod` → Go
-   - `Gemfile` → Ruby/Rails
-   - `playwright.config.ts` or `playwright.config.js` → Playwright
-
-2. Scan for directory patterns:
-   - `src/components/` → Component-based architecture
-   - `src/hooks/` → Custom hooks
-   - `src/api/` or `app/api/` → API routes
-   - `tests/` or `__tests__/` → Test directory
-
-3. Show the user what was detected
-
-4. Append to CLAUDE.md (create if doesn't exist) with this format:
-
-```markdown
-
----
-
-## Detected Project Info (auto-generated)
-
-**Tech Stack:**
-- Runtime: [detected]
-- Framework: [detected]
-- Language: [detected]
-- Styling: [detected]
-- Testing: [detected]
-
-**Project Structure:**
-- Components: `[path]`
-- API Routes: `[path]`
-- Tests: `[path]`
-
-*Detected by vibe-and-thrive. Add your own rules above this section.*
-```
-
-5. Tell the user: "Done! I've appended detected info to CLAUDE.md. You can edit it anytime to add your own rules and patterns."
-
-**If user selects "No, skip this":**
-
-Say: "No problem! You can always edit CLAUDE.md manually or run `/tour` again."
-
----
-
-## Your Personal Style - /my-dna
-
-**What it is:** Your personal preferences for how Claude should work with you.
-
-**What it captures:**
-- Your core values (simplicity vs thoroughness, etc.)
-- Communication style (brief vs detailed, casual vs formal)
-- How you like to learn (show alternatives? explain why?)
-
-**Where it lives:** `~/.claude/DNA.md` (global, applies to all your projects)
-
-This is separate from CLAUDE.md because:
-- CLAUDE.md = project standards (shared with team)
-- DNA.md = your personal preferences (just for you)
-
----
-
-### Interactive: Set Up Your DNA
-
-Now use the AskUserQuestion tool to ask:
-
-**Question:** "Want to set up your personal DNA now?"
-
-**Header:** "DNA setup"
-
-**Options:**
-- **Yes, let's do it** - Takes about 2 minutes
-- **No, maybe later** - Run /my-dna anytime
-
-**If user selects "Yes, let's do it":**
-
-Run the /my-dna wizard inline. This means you should follow the instructions in `/my-dna` to:
-1. Ask about core values (multiSelect)
-2. Ask about communication style (explanations detail level, tone)
-3. Ask about working preferences (when stuck, proactive suggestions)
-4. Ask about learning style (multiSelect)
-5. Optionally collect writing samples
-6. Generate `~/.claude/DNA.md`
-
-After completing, continue with the tour.
-
-**If user selects "No, maybe later":**
-
-Say: "No problem! Run `/my-dna` anytime to set up your preferences."
-
----
-
-## Supporting Tools
-
-| Command | When to use |
-|---------|-------------|
-| `/my-dna` | Set up your personal style preferences |
-| `/vibe-check` | Audit code quality anytime |
-| `/review` | Review changes before committing |
-| `/explain` | Understand existing code |
-| `/styleguide` | Generate design system reference |
-| `/vibe-help` | Quick reference cheatsheet |
-
----
-
-## Quick Start
-
-```bash
-# 1. Have an idea? Brainstorm it.
-/idea "your feature description"
-
-# 2. Review and approve the PRD
-
-# 3. Let Ralph build it
-ralph run
-
-# 4. Check progress anytime
-ralph status
-```
-
-That's it. Idea → PRD → Ralph → Ship.
+Say: "You got it! I'm here when you need me. Try `/vibe-help` for a quick reference anytime."
