@@ -65,12 +65,14 @@ Claude converts your idea into atomic stories in `.ralph/prd.json`. Review and a
 Exit Claude, then in your **terminal**:
 
 ```bash
-ralph run
+npx ralph run
 ```
 
 Ralph loops through stories one at a time, writes tests, verifies, and commits.
 
 > **Pro tip:** Use two terminals - plan with Claude in one, run Ralph in another.
+
+**Troubleshooting:** If you see "Invalid API key", check your `.env` file for `ANTHROPIC_API_KEY`. Remove or comment it out - Ralph uses your Claude Max subscription, not an API key.
 
 ## Ralph Details
 
