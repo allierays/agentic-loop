@@ -224,3 +224,56 @@ safe_exec() {
   # Execute with bash -c instead of eval
   bash -c "$cmd" > "$log_file" 2>&1
 }
+
+# Run migrations if new migration files were created during story
+run_migrations_if_needed() {
+  local pre_sha="$1"
+  local config="$RALPH_DIR/config.json"
+
+  if [[ ! -f "$config" ]]; then return 0; fi
+
+  local migrate_cmd
+  migrate_cmd=$(jq -r '.migrations.command // empty' "$config" 2>/dev/null)
+  if [[ -z "$migrate_cmd" ]]; then return 0; fi
+
+  local pattern
+  pattern=$(jq -r '.migrations.pattern // empty' "$config" 2>/dev/null)
+  if [[ -z "$pattern" ]]; then
+    print_warning "migrations.pattern not configured, skipping migration check"
+    return 0
+  fi
+
+  # Check for new migration files since story started
+  local new_migrations=""
+
+  if [[ -n "$pre_sha" ]]; then
+    # Compare against pre-story commit
+    new_migrations=$(git diff --name-only "$pre_sha" 2>/dev/null | grep -E "$pattern" || true)
+  fi
+
+  # Also check uncommitted changes (staged and unstaged)
+  local uncommitted
+  uncommitted=$(git diff --name-only HEAD 2>/dev/null | grep -E "$pattern" || true)
+  uncommitted+=$(git diff --name-only --cached 2>/dev/null | grep -E "$pattern" || true)
+
+  if [[ -n "$uncommitted" ]]; then
+    new_migrations="$new_migrations $uncommitted"
+  fi
+
+  # Trim whitespace and check if any migrations found
+  new_migrations=$(echo "$new_migrations" | xargs)
+
+  if [[ -n "$new_migrations" ]]; then
+    print_info "New migrations detected, running: $migrate_cmd"
+    echo "  Files: $new_migrations"
+
+    if ! safe_exec "$migrate_cmd" "/dev/null"; then
+      print_error "Migration command failed: $migrate_cmd"
+      return 1
+    fi
+
+    print_success "Migrations applied"
+  fi
+
+  return 0
+}

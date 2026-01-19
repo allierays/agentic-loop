@@ -53,6 +53,7 @@ For each story, you must:
 3. **Test frequently**: Run tests after each significant change.
 4. **Error handling is required**: Every story defines error cases - implement them all.
 5. **Verification**: Never complete until browser validation passes.
+6. **NEVER edit prd.json**: Do NOT modify `.ralph/prd.json`. Ralph handles story completion automatically after verification. You only write code and tests.
 
 ## Verification Checklist
 

@@ -1,10 +1,10 @@
 # Vibe and Thrive
 
-**Tools to help you thrive with agentic coding in the Claude CLI.**
+**Ship quality code faster with AI.**
 
-Vibe-and-thrive is a toolkit for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that helps you ship quality code faster with AI. It includes:
+Vibe-and-thrive is a toolkit for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that helps you go from idea to shipped code. It includes:
 
-- **Ralph** - Autonomous coding loop that writes, tests, and commits until done (inspired by [RALPH](https://ghuntley.com/ralph/))
+- **Ralph** - Autonomous coding loop that writes, tests, and commits until done
 - **`/vibe-check`** - Code quality audits to catch common AI-generated issues
 - **`/review`** - Security-focused code review with OWASP checks
 - **Pre-commit hooks** - Block secrets, localhost URLs, and security issues
@@ -13,104 +13,79 @@ Vibe-and-thrive is a toolkit for [Claude Code](https://docs.anthropic.com/en/doc
 
 ## Install
 
-In your project:
+### Prerequisites
+
+- Node.js 18+
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI installed and authenticated
+
+### Install
 
 ```bash
+cd your-project
 npm install vibe-and-thrive
 ```
 
-This launches an interactive setup that:
-- Installs slash commands to `.claude/commands/`
-- Sets up pre-commit hooks
-- Initializes Ralph (`.ralph/` directory)
-- Configures Chrome DevTools MCP for browser validation
+This launches an interactive setup that installs slash commands, pre-commit hooks, and Ralph.
 
-## Quick Start
+### Verify
 
-After install, open Claude Code:
-
-| New here? | Ready to build? |
-|-----------|-----------------|
-| Run `/tour` for an interactive walkthrough that explains the workflow and sets up your preferences. | Run `/idea "your feature"` to brainstorm, then `ralph run` to build it. |
-
-## How Ralph Works
-
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│             │     │             │     │             │     │             │
-│   /idea     │────▶│   Approve   │────▶│ ralph run   │────▶│    Ship     │
-│             │     │             │     │             │     │             │
-└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
-       │                   │                   │                   │
-       ▼                   ▼                   ▼                   ▼
- docs/ideas/        .ralph/prd.json      Loop until           Push to
- feature.md         with stories         all stories          remote
-                                         are done
+```bash
+claude
+> /vibe-help
 ```
 
-### 1. `/idea` → `docs/ideas/feature.md`
+If you see the command reference, you're ready to go.
 
-Describe your feature to Claude. Together you brainstorm, explore the codebase, and write a feature doc to `docs/ideas/`. You review and approve the idea.
+## How It Works
 
-### 2. Approve → `.ralph/prd.json`
+Three steps: **Spec → Tasks → Execute**
 
-Claude splits your approved idea into small, testable stories and writes them to `.ralph/prd.json`. Each story has acceptance criteria, test steps, error handling requirements, and more. You review and approve the PRD.
+### 1. Spec → `/idea`
 
-### 3. `ralph run` → Loop until done
+Brainstorm with Claude. Output: `docs/ideas/feature.md`
 
-```
-                 ┌─────────────────────────┐
-                 │   Get next story from   │
-                 │   prd.json (TODO)       │
-                 └───────────┬─────────────┘
-                             │
-                             ▼
-                 ┌─────────────────────────┐
-                 │   Claude writes code    │
-                 └───────────┬─────────────┘
-                             │
-                             ▼
-                 ┌─────────────────────────┐
-                 │   6-Step Verification   │
-                 │                         │
-                 │   1. Code review        │
-                 │   2. Lint/build         │
-                 │   3. Unit tests         │
-                 │   4. E2E/API tests      │
-                 │   5. Browser validation │
-                 │   6. PRD test steps     │
-                 └───────────┬─────────────┘
-                             │
-              ┌──────────────┴──────────────┐
-              │                             │
-              ▼                             ▼
-       ┌─────────────┐               ┌─────────────┐
-       │    DONE     │               │  NOT YET    │
-       └──────┬──────┘               └──────┬──────┘
-              │                             │
-              ▼                             │
-       ┌─────────────┐                      │
-       │ Mark story  │                      │
-       │ done in     │                      │
-       │ prd.json    │                      │
-       └──────┬──────┘                      │
-              │                             │
-              ▼                             │
-       ┌─────────────┐                      │
-       │ git commit  │                      │
-       └──────┬──────┘                      │
-              │                             │
-              ▼                             │
-       ┌─────────────┐    Save errors,      │
-       │ Next story  │    try again         │
-       └──────┬──────┘         ┌────────────┘
-              │                │
-              └────────────────┘
+### 2. Tasks → Approve PRD
+
+Break into atomic stories. Output: `.ralph/prd.json`
+
+### 3. Execute → `ralph run`
+
+Run in your **terminal** (not inside Claude). Ralph loops through stories one at a time, writes tests, verifies, and commits.
+
+## Usage
+
+### In Claude (planning)
+
+```bash
+claude
+> /idea "add user auth"
+> [review and approve idea]
+> [review and approve PRD]
+> /exit
 ```
 
-### 4. Ship
+### In Terminal (execution)
 
-All stories complete. All tests passing. All commits made. Push when ready.
+```bash
+ralph run
+```
+
+That's it. Ralph handles the rest.
+
+> **Pro tip:** Use two terminals - plan with Claude in one, run Ralph in another. This lets you monitor progress or jump back into Claude while Ralph works.
+
+## Ralph Details
+
+When you run `ralph run`, Ralph:
+
+1. Gets the next TODO story from `.ralph/prd.json`
+2. Spawns a fresh Claude session to implement it
+3. Runs 6-step verification (code review, lint, tests, e2e, browser, PRD steps)
+4. Auto-runs migrations if new migration files are detected
+5. Commits on success, retries on failure
+6. Repeats until all stories are done
+
+All stories complete → all tests passing → all commits made → push when ready.
 
 ## Commands
 

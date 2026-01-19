@@ -1,4 +1,8 @@
 {
+  "migrations": {
+    "command": "alembic upgrade head",
+    "pattern": "alembic/versions/.*\\.py$"
+  },
   "checks": {
     "lint": "ruff check .",
     "typecheck": "mypy .",

@@ -1,4 +1,8 @@
 {
+  "migrations": {
+    "command": "npx prisma migrate deploy",
+    "pattern": "prisma/migrations/.*"
+  },
   "checks": {
     "typescript": "npx tsc --noEmit",
     "lint": "npm run lint",

@@ -70,6 +70,12 @@ run_loop() {
 
     build_prompt "$story" "$failure_context" > "$prompt_file"
 
+    # Save git state before Claude runs (for migration detection)
+    local pre_story_sha=""
+    if command -v git &>/dev/null && [[ -d ".git" ]]; then
+      pre_story_sha=$(git rev-parse HEAD 2>/dev/null || echo "")
+    fi
+
     # 4. Spawn Claude (fresh context, with timeout)
     echo ""
     print_info "Running Claude for story: $story"
@@ -103,6 +109,13 @@ run_loop() {
       rm -f "$RALPH_DIR/last_test_failure.log"
       rm -f "$RALPH_DIR/last_playwright_failure.log"
       rm -f "$RALPH_DIR/last_mcp_failure.json"
+
+      # Run migrations if new migration files were created
+      if ! run_migrations_if_needed "$pre_story_sha"; then
+        log_progress "$story" "FAILED" "Migration failed"
+        print_error "Migration failed for $story, will retry..."
+        continue
+      fi
 
       # Auto-commit if git is available
       if command -v git &>/dev/null && [[ -d ".git" ]]; then
