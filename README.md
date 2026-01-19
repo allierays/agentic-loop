@@ -38,41 +38,43 @@ If you see the command reference, you're ready to go.
 
 ## How It Works
 
-Three steps: **Spec → Tasks → Execute**
-
-### 1. Spec → `/idea`
-
-Brainstorm with Claude. Output: `docs/ideas/feature.md`
-
-### 2. Tasks → Approve PRD
-
-Break into atomic stories. Output: `.ralph/prd.json`
-
-### 3. Execute → `ralph run`
-
-Run in your **terminal** (not inside Claude). Ralph loops through stories one at a time, writes tests, verifies, and commits.
-
-## Usage
-
-### In Claude (planning)
+### Step 1: Start Claude
 
 ```bash
 claude
-> /idea "add user auth"
-> [review and approve idea]
-> [review and approve PRD]
-> /exit
 ```
 
-### In Terminal (execution)
+### Step 2: Enter Plan Mode
+
+Press `Shift+Tab` twice to enter plan mode.
+
+### Step 3: Brainstorm Your Feature
+
+Describe what you want to build. Claude explores the codebase and helps you think through the design.
+
+### Step 4: Save to docs/ideas
+
+When ready, tell Claude to write the plan to `docs/ideas/your-feature.md`. Exit plan mode.
+
+### Step 5: Generate PRD
+
+```
+/prd your-feature
+```
+
+Claude converts your idea into atomic stories in `.ralph/prd.json`. Review and approve.
+
+### Step 6: Execute with Ralph
+
+Exit Claude, then in your **terminal**:
 
 ```bash
 ralph run
 ```
 
-That's it. Ralph handles the rest.
+Ralph loops through stories one at a time, writes tests, verifies, and commits.
 
-> **Pro tip:** Use two terminals - plan with Claude in one, run Ralph in another. This lets you monitor progress or jump back into Claude while Ralph works.
+> **Pro tip:** Use two terminals - plan with Claude in one, run Ralph in another.
 
 ## Ralph Details
 
