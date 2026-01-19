@@ -98,7 +98,8 @@ run_loop() {
     local timeout_seconds
     timeout_seconds=$(get_config '.maxSessionSeconds' "$DEFAULT_TIMEOUT_SECONDS")
 
-    if ! run_with_timeout "$timeout_seconds" claude -p --dangerously-skip-permissions "$(cat "$prompt_file")"; then
+    # Run Claude with output visible on terminal (like Robin's ralph)
+    if ! cat "$prompt_file" | run_with_timeout "$timeout_seconds" claude -p --dangerously-skip-permissions --verbose 2>&1 | tee /dev/tty; then
       print_warning "Claude session ended (timeout or error)"
       log_progress "$story" "TIMEOUT" "Claude session ended after ${timeout_seconds}s"
       rm -f "$prompt_file"
