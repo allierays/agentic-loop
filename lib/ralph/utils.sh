@@ -142,10 +142,15 @@ update_json() {
 create_temp_file() {
   local suffix="${1:-.tmp}"
   local tmpfile
-  tmpfile=$(mktemp "${TMPDIR:-/tmp}/ralph_XXXXXX${suffix}") || {
+  # macOS mktemp doesn't support suffixes, so create then rename
+  tmpfile=$(mktemp) || {
     print_error "Failed to create temp file"
     return 1
   }
+  if [[ "$suffix" != ".tmp" && -n "$suffix" ]]; then
+    mv "$tmpfile" "${tmpfile}${suffix}"
+    tmpfile="${tmpfile}${suffix}"
+  fi
   RALPH_TEMP_FILES+=("$tmpfile")
   echo "$tmpfile"
 }
