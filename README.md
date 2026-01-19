@@ -27,27 +27,11 @@ This launches an interactive setup that:
 
 ## Quick Start
 
-After install, open Claude Code and run:
+After install, open Claude Code:
 
-```
-/tour
-```
-
-This walks you through the workflow, auto-detects your tech stack, and sets up your preferences.
-
-Or jump right in:
-
-```
-/idea "add a contact form with email validation"
-```
-
-Review and approve the generated PRD, then:
-
-```bash
-ralph run
-```
-
-Check progress anytime with `ralph status`.
+| New here? | Ready to build? |
+|-----------|-----------------|
+| Run `/tour` for an interactive walkthrough that explains the workflow and sets up your preferences. | Run `/idea "your feature"` to brainstorm, then `ralph run` to build it. |
 
 ## How Ralph Works
 
