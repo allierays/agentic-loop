@@ -224,14 +224,24 @@ EOF
   mkdir -p "$RALPH_DIR/reviews"
   echo "$result" > "$RALPH_DIR/reviews/${story}-review.json"
 
+  # Extract JSON from markdown code blocks if present
+  local json_result
+  if echo "$result" | grep -q '```json'; then
+    json_result=$(echo "$result" | sed -n '/```json/,/```/p' | sed '1d;$d')
+  elif echo "$result" | grep -q '```'; then
+    json_result=$(echo "$result" | sed -n '/```/,/```/p' | sed '1d;$d')
+  else
+    json_result="$result"
+  fi
+
   # Check if result is valid JSON
-  if ! echo "$result" | jq -e . >/dev/null 2>&1; then
+  if ! echo "$json_result" | jq -e . >/dev/null 2>&1; then
     print_warning "    Code review returned invalid response, skipping"
     return 0
   fi
 
   local passed
-  passed=$(echo "$result" | jq -r '.pass // true' 2>/dev/null)
+  passed=$(echo "$json_result" | jq -r '.pass // true' 2>/dev/null)
 
   # Handle empty/null result
   if [[ -z "$passed" || "$passed" == "null" ]]; then
@@ -244,7 +254,7 @@ EOF
 
     # Show any warnings/info even on pass
     local warnings
-    warnings=$(echo "$result" | jq -r '.issues[] | select(.severity != "critical") | "      [\(.severity)] \(.message)"' 2>/dev/null)
+    warnings=$(echo "$json_result" | jq -r '.issues[] | select(.severity != "critical") | "      [\(.severity)] \(.message)"' 2>/dev/null)
     if [[ -n "$warnings" ]]; then
       echo "    Notes:"
       echo "$warnings"
@@ -256,12 +266,12 @@ EOF
 
     # Show all issues
     echo "    Issues found:"
-    echo "$result" | jq -r '.issues[] | "      [\(.severity)] \(.category): \(.message)"' 2>/dev/null
+    echo "$json_result" | jq -r '.issues[] | "      [\(.severity)] \(.category): \(.message)"' 2>/dev/null
     echo ""
-    echo "    Summary: $(echo "$result" | jq -r '.summary // "Review failed"' 2>/dev/null)"
+    echo "    Summary: $(echo "$json_result" | jq -r '.summary // "Review failed"' 2>/dev/null)"
 
     # Save for failure context
-    echo "$result" > "$RALPH_DIR/last_review_failure.json"
+    echo "$json_result" > "$RALPH_DIR/last_review_failure.json"
     return 1
   fi
 }
