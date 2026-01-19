@@ -106,12 +106,12 @@ All stories complete → all tests passing → all commits made → push when re
 
 | Command | What it does |
 |---------|--------------|
-| `ralph run` | Start autonomous loop |
-| `ralph status` | Check progress |
-| `ralph check` | Run verification only |
-| `ralph verify US-001` | Verify specific story |
-| `ralph signs` | Show learned patterns |
-| `ralph sign "pattern"` | Teach Ralph a pattern |
+| `npx ralph run` | Start autonomous loop |
+| `npx ralph status` | Check progress |
+| `npx ralph check` | Run verification only |
+| `npx ralph verify US-001` | Verify specific story |
+| `npx ralph signs` | Show learned patterns |
+| `npx ralph sign "pattern"` | Teach Ralph a pattern |
 
 ## License
 
