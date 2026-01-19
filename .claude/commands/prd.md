@@ -47,16 +47,22 @@ I'll now split this into {N} stories for Ralph. Continue?"
 ### Step 3: Check for Existing PRD
 
 ```bash
-ls .ralph/prd.json 2>/dev/null
+cat .ralph/prd.json 2>/dev/null
 ```
 
-If it exists, warn:
-"⚠️  `.ralph/prd.json` already exists. Options:
-- **'overwrite'** - Replace it
-- **'archive'** - Move to `.ralph/archive/` first
+If it exists, read it and say:
+"📋 `.ralph/prd.json` exists with {N} stories ({M} completed, {P} pending).
+
+Options:
+- **'append'** - Add new stories to the existing PRD (recommended)
+- **'overwrite'** - Replace it entirely
 - **'cancel'** - Stop here"
 
 **STOP and wait for user choice.**
+
+If user chooses **'append'**:
+- Note the highest existing story ID (e.g., if US-005 exists, new stories start at US-006)
+- New stories will be added after existing ones
 
 ### Step 4: Split into Stories
 
@@ -66,6 +72,7 @@ Break the idea into small, executable stories:
 - Max 3-4 acceptance criteria per story
 - Order by dependency
 - Max 10 stories (suggest phases if more needed)
+- If appending, start IDs from the next available number
 
 ### Step 5: Write PRD
 
@@ -74,14 +81,16 @@ Break the idea into small, executable stories:
    mkdir -p .ralph
    ```
 
-2. Write to `.ralph/prd.json`
+2. Write to `.ralph/prd.json`:
+   - If **overwriting** or no existing PRD: Create new file with full structure
+   - If **appending**: Read existing JSON, add new stories to the `stories` array, update `metadata.estimatedStories` count, write back
 
 3. Open for review:
    ```bash
    open -a TextEdit .ralph/prd.json
    ```
 
-4. Say: "I've created the PRD with {N} stories.
+4. Say: "I've {created|updated} the PRD with {N} stories ({X} new).
 
    Review `.ralph/prd.json` and let me know:
    - **'approved'** - Ready for `ralph run`
