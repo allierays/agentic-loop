@@ -6,6 +6,9 @@
 
 set -euo pipefail
 
+# Handle Ctrl+C - kill all child processes
+trap 'echo ""; echo "Interrupted. Stopping..."; kill 0 2>/dev/null; exit 130' INT TERM
+
 # Get the directory where ralph.sh is installed (works even via symlink)
 get_script_dir() {
   local source="${BASH_SOURCE[0]}"
