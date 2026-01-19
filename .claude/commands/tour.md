@@ -51,56 +51,7 @@ Skip this step entirely. Move to Step 3.
 
 ---
 
-## Step 3: What's Next?
-
-Use AskUserQuestion:
-- **Question:** "What would you like to do?"
-- **Header:** "Next step"
-- **Options:**
-  - **Walk me through the workflow** - "See how /idea → ralph → ship works"
-  - **Show quick reference** - "Just the commands cheatsheet"
-  - **I'm good, let me explore** - "You know where to find me"
-
----
-
-### If "Walk me through the workflow":
-
-Print this:
-
-```
-The System: Idea → PRD → Ralph → Ship
-
-┌─────────────────────────────────────────────────┐
-│  /idea "add user auth"                          │
-│      ↓                                          │
-│  Brainstorm → Write idea doc → You approve      │
-│      ↓                                          │
-│  Auto-split into testable stories (PRD)         │
-│      ↓                                          │
-│  ralph run                                      │
-│      ↓                                          │
-│  Autonomous loop: code → verify → fix → repeat  │
-│      ↓                                          │
-│  All tests pass → commit → next story           │
-│      ↓                                          │
-│  Done! Pre-commit hooks guard the code.         │
-└─────────────────────────────────────────────────┘
-```
-
-Then say:
-
-"**Try it:** Run `/idea "your feature here"` to start.
-
-**Key commands:**
-- `/idea` - Brainstorm and create PRDs
-- `ralph run` - Execute PRDs autonomously
-- `ralph status` - Check progress
-- `/review` - Review changes before committing
-- `/vibe-check` - Audit code quality"
-
----
-
-### If "Show quick reference":
+## Step 3: Quick Reference
 
 Print this:
 
@@ -119,14 +70,10 @@ Quality:
   ralph check         Run verification
 
 Other:
-  /my-dna             Personal preferences
+  /my-dna             Set project values and voice
   /explain            Understand code
   /styleguide         Generate design system
   /vibe-help          This cheatsheet
 ```
 
----
-
-### If "I'm good, let me explore":
-
-Say: "You got it! I'm here when you need me. Try `/vibe-help` for a quick reference anytime."
+Say: "You're all set. Run `/idea "your feature"` to get started."
