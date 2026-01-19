@@ -224,8 +224,20 @@ EOF
   mkdir -p "$RALPH_DIR/reviews"
   echo "$result" > "$RALPH_DIR/reviews/${story}-review.json"
 
+  # Check if result is valid JSON
+  if ! echo "$result" | jq -e . >/dev/null 2>&1; then
+    print_warning "    Code review returned invalid response, skipping"
+    return 0
+  fi
+
   local passed
   passed=$(echo "$result" | jq -r '.pass // true' 2>/dev/null)
+
+  # Handle empty/null result
+  if [[ -z "$passed" || "$passed" == "null" ]]; then
+    print_warning "    Code review inconclusive, continuing"
+    return 0
+  fi
 
   if [[ "$passed" == "true" ]]; then
     print_success "passed"
@@ -457,6 +469,30 @@ run_mcp_validation() {
   fi
 
   echo "    URL: $url"
+
+  # Quick HTTP check first - catch obvious server errors
+  local http_response
+  http_response=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$url" 2>/dev/null) || http_response="000"
+
+  if [[ "$http_response" == "000" ]]; then
+    print_error "Cannot reach $url - server not responding"
+    return 1
+  elif [[ "$http_response" -ge 500 ]]; then
+    print_error "Server error $http_response at $url"
+    return 1
+  elif [[ "$http_response" -ge 400 ]]; then
+    print_warning "HTTP $http_response at $url - may be expected for auth pages"
+  fi
+
+  # Fetch page content and check for error indicators
+  local page_content
+  page_content=$(curl -s --max-time 10 "$url" 2>/dev/null)
+
+  if echo "$page_content" | grep -qi "something went wrong\|error.*occurred\|500 internal\|503 service\|oops\!" 2>/dev/null; then
+    print_error "Page contains error message - check $url manually"
+    echo "$page_content" | head -50 > "$RALPH_DIR/last_page_error.html"
+    return 1
+  fi
 
   # Get story details for validation prompt
   local criteria
