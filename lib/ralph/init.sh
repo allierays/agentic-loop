@@ -95,7 +95,7 @@ ralph_status() {
 
     # Show stories
     echo "Stories:"
-    jq -r '.stories[] | "  \(.id): \(.title) [\(if .passes then "PASS" else "FAIL" end)]"' "$RALPH_DIR/prd.json" 2>/dev/null || echo "  (none)"
+    jq -r '.stories[] | "  \(.id): \(.title) [\(if .passes then "DONE" else "TODO" end)]"' "$RALPH_DIR/prd.json" 2>/dev/null || echo "  (none)"
 
     # Count pass/fail
     local total passed failed

@@ -152,9 +152,11 @@ create_temp_file() {
 
 # Clean up only tracked temp files on exit
 cleanup() {
-  for f in "${RALPH_TEMP_FILES[@]}"; do
-    rm -f "$f" 2>/dev/null
-  done
+  if [[ ${#RALPH_TEMP_FILES[@]} -gt 0 ]]; then
+    for f in "${RALPH_TEMP_FILES[@]}"; do
+      rm -f "$f" 2>/dev/null
+    done
+  fi
 }
 
 # Set up trap for cleanup
