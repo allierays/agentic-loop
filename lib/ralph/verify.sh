@@ -215,7 +215,7 @@ EOF
   echo "    Reviewing changes..."
 
   local result
-  result=$(echo "$prompt" | claude -p 2>/dev/null) || {
+  result=$(echo "$prompt" | claude -p --dangerously-skip-permissions 2>/dev/null) || {
     print_warning "    Code review skipped (Claude unavailable)"
     return 0
   }
@@ -515,7 +515,7 @@ EOF
   echo "    Running MCP validation..."
 
   local result
-  result=$(echo "$prompt" | claude -p 2>/dev/null) || {
+  result=$(echo "$prompt" | claude -p --dangerously-skip-permissions 2>/dev/null) || {
     print_warning "    MCP validation skipped (Claude unavailable)"
     return 0
   }
