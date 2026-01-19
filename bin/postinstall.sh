@@ -78,45 +78,54 @@ generate_claude_md() {
   # Skip if we already added our section
   [[ -f "CLAUDE.md" ]] && grep -q "$marker" "CLAUDE.md" 2>/dev/null && return 0
 
-  # Detect runtime/language
-  [[ -f "package.json" ]] && runtime="Node.js"
+  # Detect runtime/language (check root and common monorepo paths)
+  local fe_dir=""
+  [[ -d "frontend" ]] && fe_dir="frontend"
+  [[ -d "client" ]] && fe_dir="client"
+  [[ -d "web" ]] && fe_dir="web"
+
+  [[ -f "package.json" || -f "${fe_dir}/package.json" ]] && runtime="Node.js"
   [[ -f "Cargo.toml" ]] && runtime="Rust"
   [[ -f "go.mod" ]] && runtime="Go"
-  [[ -f "pyproject.toml" || -f "requirements.txt" ]] && runtime="Python"
+  [[ -f "pyproject.toml" || -f "requirements.txt" || -f "manage.py" ]] && runtime="${runtime:+$runtime + }Python"
   [[ -f "Gemfile" ]] && runtime="Ruby"
 
-  # Detect framework
-  if [[ -f "package.json" ]]; then
-    grep -q '"next"' package.json 2>/dev/null && framework="Next.js"
-    grep -q '"react"' package.json 2>/dev/null && [[ -z "$framework" ]] && framework="React"
-    grep -q '"vue"' package.json 2>/dev/null && framework="Vue"
-    grep -q '"svelte"' package.json 2>/dev/null && framework="Svelte"
-    grep -q '"express"' package.json 2>/dev/null && framework="${framework:+$framework + }Express"
+  # Detect framework (check root and frontend dir)
+  local pkg="package.json"
+  [[ -n "$fe_dir" && -f "${fe_dir}/package.json" ]] && pkg="${fe_dir}/package.json"
+
+  if [[ -f "$pkg" ]]; then
+    grep -q '"next"' "$pkg" 2>/dev/null && framework="Next.js"
+    grep -q '"react"' "$pkg" 2>/dev/null && [[ -z "$framework" ]] && framework="React"
+    grep -q '"vue"' "$pkg" 2>/dev/null && framework="Vue"
+    grep -q '"svelte"' "$pkg" 2>/dev/null && framework="Svelte"
+    grep -q '"express"' "$pkg" 2>/dev/null && framework="${framework:+$framework + }Express"
   fi
-  [[ -f "manage.py" ]] && framework="Django"
+  [[ -f "manage.py" ]] && framework="${framework:+$framework + }Django"
   [[ -f "Cargo.toml" ]] && grep -q "actix" Cargo.toml 2>/dev/null && framework="Actix"
   [[ -f "Cargo.toml" ]] && grep -q "axum" Cargo.toml 2>/dev/null && framework="Axum"
 
   # Detect TypeScript
-  [[ -f "tsconfig.json" ]] && language="TypeScript"
+  [[ -f "tsconfig.json" || -f "${fe_dir}/tsconfig.json" ]] && language="TypeScript"
 
   # Detect styling
-  [[ -f "tailwind.config.js" || -f "tailwind.config.ts" ]] && styling="Tailwind CSS"
+  [[ -f "tailwind.config.js" || -f "tailwind.config.ts" || -f "${fe_dir}/tailwind.config.js" || -f "${fe_dir}/tailwind.config.ts" ]] && styling="Tailwind CSS"
 
   # Detect testing
   [[ -f "vitest.config.ts" || -f "vitest.config.js" ]] && testing="Vitest"
   [[ -f "jest.config.js" || -f "jest.config.ts" ]] && testing="Jest"
   [[ -f "playwright.config.ts" || -f "playwright.config.js" ]] && testing="${testing:+$testing + }Playwright"
-  [[ -f "pytest.ini" || -f "pyproject.toml" ]] && grep -q "pytest" pyproject.toml 2>/dev/null && testing="pytest"
+  [[ -f "pytest.ini" ]] && testing="${testing:+$testing + }pytest"
+  [[ -f "pyproject.toml" ]] && grep -q "pytest" pyproject.toml 2>/dev/null && testing="${testing:+$testing + }pytest"
 
   # Detect structure
-  [[ -d "src/components" ]] && structure="- Components: \`src/components/\`"
-  [[ -d "src/hooks" ]] && structure="${structure:+$structure
+  [[ -d "src/components" || -d "${fe_dir}/src/components" || -d "${fe_dir}/components" ]] && structure="- Components: \`src/components/\` or \`${fe_dir}/\`"
+  [[ -d "src/hooks" || -d "${fe_dir}/src/hooks" ]] && structure="${structure:+$structure
 }- Hooks: \`src/hooks/\`"
-  [[ -d "src/api" || -d "app/api" ]] && structure="${structure:+$structure
-}- API: \`src/api/\` or \`app/api/\`"
-  [[ -d "tests" || -d "__tests__" ]] && structure="${structure:+$structure
-}- Tests: \`tests/\` or \`__tests__/\`"
+  [[ -d "src/api" || -d "app/api" || -d "${fe_dir}/app/api" ]] && structure="${structure:+$structure
+}- API routes"
+  [[ -d "tests" || -d "__tests__" || -d "${fe_dir}/tests" ]] && structure="${structure:+$structure
+}- Tests: \`tests/\`"
 
   # Build detected info section
   local detected_section="
