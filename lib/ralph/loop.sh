@@ -178,12 +178,81 @@ build_prompt() {
   echo "$story_json"
   echo '```'
 
+  # Extract file guidance if present
+  local has_files
+  has_files=$(echo "$story_json" | jq -r '.files // empty' 2>/dev/null)
+  if [[ -n "$has_files" ]]; then
+    echo ""
+    echo "### File Guidance for This Story"
+    echo ""
+    echo "**Create these files:**"
+    echo "$story_json" | jq -r '.files.create[]? // empty' | sed 's/^/- /'
+    echo ""
+    echo "**Modify these files:**"
+    echo "$story_json" | jq -r '.files.modify[]? // empty' | sed 's/^/- /'
+    echo ""
+    echo "**Reuse/import from:**"
+    echo "$story_json" | jq -r '.files.reuse[]? // empty' | sed 's/^/- /'
+  fi
+
+  # Extract scalability guidance if present (for backend stories)
+  local has_scale
+  has_scale=$(echo "$story_json" | jq -r '.scale // empty' 2>/dev/null)
+  if [[ -n "$has_scale" ]]; then
+    echo ""
+    echo "### Scalability Requirements for This Story"
+    echo ""
+    echo "$story_json" | jq -r '.scale | to_entries[] | "- **\(.key):** \(.value)"' 2>/dev/null
+  fi
+
   echo ""
   echo "## Feature Context"
   echo ""
   echo '```json'
   jq '{feature: .feature, metadata: .metadata}' "$RALPH_DIR/prd.json"
   echo '```'
+
+  # Include scalability if defined
+  local has_scalability
+  has_scalability=$(jq -r '.scalability // empty' "$RALPH_DIR/prd.json" 2>/dev/null)
+  if [[ -n "$has_scalability" ]]; then
+    echo ""
+    echo "## Scalability Requirements"
+    echo ""
+    echo "**IMPORTANT:** Follow these scalability rules."
+    echo ""
+    echo '```json'
+    jq '.scalability' "$RALPH_DIR/prd.json"
+    echo '```'
+    echo ""
+    echo "### Key Rules:"
+    echo "- Always paginate list endpoints (never return unbounded arrays)"
+    echo "- Avoid N+1 queries - eager load relationships"
+    echo "- Add database indexes for frequently queried fields"
+    echo "- Implement caching strategy as specified"
+    echo "- Add rate limiting to public endpoints"
+  fi
+
+  # Include architecture if defined
+  local has_architecture
+  has_architecture=$(jq -r '.architecture // empty' "$RALPH_DIR/prd.json" 2>/dev/null)
+  if [[ -n "$has_architecture" ]]; then
+    echo ""
+    echo "## Architecture Guidelines"
+    echo ""
+    echo "**IMPORTANT:** Follow these architecture rules strictly."
+    echo ""
+    echo '```json'
+    jq '.architecture' "$RALPH_DIR/prd.json"
+    echo '```'
+    echo ""
+    echo "### Key Rules:"
+    echo "- Put files in the specified directories"
+    echo "- Reuse existing components listed in 'patterns.reuse'"
+    echo "- Do NOT create anything in 'doNotCreate'"
+    echo "- Keep files under $(jq -r '.architecture.principles.maxFileLines // 300' "$RALPH_DIR/prd.json") lines"
+    echo "- Scripts go in scripts/, docs go in docs/"
+  fi
 
   # Include failure context from previous iteration if available
   if [[ -n "$failure_context" ]]; then

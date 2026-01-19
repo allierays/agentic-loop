@@ -30,16 +30,24 @@ Claude enters plan mode and helps you:
 
 ### Step 2: Approve the PRD
 
-Review the idea file, then approve. Claude splits it into small, executable stories:
+Review the idea file, then approve. Claude splits it into small, executable stories with:
+- **Architecture** - Where to put files, what to reuse, naming conventions
+- **Scalability** - Pagination, caching, indexes, rate limits
+- **Files** - Exactly which files to create/modify/reuse
 
 ```json
 {
+  "architecture": {
+    "directories": { "api": "src/api/", "types": "src/types/" },
+    "doNotCreate": ["New fetch wrapper (use existing)"]
+  },
   "stories": [
     {
       "id": "US-001",
       "title": "Add OAuth provider configuration",
+      "files": { "create": ["src/api/auth/config.ts"], "reuse": ["src/lib/db.ts"] },
       "acceptanceCriteria": ["..."],
-      "testSteps": ["curl /api/auth/config returns 200"]
+      "scale": { "caching": "cache for 1hr", "rateLimit": "100/min" }
     }
   ]
 }

@@ -184,8 +184,11 @@ Check for these issues:
 3. **Edge cases** - Null/undefined checks, empty arrays, boundary conditions
 4. **Code quality** - Unused variables, dead code, overly complex logic
 5. **Performance** - N+1 queries, unnecessary re-renders, memory leaks
-6. **Accessibility** - Missing ARIA labels, keyboard navigation, color contrast (if frontend)
-7. **Story compliance** - Does the code actually implement what the story requires?
+6. **Scalability** - Unbounded queries? Missing pagination? Missing indexes? No caching strategy?
+7. **Accessibility** - Missing ARIA labels, keyboard navigation, color contrast (if frontend)
+8. **Story compliance** - Does the code actually implement what the story requires?
+9. **Architecture** - Files in correct directories? Reusing existing components? File size < 300 lines?
+10. **No duplication** - Creating something that already exists? Reinventing utilities?
 
 ## Response Format
 
@@ -195,7 +198,7 @@ Respond with ONLY a JSON object:
   "issues": [
     {
       "severity": "critical|warning|info",
-      "category": "security|error-handling|edge-case|quality|performance|a11y|compliance",
+      "category": "security|error-handling|edge-case|quality|performance|scalability|a11y|architecture|compliance",
       "file": "path/to/file",
       "line": 123,
       "message": "Description of the issue",

@@ -45,8 +45,10 @@ ralph_init() {
   echo ""
   echo "Next steps:"
   echo "  1. Review and customize .ralph/config.json"
-  echo "  2. Generate PRD: ralph prd 'your feature notes...'"
-  echo "  3. Start loop:   ralph run"
+  echo "  2. Generate PRD:"
+  echo "     - Thorough: /idea 'feature description' (brainstorm + architecture + scalability)"
+  echo "     - Quick:    ralph prd 'feature description' (basic PRD)"
+  echo "  3. Start loop: ralph run"
 }
 
 # Detect the type of project based on files present
@@ -129,7 +131,7 @@ Usage:
 
 Commands:
   init                    Initialize ralph in current directory
-  prd <notes>             Generate PRD interactively from notes
+  prd <notes>             Generate PRD interactively (quick mode)
   prd --file <file>       Generate PRD from file
   run                     Run autonomous loop until all stories pass
   run --max <n>           Run with max iterations (default: 20)
@@ -140,10 +142,14 @@ Commands:
   signs                   List all learned patterns
   help                    Show this help message
 
+PRD Generation:
+  /idea <description>     Thorough brainstorm with architecture & scalability
+  ralph prd <description> Quick PRD with basic structure
+
 Examples:
   ralph init
-  ralph prd "Add user authentication with OAuth"
-  ralph prd --file docs/feature-spec.md
+  /idea "Add user authentication with OAuth"   # thorough
+  ralph prd "Add a contact form"               # quick
   ralph run
   ralph run --max 10
   ralph status

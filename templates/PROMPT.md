@@ -109,6 +109,30 @@ If you encounter a blocker you cannot resolve:
 - Use meaningful variable and function names
 - Add data-testid attributes for Playwright
 
+## Architecture Rules
+
+- **Put files in the right place**: Follow the directories specified in the PRD
+- **Reuse existing code**: Check for existing components/utils before creating new ones
+- **Don't duplicate**: If something exists, import and use it
+- **Max 300 lines per file**: Split large files into smaller, focused modules
+- **Scripts in scripts/**: Shell scripts and CLI tools go in scripts/ or bin/
+- **Docs in docs/**: Documentation files go in docs/
+- **Single responsibility**: Each file/function does one thing well
+
+## Scalability Rules
+
+For list/query endpoints:
+- **Always paginate**: Never return unbounded arrays
+- **Use cursor-based pagination**: When specified in the PRD
+- **Add database indexes**: For frequently queried fields
+- **Implement caching**: As specified in the PRD (TTL, invalidation)
+- **Eager load relationships**: To avoid N+1 queries
+
+For all endpoints:
+- **Rate limit public endpoints**: As specified in the PRD
+- **Set sensible limits**: Max page size, max request body size
+- **Batch operations**: Use bulk inserts when creating many records
+
 ---
 
 ## Current Story

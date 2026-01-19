@@ -32,9 +32,22 @@ In plan mode, help the user flesh out the idea:
    - Edge cases (what could go wrong)
    - Dependencies (what does this touch)
    - Security/permissions (who can do what)
-4. **Design the approach** - How should this be built?
+   - Scale (how many users/items/requests? what happens at 10x?)
+4. **Map the architecture** - Where should code live? What patterns to follow?
+5. **Design the approach** - How should this be built?
 
 Take your time. This is the creative phase.
+
+### Step 2b: Architecture Discovery
+
+Before designing, explore the codebase to understand:
+
+1. **Directory structure** - Run `ls -la` and `find . -type d -name "src" -o -name "lib" -o -name "app"` to map the project
+2. **Existing patterns** - Look for similar features and note how they're organized
+3. **Naming conventions** - Check existing files for PascalCase, camelCase, kebab-case usage
+4. **Reusable components** - Identify existing utilities, components, hooks to reuse
+
+Document findings in your plan before proceeding.
 
 ### Step 3: Write the Idea File
 
@@ -66,8 +79,29 @@ When the brainstorm feels complete, write a markdown file:
    ### Out of Scope
    - ...
 
+   ## Architecture
+   ### Directory Structure
+   - Where new files should go (be specific: `src/components/forms/`, not just `src/`)
+   - Scripts go in `scripts/` or `bin/`
+   - Docs go in `docs/`
+   - Tests mirror source structure
+
+   ### Patterns to Follow
+   - Existing components/utilities to reuse (don't reinvent)
+   - Naming conventions (PascalCase, camelCase, etc.)
+   - File size guidance (split if > 300 lines)
+
+   ### Do NOT Create
+   - List things that already exist (avoid duplication)
+
+   ## Scalability
+   - Expected scale (users, items, requests per second)
+   - Pagination strategy (offset, cursor, keyset)
+   - Caching strategy (what to cache, TTL, invalidation)
+   - Rate limiting (if applicable)
+   - Database considerations (indexes, query optimization)
+
    ## Technical Notes
-   - Existing patterns to follow
    - Dependencies
    - Security considerations
 
@@ -114,6 +148,69 @@ Generate the PRD JSON structure. **Each story must define error handling and edg
     "estimatedStories": 5,
     "complexity": "low|medium|high"
   },
+  "scalability": {
+    "expectedScale": {
+      "users": "100s | 1000s | 10000s+",
+      "itemsPerList": 100,
+      "requestsPerMinute": 1000
+    },
+    "pagination": {
+      "strategy": "cursor | offset | none",
+      "pageSize": 20,
+      "maxPageSize": 100
+    },
+    "caching": {
+      "strategy": "none | in-memory | redis | cdn",
+      "ttlSeconds": 300,
+      "invalidateOn": ["create", "update", "delete"]
+    },
+    "rateLimiting": {
+      "enabled": false,
+      "requestsPerMinute": 60,
+      "scope": "user | ip | global"
+    },
+    "database": {
+      "indexes": ["fields that need indexes"],
+      "avoidNPlusOne": ["relationships to eager load"],
+      "batchOperations": ["operations that should batch"]
+    }
+  },
+  "architecture": {
+    "directories": {
+      "components": "src/components/{feature}/",
+      "api": "src/api/",
+      "types": "src/types/",
+      "utils": "src/utils/",
+      "tests": "tests/{feature}/",
+      "scripts": "scripts/",
+      "docs": "docs/"
+    },
+    "patterns": {
+      "reuse": [
+        "Use existing Button from src/components/ui",
+        "Use existing validation utils from src/utils/validation"
+      ],
+      "follow": [
+        "Match existing form patterns in src/components/forms/",
+        "Follow API route structure in src/api/"
+      ]
+    },
+    "naming": {
+      "components": "PascalCase (e.g., ContactForm.tsx)",
+      "utilities": "camelCase (e.g., validateEmail.ts)",
+      "constants": "SCREAMING_SNAKE_CASE",
+      "files": "kebab-case for non-component files"
+    },
+    "principles": {
+      "maxFileLines": 300,
+      "singleResponsibility": true,
+      "domainDrivenDirs": true
+    },
+    "doNotCreate": [
+      "New button component (use existing)",
+      "Custom fetch wrapper (use existing apiClient)"
+    ]
+  },
   "stories": [
     // FRONTEND STORY EXAMPLE
     {
@@ -122,6 +219,20 @@ Generate the PRD JSON structure. **Each story must define error handling and edg
       "title": "User can submit contact form",
       "passes": false,
       "testUrl": "http://localhost:3000/contact",
+
+      "files": {
+        "create": [
+          "src/components/contact/ContactForm.tsx",
+          "src/components/contact/ContactForm.test.tsx"
+        ],
+        "modify": [
+          "src/pages/contact.tsx"
+        ],
+        "reuse": [
+          "src/components/ui/Button.tsx",
+          "src/utils/validation.ts"
+        ]
+      },
 
       "acceptanceCriteria": [
         "Form has name, email, message fields",
@@ -154,13 +265,26 @@ Generate the PRD JSON structure. **Each story must define error handling and edg
       "dependsOn": []
     },
 
-    // BACKEND STORY EXAMPLE
+    // BACKEND STORY EXAMPLE (CREATE - no pagination needed)
     {
       "id": "US-002",
       "type": "backend",
       "title": "Contact form API endpoint",
       "passes": false,
       "apiEndpoints": ["POST /api/contact"],
+
+      "files": {
+        "create": [
+          "src/api/contact/route.ts",
+          "src/api/contact/route.test.ts",
+          "src/types/contact.ts"
+        ],
+        "modify": [],
+        "reuse": [
+          "src/lib/db.ts",
+          "src/utils/validation.ts"
+        ]
+      },
 
       "acceptanceCriteria": [
         "Accepts name, email, message",
@@ -182,6 +306,10 @@ Generate the PRD JSON structure. **Each story must define error handling and edg
 
       "auth": "None (public endpoint)",
 
+      "scale": {
+        "rateLimit": "60 req/min per IP"
+      },
+
       "testSteps": [
         "curl -X POST /api/contact with valid data → 201",
         "curl -X POST /api/contact with missing email → 400",
@@ -189,6 +317,62 @@ Generate the PRD JSON structure. **Each story must define error handling and edg
       ],
 
       "dependsOn": []
+    },
+
+    // BACKEND STORY EXAMPLE (LIST - needs pagination, caching, indexes)
+    {
+      "id": "US-003",
+      "type": "backend",
+      "title": "List contacts API endpoint",
+      "passes": false,
+      "apiEndpoints": ["GET /api/contacts"],
+
+      "files": {
+        "create": [
+          "src/api/contacts/route.ts",
+          "src/api/contacts/route.test.ts"
+        ],
+        "modify": [],
+        "reuse": [
+          "src/lib/db.ts",
+          "src/utils/pagination.ts"
+        ]
+      },
+
+      "acceptanceCriteria": [
+        "Returns paginated list of contacts",
+        "Supports cursor-based pagination",
+        "Returns 200 with items and nextCursor"
+      ],
+
+      "errorHandling": [
+        "Returns 400 if invalid cursor",
+        "Returns 401 if not authenticated",
+        "Returns 500 with message if DB fails"
+      ],
+
+      "validation": {
+        "cursor": "optional, valid base64 string",
+        "limit": "optional, 1-100, default 20"
+      },
+
+      "auth": "Required (admin only)",
+
+      "scale": {
+        "pagination": "cursor-based, 20 per page, max 100",
+        "caching": "cache list for 5 min, invalidate on create/update/delete",
+        "indexes": ["created_at", "email"],
+        "eagerLoad": [],
+        "rateLimit": "100 req/min per user"
+      },
+
+      "testSteps": [
+        "curl -X GET /api/contacts → 200 with items[]",
+        "curl -X GET /api/contacts?limit=5 → 200 with 5 items",
+        "curl -X GET /api/contacts without auth → 401"
+      ],
+
+      "dependsOn": ["US-002"]
     }
   ]
 }
@@ -196,20 +380,24 @@ Generate the PRD JSON structure. **Each story must define error handling and edg
 
 ### Required Fields by Story Type
 
-**Frontend stories MUST have:**
-- `testUrl` - URL to test
+**All stories MUST have:**
+- `files` - Explicit file paths (create, modify, reuse)
 - `acceptanceCriteria` - What it should do
 - `errorHandling` - What happens when things fail
+
+**Frontend stories MUST also have:**
+- `testUrl` - URL to test
 - `loadingState` - What shows during async operations
 - `a11y` - Accessibility requirements
 - `mobile` - How it works on mobile
 
-**Backend stories MUST have:**
+**Backend stories MUST also have:**
 - `apiEndpoints` - Endpoints to test
-- `acceptanceCriteria` - What it should do
-- `errorHandling` - Error responses (400, 401, 500)
 - `validation` - Input validation rules
 - `auth` - Authentication requirements
+- `scale` - Always include:
+  - `rateLimit` - For all public endpoints
+  - `pagination`, `caching`, `indexes`, `eagerLoad` - For GET list/query endpoints only
 
 ### Step 6: Write PRD and Review
 
@@ -254,6 +442,7 @@ Ralph will work through each story, running tests and committing as it goes. You
 
 ## Guidelines
 
+### Story Guidelines
 - **Keep stories small** - If a story has more than 3-4 acceptance criteria, split it
 - **Make test steps concrete** - "User can see X" is vague; "curl /api/x returns 200 with {field}" is testable
 - **Order by dependency** - Stories that depend on others should come later
@@ -263,6 +452,28 @@ Ralph will work through each story, running tests and committing as it goes. You
 - **Think about edge cases** - Empty states, loading states, validation errors
 - **Consider accessibility** - Frontend stories need a11y requirements
 - **Consider mobile** - Frontend stories need mobile behavior defined
+
+### Architecture Guidelines
+- **Domain-driven directories** - Group by feature, not by type (e.g., `src/contact/` not `src/components/`)
+- **Scripts in scripts/** - Shell scripts, build scripts, CLI tools
+- **Docs in docs/** - Documentation, ADRs, guides
+- **Tests mirror source** - `src/foo/bar.ts` → `src/foo/bar.test.ts` or `tests/foo/bar.test.ts`
+- **Max 300 lines per file** - Split large files into smaller, focused modules
+- **Single responsibility** - Each file/function does one thing well
+- **Reuse over recreate** - Always check for existing utilities before creating new ones
+- **Explicit file paths** - Every story must specify exactly which files to create/modify
+- **No orphan files** - Every new file must be imported/used somewhere
+- **Consistent naming** - Follow project's existing conventions
+
+### Scalability Guidelines
+- **Always paginate lists** - Never return unbounded arrays; use cursor or offset pagination
+- **Think about N+1** - Specify relationships to eager load, avoid loops with DB calls
+- **Cache read-heavy endpoints** - Specify TTL and invalidation strategy
+- **Add indexes early** - Specify indexes for frequently queried fields
+- **Rate limit public endpoints** - Prevent abuse on unauthenticated routes
+- **Batch where possible** - Bulk inserts, batch API calls, queue heavy operations
+- **Set sensible limits** - Max page size, max request body, max file upload
+- **Plan for 10x** - If you expect 100 users, design for 1000
 
 ## Error Handling
 
