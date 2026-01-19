@@ -50,7 +50,16 @@ main() {
       ralph_prd "$@"
       ;;
     run)
+      # Clear any previous stop signal
+      rm -f "$RALPH_DIR/.stop"
       run_loop "$@"
+      ;;
+    stop)
+      # Signal the loop to stop after current story
+      mkdir -p "$RALPH_DIR"
+      touch "$RALPH_DIR/.stop"
+      echo "Stop signal sent. Ralph will stop after current story completes."
+      echo "(Use Ctrl+C to force stop immediately)"
       ;;
     status)
       ralph_status "$@"

@@ -30,6 +30,13 @@ run_loop() {
   local iteration=0
 
   while [[ $iteration -lt $max_iterations ]]; do
+    # Check for stop signal
+    if [[ -f "$RALPH_DIR/.stop" ]]; then
+      rm -f "$RALPH_DIR/.stop"
+      print_warning "Stop signal received. Exiting gracefully."
+      return 0
+    fi
+
     ((iteration++))
     echo ""
     print_info "=== Iteration $iteration/$max_iterations ==="
