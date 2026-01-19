@@ -183,7 +183,7 @@ Ralph will work through each story, running tests and committing as it goes."
   },
   "stories": [
     {
-      "id": "US-001",
+      "id": "TASK-001",
       "type": "frontend|backend",
       "title": "Short description",
       "passes": false,
@@ -203,10 +203,12 @@ Ralph will work through each story, running tests and committing as it goes."
       ],
 
       "testSteps": [
-        "How to verify it works"
+        "MUST be executable shell commands - see examples below"
       ],
 
-      "dependsOn": []
+      "dependsOn": [],
+
+      "notes": ""
     }
   ]
 }
@@ -229,11 +231,71 @@ Ralph will work through each story, running tests and committing as it goes."
 ## Guidelines
 
 ### Story Guidelines
-- **Keep stories small** - Max 3-4 acceptance criteria per story
-- **Make test steps concrete** - "curl /api/x returns 200" not "user can see X"
+- **Keep stories small** - Max 3-4 acceptance criteria per story, ~1000 tokens max description
 - **Order by dependency** - Stories that depend on others come later
 - **Max 10 stories** - If more, suggest splitting into phases
 - **Define error handling** - Every story specifies what happens on failure
+- **Notes field** - Claude fills this as it works (files created, decisions made, context for next story)
+
+### Context Size Limits
+Each story must be completable in ONE Claude session without context overflow:
+- **Max ~1000 tokens** for story description (title + criteria + error handling)
+- **Max 3-4 files** created or modified per story
+- If a story feels too big, split it
+
+### UI Stories Must Include Browser Verification
+For frontend stories, acceptance criteria MUST include:
+- "Page loads without console errors"
+- "Required elements render" (specify which: header, form, button, etc.)
+- "Works on mobile viewport (375px)"
+
+These get verified by Playwright, not just code review.
+
+### Test Steps - CRITICAL
+**Test steps MUST be executable shell commands.** Ralph runs them with bash.
+
+✅ **GOOD test steps (executable):**
+```json
+"testSteps": [
+  "curl -s http://localhost:3000/api/health | jq -e '.status == \"ok\"'",
+  "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/api/users | grep 200",
+  "test -f frontend/src/components/Button.tsx",
+  "grep -q 'export function Button' frontend/src/components/Button.tsx",
+  "cd frontend && npx tsc --noEmit",
+  "docker compose exec -T web python manage.py test app.tests.TestUserAPI",
+  "npx playwright test tests/e2e/dashboard.spec.ts",
+  "npx playwright test --grep 'login flow'",
+  "cd frontend && npm test -- --testPathPattern=Button.test.tsx"
+]
+```
+
+**For UI/visual verification, use Playwright tests:**
+```json
+"testSteps": [
+  "npx playwright test tests/e2e/chat-panel.spec.ts"
+]
+```
+
+The Playwright test file can check:
+- Element visibility and positioning
+- Console errors (no errors in DevTools)
+- Network requests completing
+- Visual layout (screenshots, viewport checks)
+- Accessibility (axe-core integration)
+
+❌ **BAD test steps (not executable - will fail):**
+```json
+"testSteps": [
+  "Visit http://localhost:3000/dashboard",
+  "User can see the dashboard",
+  "Click the submit button",
+  "Form validates correctly",
+  "Chat panel renders in top 60%",
+  "Check DevTools for errors"
+]
+```
+
+**If a step can't be automated**, leave it out of testSteps and put it in acceptanceCriteria instead. Ralph will verify acceptanceCriteria via code review, not by running commands.
 
 ### Architecture Guidelines
 - **Domain-driven directories** - Group by feature (`src/contact/`) not type (`src/components/`)

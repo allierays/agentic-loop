@@ -15,7 +15,7 @@ Ralph is the autonomous coding agent that executes your PRDs.
 1. **Pick Story** - Gets next failing story from `.ralph/prd.json`
 2. **Code** - Spawns Claude to implement the story
 3. **Test** - Runs verification steps to check if it works
-4. **Commit** - Auto-commits with `feat(US-001): Story title`
+4. **Commit** - Auto-commits with `feat(TASK-001): Task title`
 5. **Next** - Moves to next story, repeats until done
 
 ---
@@ -27,7 +27,7 @@ ralph run                # Start the autonomous loop
 ralph run --max 10       # Limit to 10 iterations
 ralph status             # Show progress
 ralph check              # Run verification only
-ralph verify US-001      # Verify specific story
+ralph verify TASK-001    # Verify specific task
 ```
 
 ---
@@ -44,7 +44,7 @@ Ralph reads from `.ralph/prd.json`:
   },
   "stories": [
     {
-      "id": "US-001",
+      "id": "TASK-001",
       "title": "Add login endpoint",
       "passes": false,
       "acceptanceCriteria": [
@@ -66,7 +66,7 @@ Ralph reads from `.ralph/prd.json`:
 
 | Field | Purpose |
 |-------|---------|
-| `id` | Unique story identifier (US-001, US-002, etc.) |
+| `id` | Unique task identifier (TASK-001, TASK-002, etc.) |
 | `title` | Short description for commit messages |
 | `passes` | Whether story verification succeeded |
 | `acceptanceCriteria` | What the code must do |
@@ -158,11 +158,11 @@ Signs are stored in `.ralph/signs.json` and injected into every Claude session.
 Ralph logs to `.ralph/progress.txt`:
 
 ```
-[2024-01-15T10:30:00] STARTED US-001
-[2024-01-15T10:32:15] COMPLETED US-001
-[2024-01-15T10:32:20] STARTED US-002
-[2024-01-15T10:35:45] FAILED US-002 Verification failed, will retry
-[2024-01-15T10:38:00] COMPLETED US-002
+[2024-01-15T10:30:00] STARTED TASK-001
+[2024-01-15T10:32:15] COMPLETED TASK-001
+[2024-01-15T10:32:20] STARTED TASK-002
+[2024-01-15T10:35:45] FAILED TASK-002 Verification failed, will retry
+[2024-01-15T10:38:00] COMPLETED TASK-002
 ```
 
 View recent progress:
@@ -194,7 +194,7 @@ ralph prd "feature description"
 ### Story keeps failing
 
 1. Check `ralph status` for which story
-2. Run `ralph verify US-001` to see the failure
+2. Run `ralph verify TASK-001` to see the failure
 3. Check if test steps are correct in `.ralph/prd.json`
 4. Manually edit the PRD if needed
 

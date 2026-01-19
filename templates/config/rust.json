@@ -1,26 +1,79 @@
 {
+  "auth": {
+    "testUser": "",
+    "testPassword": "",
+    "loginEndpoint": "/api/auth/login",
+    "loginMethod": "POST",
+    "tokenType": "jwt",
+    "tokenHeader": "Authorization",
+    "tokenPrefix": "Bearer"
+  },
+
+  "docker": {
+    "enabled": false,
+    "composeFile": "docker-compose.yml",
+    "serviceName": "app",
+    "execPrefix": "docker compose exec -T"
+  },
+
+  "paths": {
+    "src": "src",
+    "tests": "tests",
+    "e2e": "tests/e2e"
+  },
+
+  "commands": {
+    "dev": "cargo run",
+    "install": "cargo build",
+    "seed": "",
+    "resetDb": ""
+  },
+
+  "migrations": {
+    "command": "sqlx migrate run",
+    "pattern": "migrations/.*\\.sql$"
+  },
+
   "checks": {
     "build": "cargo build",
     "lint": "cargo clippy -- -D warnings",
     "test": "cargo test"
   },
+
   "api": {
-    "baseUrl": "http://localhost:8080"
+    "baseUrl": "http://localhost:8080",
+    "healthEndpoint": "/health",
+    "timeout": 30
   },
+
   "playwright": {
     "enabled": false,
     "testDir": "tests/e2e",
-    "projects": ["chromium"]
+    "projects": ["chromium"],
+    "baseUrl": "http://localhost:8080"
   },
+
   "verification": {
     "codeReviewEnabled": true,
-    "mcpEnabled": true,
+    "browserEnabled": true,
     "a11yEnabled": false,
-    "mobileViewport": 375
+    "mobileViewport": 375,
+    "screenshotOnFailure": true
   },
+
+  "urls": {
+    "app": "http://localhost:8080",
+    "docs": "http://localhost:8080/swagger"
+  },
+
+  "env": {
+    "required": ["DATABASE_URL"],
+    "optional": ["REDIS_URL"]
+  },
+
   "maxIterations": 20,
   "maxSessionSeconds": 600,
-  "testUrlBase": "http://localhost:8080",
+
   "contextRotThreshold": {
     "maxStories": 10,
     "maxFilesChanged": 20

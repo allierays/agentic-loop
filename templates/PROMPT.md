@@ -54,6 +54,7 @@ For each story, you must:
 4. **Error handling is required**: Every story defines error cases - implement them all.
 5. **Verification**: Never complete until browser validation passes.
 6. **NEVER edit prd.json**: Do NOT modify `.ralph/prd.json`. Ralph handles story completion automatically after verification. You only write code and tests.
+7. **Update notes**: After completing work, log what you did in `.ralph/progress.txt` including files created/modified and key decisions made. This helps the next session.
 
 ## Verification Checklist
 
@@ -74,10 +75,14 @@ Before considering any story complete:
 - [ ] Edge cases tested (empty state, etc.)
 
 ### Browser/API Validation
-- [ ] MCP browser check passes (frontend) - no console errors
+- [ ] Browser check passes (frontend) - no console errors
 - [ ] Mobile viewport works (375px)
 - [ ] Accessibility passes (can Tab through, focus visible)
 - [ ] API returns correct responses (backend)
+
+### Documentation
+- [ ] Updated `.ralph/progress.txt` with files created/modified
+- [ ] Noted any key decisions or context for next story
 
 ### Quality
 - [ ] Linting passes

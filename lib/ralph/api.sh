@@ -25,6 +25,12 @@ run_api_validation() {
   while IFS= read -r endpoint; do
     [[ -z "$endpoint" ]] && continue
 
+    # Skip WebSocket endpoints - they can't be tested with HTTP curl
+    if [[ "$endpoint" =~ ^wss?:// ]] || [[ "$endpoint" =~ ^(GET|POST|PUT|PATCH|DELETE)[[:space:]]+wss?:// ]]; then
+      echo "    Skipping WebSocket endpoint: $endpoint (use integration tests)"
+      continue
+    fi
+
     # Parse method and path (e.g., "POST /api/contact" or just "/api/contact")
     local method="GET"
     local path="$endpoint"
@@ -34,7 +40,13 @@ run_api_validation() {
       path="${BASH_REMATCH[2]}"
     fi
 
-    local full_url="${base_url}${path}"
+    # Handle full URLs vs relative paths
+    local full_url
+    if [[ "$path" =~ ^https?:// ]]; then
+      full_url="$path"
+    else
+      full_url="${base_url}${path}"
+    fi
 
     echo -n "    $method $path... "
 
@@ -120,6 +132,12 @@ run_api_error_tests() {
     return 0
   fi
 
+  # Skip WebSocket endpoints
+  if [[ "$endpoints" =~ ^wss?:// ]] || [[ "$endpoints" =~ ^(GET|POST|PUT|PATCH|DELETE)[[:space:]]+wss?:// ]]; then
+    echo "  Skipping error tests for WebSocket endpoint"
+    return 0
+  fi
+
   # Parse endpoint
   local method="POST"
   local path="$endpoints"
@@ -128,7 +146,13 @@ run_api_error_tests() {
     path="${BASH_REMATCH[2]}"
   fi
 
-  local full_url="${base_url}${path}"
+  # Handle full URLs vs relative paths
+  local full_url
+  if [[ "$path" =~ ^https?:// ]]; then
+    full_url="$path"
+  else
+    full_url="${base_url}${path}"
+  fi
   local failed=0
 
   echo "  Testing API error handling..."

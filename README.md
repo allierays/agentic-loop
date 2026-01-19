@@ -44,23 +44,19 @@ If you see the command reference, you're ready to go.
 claude
 ```
 
-### Step 2: Brainstorm in Plan Mode
-
-Press `Shift+Tab` twice to enter plan mode. Describe what you want to build. Claude explores the codebase and helps you think through the design.
-
-### Step 3: Save to docs/ideas
-
-When ready, tell Claude to write the plan to `docs/ideas/your-feature.md`. Exit plan mode.
-
-### Step 4: Generate PRD
+### Step 2: Brainstorm Your Idea
 
 ```
-/prd your-feature
+/idea add user authentication
 ```
 
-Claude converts your idea into atomic stories in `.ralph/prd.json`. Review and approve.
+Claude asks clarifying questions, explores your codebase, then generates:
+- `docs/ideas/your-feature.md` - The documented idea
+- `.ralph/prd.json` - Atomic stories for Ralph
 
-### Step 5: Execute with Ralph
+Review and approve when prompted.
+
+### Step 3: Execute with Ralph
 
 Exit Claude, then in your **terminal**:
 
@@ -87,6 +83,25 @@ When you run `ralph run`, Ralph:
 
 All stories complete → all tests passing → all commits made → push when ready.
 
+## Project Structure
+
+```
+vibe-and-thrive/
+├── bin/                    # CLI entry points (ralph, vibe, vibe-check)
+├── lib/ralph/              # Ralph core logic (loop, verify, init, etc.)
+├── skills/                 # Reusable skills for Claude
+│   └── browser-verify/     # Playwright-based page verification
+│       ├── SKILL.md        # Documentation for Claude
+│       └── verify.ts       # Verification script
+├── templates/              # Config templates for different project types
+├── .claude/commands/       # Slash commands (/idea, /prd, /vibe-check, etc.)
+└── integrations/           # ESLint plugin, lint-staged config
+```
+
+### Skills
+
+Skills bundle documentation with tools so Claude knows both **what** a skill does and **how** to use it. The `browser-verify` skill, for example, launches a real Chromium browser to verify pages work correctly—detecting console errors, failed network requests, and missing elements.
+
 ## Commands
 
 ### Claude Code Slash Commands
@@ -109,7 +124,7 @@ All stories complete → all tests passing → all commits made → push when re
 | `npx ralph run` | Start autonomous loop |
 | `npx ralph status` | Check progress |
 | `npx ralph check` | Run verification only |
-| `npx ralph verify US-001` | Verify specific story |
+| `npx ralph verify TASK-001` | Verify specific task |
 | `npx ralph signs` | Show learned patterns |
 | `npx ralph sign "pattern"` | Teach Ralph a pattern |
 

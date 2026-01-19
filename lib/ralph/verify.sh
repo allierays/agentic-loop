@@ -81,7 +81,7 @@ run_verification() {
   fi
 
   # ========================================
-  # STEP 5: Run MCP browser validation (frontend) or API validation (backend)
+  # STEP 5: Run browser validation (frontend) or API validation (backend)
   # ========================================
   if [[ $failed -eq 0 ]]; then
     echo ""
@@ -91,8 +91,8 @@ run_verification() {
         failed=1
       fi
     else
-      echo "  [5/6] Running browser validation (MCP)..."
-      if ! run_mcp_validation "$story"; then
+      echo "  [5/6] Running browser validation..."
+      if ! run_browser_validation "$story"; then
         failed=1
       fi
     fi
@@ -453,15 +453,15 @@ verify_prd_criteria() {
   return $failed
 }
 
-# MCP Browser validation for frontend stories
-run_mcp_validation() {
+# Browser validation for frontend stories using Playwright
+run_browser_validation() {
   local story="$1"
 
-  # Check if MCP validation is enabled in config
-  local mcp_enabled
-  mcp_enabled=$(get_config '.verification.mcpEnabled' "true")
-  if [[ "$mcp_enabled" == "false" ]]; then
-    echo "    (MCP validation disabled in config, skipping)"
+  # Check if browser validation is enabled in config
+  local browser_enabled
+  browser_enabled=$(get_config '.verification.browserEnabled' "true")
+  if [[ "$browser_enabled" == "false" ]]; then
+    echo "    (browser validation disabled in config, skipping)"
     return 0
   fi
 
@@ -469,8 +469,8 @@ run_mcp_validation() {
   url=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .testUrl // empty' "$RALPH_DIR/prd.json" 2>/dev/null)
 
   if [[ -z "$url" ]]; then
-    print_error "No testUrl defined for $story - browser validation required"
-    return 1
+    echo "    (no testUrl defined, skipping browser validation)"
+    return 0
   fi
 
   if ! validate_url "$url"; then
@@ -480,7 +480,122 @@ run_mcp_validation() {
 
   echo "    URL: $url"
 
-  # Quick HTTP check first - catch obvious server errors
+  # Check if Playwright is available
+  if ! command -v npx &>/dev/null; then
+    print_warning "    npx not found, skipping browser validation"
+    return 0
+  fi
+
+  # Get selectors to check from story (if defined)
+  local selectors
+  selectors=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .selectors // [] | @json' "$RALPH_DIR/prd.json" 2>/dev/null)
+  if [[ "$selectors" == "null" || -z "$selectors" ]]; then
+    selectors="[]"
+  fi
+
+  # Screenshot path
+  mkdir -p "$RALPH_DIR/screenshots"
+  local screenshot_path="$RALPH_DIR/screenshots/${story}.png"
+
+  # Check mobile too?
+  local check_mobile
+  check_mobile=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .mobile // empty' "$RALPH_DIR/prd.json" 2>/dev/null)
+
+  # Build command - use the browser-verify skill
+  local verify_script="$RALPH_SKILLS/browser-verify/verify.ts"
+
+  if [[ ! -f "$verify_script" ]]; then
+    print_warning "    browser-verify.ts not found, falling back to curl check"
+    return run_curl_check "$url"
+  fi
+
+  echo "    Running Playwright verification..."
+
+  local result
+  local exit_code
+
+  # Run browser verification
+  result=$(npx tsx "$verify_script" "$url" \
+    --selectors "$selectors" \
+    --screenshot "$screenshot_path" \
+    --timeout 30000 \
+    2>&1) || exit_code=$?
+
+  # Parse result
+  local passed
+  passed=$(echo "$result" | jq -r '.pass // false' 2>/dev/null)
+
+  if [[ "$passed" == "true" ]]; then
+    local load_time
+    load_time=$(echo "$result" | jq -r '.loadTime // 0' 2>/dev/null)
+    print_success "passed (${load_time}ms)"
+
+    # Show any warnings
+    local warnings
+    warnings=$(echo "$result" | jq -r '.warnings[]?' 2>/dev/null)
+    if [[ -n "$warnings" ]]; then
+      echo "$warnings" | sed 's/^/      Warning: /'
+    fi
+
+    # Run mobile check if required
+    if [[ -n "$check_mobile" ]]; then
+      echo -n "    Mobile viewport... "
+      local mobile_result
+      mobile_result=$(npx tsx "$verify_script" "$url" \
+        --selectors "$selectors" \
+        --screenshot "$RALPH_DIR/screenshots/${story}-mobile.png" \
+        --mobile \
+        2>&1) || true
+
+      local mobile_passed
+      mobile_passed=$(echo "$mobile_result" | jq -r '.pass // false' 2>/dev/null)
+
+      if [[ "$mobile_passed" == "true" ]]; then
+        print_success "passed"
+      else
+        print_warning "issues found"
+        echo "$mobile_result" | jq -r '.errors[]?' 2>/dev/null | head -3 | sed 's/^/      /'
+      fi
+    fi
+
+    return 0
+  else
+    print_error "failed"
+    echo ""
+
+    # Show errors
+    echo "    Errors:"
+    echo "$result" | jq -r '.errors[]?' 2>/dev/null | sed 's/^/      /'
+
+    # Show console errors if any
+    local console_errors
+    console_errors=$(echo "$result" | jq -r '.consoleErrors[]?' 2>/dev/null)
+    if [[ -n "$console_errors" ]]; then
+      echo ""
+      echo "    Console errors:"
+      echo "$console_errors" | head -5 | sed 's/^/      /'
+    fi
+
+    # Show missing elements if any
+    local missing
+    missing=$(echo "$result" | jq -r '.elementsMissing[]?' 2>/dev/null)
+    if [[ -n "$missing" ]]; then
+      echo ""
+      echo "    Missing elements:"
+      echo "$missing" | sed 's/^/      /'
+    fi
+
+    # Save for failure context
+    echo "$result" > "$RALPH_DIR/last_browser_failure.json"
+
+    return 1
+  fi
+}
+
+# Fallback curl check when Playwright isn't available
+run_curl_check() {
+  local url="$1"
+
   local http_response
   http_response=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$url" 2>/dev/null) || http_response="000"
 
@@ -491,108 +606,21 @@ run_mcp_validation() {
     print_error "Server error $http_response at $url"
     return 1
   elif [[ "$http_response" -ge 400 ]]; then
-    print_warning "HTTP $http_response at $url - may be expected for auth pages"
+    print_warning "HTTP $http_response (may be expected for auth pages)"
+    return 0
   fi
 
-  # Fetch page content and check for error indicators
+  # Check for error messages in response
   local page_content
   page_content=$(curl -s --max-time 10 "$url" 2>/dev/null)
 
   if echo "$page_content" | grep -qi "something went wrong\|error.*occurred\|500 internal\|503 service\|oops\!" 2>/dev/null; then
-    print_error "Page contains error message - check $url manually"
-    echo "$page_content" | head -50 > "$RALPH_DIR/last_page_error.html"
+    print_error "Page contains error message"
     return 1
   fi
 
-  # Get story details for validation prompt
-  local criteria
-  criteria=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .acceptanceCriteria | join("\n")' "$RALPH_DIR/prd.json" 2>/dev/null)
-
-  local error_handling
-  error_handling=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .errorHandling | join("\n")' "$RALPH_DIR/prd.json" 2>/dev/null)
-
-  local a11y_reqs
-  a11y_reqs=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .a11y | join("\n")' "$RALPH_DIR/prd.json" 2>/dev/null)
-
-  local mobile_req
-  mobile_req=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .mobile // empty' "$RALPH_DIR/prd.json" 2>/dev/null)
-
-  # Build UAT validation prompt
-  local prompt
-  prompt=$(cat <<EOF
-You are a UAT tester. Be thorough but practical.
-
-URL: $url
-
-## Acceptance Criteria
-$criteria
-
-## Error Handling to Verify
-$error_handling
-
-## Accessibility Requirements
-$a11y_reqs
-
-## Mobile Requirement
-$mobile_req
-
-## Your UAT Checklist
-
-1. **Console** - Open DevTools. Any errors? Failed network requests?
-2. **Visual** - Take screenshot. Does it look correct?
-3. **Accessibility** - Can you Tab through interactive elements? Focus visible?
-4. **Mobile** - Resize to 375px width. Still works?
-5. **Error states** - If applicable, test error handling
-
-## Response Format
-
-Respond with ONLY a JSON object:
-{
-  "pass": true/false,
-  "console_errors": [],
-  "visual_issues": [],
-  "a11y_issues": [],
-  "mobile_issues": [],
-  "notes": "summary"
-}
-EOF
-)
-
-  echo "    Running MCP validation..."
-
-  local result
-  result=$(echo "$prompt" | claude -p --dangerously-skip-permissions 2>/dev/null) || {
-    print_warning "    MCP validation skipped (Claude unavailable)"
-    return 0
-  }
-
-  # Save screenshot evidence
-  mkdir -p "$RALPH_DIR/screenshots"
-  echo "$result" > "$RALPH_DIR/screenshots/${story}-validation.json"
-
-  local passed
-  passed=$(echo "$result" | jq -r '.pass // false' 2>/dev/null)
-
-  if [[ "$passed" == "true" ]]; then
-    print_success "    MCP validation passed"
-    return 0
-  elif [[ "$passed" == "false" ]]; then
-    print_error "    MCP validation failed"
-
-    # Show issues
-    echo "$result" | jq -r '.console_errors[]?' 2>/dev/null | sed 's/^/      Console: /'
-    echo "$result" | jq -r '.visual_issues[]?' 2>/dev/null | sed 's/^/      Visual: /'
-    echo "$result" | jq -r '.a11y_issues[]?' 2>/dev/null | sed 's/^/      A11y: /'
-    echo "$result" | jq -r '.mobile_issues[]?' 2>/dev/null | sed 's/^/      Mobile: /'
-
-    # Save for failure context
-    echo "$result" > "$RALPH_DIR/last_mcp_failure.json"
-    return 1
-  else
-    print_warning "    MCP validation inconclusive"
-    echo "    Response: $(echo "$result" | head -3)"
-    return 0
-  fi
+  print_success "HTTP $http_response"
+  return 0
 }
 
 # Save failure context for next iteration
@@ -625,9 +653,11 @@ save_failure_context() {
       echo ""
     fi
 
-    if [[ -f "$RALPH_DIR/last_mcp_failure.json" ]]; then
-      echo "--- MCP Validation Failure ---"
-      cat "$RALPH_DIR/last_mcp_failure.json"
+    if [[ -f "$RALPH_DIR/last_browser_failure.json" ]]; then
+      echo "--- Browser Validation Failure ---"
+      jq -r '"Errors: " + (.errors | join(", "))' "$RALPH_DIR/last_browser_failure.json" 2>/dev/null
+      jq -r '"Console errors: " + (.consoleErrors | join(", "))' "$RALPH_DIR/last_browser_failure.json" 2>/dev/null
+      jq -r '"Missing elements: " + (.elementsMissing | join(", "))' "$RALPH_DIR/last_browser_failure.json" 2>/dev/null
       echo ""
     fi
   } > "$context_file"

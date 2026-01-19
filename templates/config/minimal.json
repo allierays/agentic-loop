@@ -1,22 +1,74 @@
 {
-  "checks": {},
-  "api": {
-    "baseUrl": "http://localhost:3000"
+  "auth": {
+    "testUser": "",
+    "testPassword": "",
+    "loginEndpoint": "/api/auth/login",
+    "loginMethod": "POST",
+    "tokenType": "session",
+    "tokenHeader": "Authorization",
+    "tokenPrefix": "Bearer"
   },
+
+  "docker": {
+    "enabled": false,
+    "composeFile": "docker-compose.yml",
+    "serviceName": "app",
+    "execPrefix": "docker compose exec -T"
+  },
+
+  "paths": {
+    "src": "src",
+    "tests": "tests",
+    "e2e": "tests/e2e"
+  },
+
+  "commands": {
+    "dev": "",
+    "install": "",
+    "seed": "",
+    "resetDb": ""
+  },
+
+  "migrations": {
+    "command": "",
+    "pattern": ""
+  },
+
+  "checks": {},
+
+  "api": {
+    "baseUrl": "http://localhost:3000",
+    "healthEndpoint": "/health",
+    "timeout": 30
+  },
+
   "playwright": {
     "enabled": false,
     "testDir": "tests/e2e",
-    "projects": ["chromium"]
+    "projects": ["chromium"],
+    "baseUrl": "http://localhost:3000"
   },
+
   "verification": {
     "codeReviewEnabled": false,
-    "mcpEnabled": false,
+    "browserEnabled": false,
     "a11yEnabled": false,
-    "mobileViewport": 375
+    "mobileViewport": 375,
+    "screenshotOnFailure": false
   },
+
+  "urls": {
+    "app": "http://localhost:3000"
+  },
+
+  "env": {
+    "required": [],
+    "optional": []
+  },
+
   "maxIterations": 20,
   "maxSessionSeconds": 600,
-  "testUrlBase": "http://localhost:3000",
+
   "contextRotThreshold": {
     "maxStories": 10,
     "maxFilesChanged": 20

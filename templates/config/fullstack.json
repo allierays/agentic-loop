@@ -4,7 +4,7 @@
     "testPassword": "",
     "loginEndpoint": "/api/auth/login",
     "loginMethod": "POST",
-    "tokenType": "jwt",
+    "tokenType": "session",
     "tokenHeader": "Authorization",
     "tokenPrefix": "Bearer"
   },
@@ -12,32 +12,36 @@
   "docker": {
     "enabled": false,
     "composeFile": "docker-compose.yml",
-    "serviceName": "app",
+    "serviceName": "web",
     "execPrefix": "docker compose exec -T"
   },
 
   "paths": {
-    "src": "src",
+    "frontend": "frontend",
+    "backend": ".",
     "tests": "tests",
-    "e2e": "tests/e2e"
+    "e2e": "frontend/tests/e2e"
   },
 
   "commands": {
-    "dev": "uvicorn main:app --reload",
-    "install": "pip install -r requirements.txt",
+    "devFrontend": "cd frontend && npm run dev",
+    "devBackend": "python manage.py runserver",
+    "install": "npm install && pip install -r requirements.txt",
     "seed": "",
     "resetDb": ""
   },
 
   "migrations": {
-    "command": "alembic upgrade head",
-    "pattern": "alembic/versions/.*\\.py$"
+    "command": "python manage.py migrate",
+    "pattern": "migrations/.*\\.py$"
   },
 
   "checks": {
+    "typescript": "cd frontend && npx tsc --noEmit",
     "lint": "ruff check .",
-    "typecheck": "mypy .",
-    "test": "pytest"
+    "lintFrontend": "cd frontend && npm run lint",
+    "test": "python manage.py test --keepdb --parallel",
+    "testFrontend": "cd frontend && npm test"
   },
 
   "api": {
@@ -47,27 +51,28 @@
   },
 
   "playwright": {
-    "enabled": false,
-    "testDir": "tests/e2e",
-    "projects": ["chromium"],
-    "baseUrl": "http://localhost:8000"
+    "enabled": true,
+    "testDir": "frontend/tests/e2e",
+    "projects": ["chromium", "mobile"],
+    "baseUrl": "http://localhost:3000"
   },
 
   "verification": {
     "codeReviewEnabled": true,
     "browserEnabled": true,
-    "a11yEnabled": false,
+    "a11yEnabled": true,
     "mobileViewport": 375,
     "screenshotOnFailure": true
   },
 
   "urls": {
-    "app": "http://localhost:8000",
-    "docs": "http://localhost:8000/docs"
+    "frontend": "http://localhost:3000",
+    "backend": "http://localhost:8000",
+    "docs": "http://localhost:8000/api/docs"
   },
 
   "env": {
-    "required": ["DATABASE_URL"],
+    "required": ["DATABASE_URL", "SECRET_KEY"],
     "optional": ["REDIS_URL", "SENTRY_DSN"]
   },
 

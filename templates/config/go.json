@@ -1,26 +1,79 @@
 {
+  "auth": {
+    "testUser": "",
+    "testPassword": "",
+    "loginEndpoint": "/api/auth/login",
+    "loginMethod": "POST",
+    "tokenType": "jwt",
+    "tokenHeader": "Authorization",
+    "tokenPrefix": "Bearer"
+  },
+
+  "docker": {
+    "enabled": false,
+    "composeFile": "docker-compose.yml",
+    "serviceName": "app",
+    "execPrefix": "docker compose exec -T"
+  },
+
+  "paths": {
+    "src": ".",
+    "tests": ".",
+    "e2e": "tests/e2e"
+  },
+
+  "commands": {
+    "dev": "go run .",
+    "install": "go mod download",
+    "seed": "",
+    "resetDb": ""
+  },
+
+  "migrations": {
+    "command": "migrate -path migrations -database $DATABASE_URL up",
+    "pattern": "migrations/.*\\.sql$"
+  },
+
   "checks": {
     "build": "go build ./...",
     "lint": "golangci-lint run",
     "test": "go test ./..."
   },
+
   "api": {
-    "baseUrl": "http://localhost:8080"
+    "baseUrl": "http://localhost:8080",
+    "healthEndpoint": "/health",
+    "timeout": 30
   },
+
   "playwright": {
     "enabled": false,
     "testDir": "tests/e2e",
-    "projects": ["chromium"]
+    "projects": ["chromium"],
+    "baseUrl": "http://localhost:8080"
   },
+
   "verification": {
     "codeReviewEnabled": true,
-    "mcpEnabled": true,
+    "browserEnabled": true,
     "a11yEnabled": false,
-    "mobileViewport": 375
+    "mobileViewport": 375,
+    "screenshotOnFailure": true
   },
+
+  "urls": {
+    "app": "http://localhost:8080",
+    "docs": "http://localhost:8080/swagger"
+  },
+
+  "env": {
+    "required": ["DATABASE_URL"],
+    "optional": ["REDIS_URL"]
+  },
+
   "maxIterations": 20,
   "maxSessionSeconds": 600,
-  "testUrlBase": "http://localhost:8080",
+
   "contextRotThreshold": {
     "maxStories": 10,
     "maxFilesChanged": 20

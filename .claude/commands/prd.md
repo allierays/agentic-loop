@@ -61,7 +61,7 @@ Options:
 **STOP and wait for user choice.**
 
 If user chooses **'append'**:
-- Note the highest existing story ID (e.g., if US-005 exists, new stories start at US-006)
+- Note the highest existing task ID (e.g., if TASK-005 exists, new tasks start at TASK-006)
 - New stories will be added after existing ones
 
 ### Step 4: Split into Stories
@@ -136,7 +136,7 @@ Ralph will work through each story, running tests and committing as it goes."
   },
   "stories": [
     {
-      "id": "US-001",
+      "id": "TASK-001",
       "type": "frontend|backend",
       "title": "Short description",
       "passes": false,
@@ -156,10 +156,12 @@ Ralph will work through each story, running tests and committing as it goes."
       ],
 
       "testSteps": [
-        "How to verify it works"
+        "MUST be executable shell commands - see examples below"
       ],
 
-      "dependsOn": []
+      "dependsOn": [],
+
+      "notes": ""
     }
   ]
 }
@@ -181,8 +183,68 @@ Ralph will work through each story, running tests and committing as it goes."
 
 ## Guidelines
 
-- **Keep stories small** - If > 3-4 acceptance criteria, split it
-- **Concrete test steps** - "curl /api/x returns 200" not "user can see X"
+- **Keep stories small** - If > 3-4 acceptance criteria, split it (~1000 tokens max)
 - **Order by dependency** - Foundation stories first
-- **Specify files explicitly** - Every story says which files to create/modify
+- **Specify files explicitly** - Every story says which files to create/modify (max 3-4 files)
 - **Define error handling** - Every story specifies failure behavior
+- **Notes field** - Claude fills this as it works (files created, decisions made)
+
+### Context Size Limits
+Each story must be completable in ONE Claude session:
+- **Max ~1000 tokens** for story description
+- **Max 3-4 files** per story
+- If too big, split it
+
+### UI Stories Must Include Browser Verification
+For frontend stories, acceptance criteria MUST include:
+- "Page loads without console errors"
+- "Required elements render" (specify which)
+- "Works on mobile viewport (375px)"
+
+These get verified by Playwright automatically.
+
+### Test Steps - CRITICAL
+**Test steps MUST be executable shell commands.** Ralph runs them with bash.
+
+✅ **GOOD test steps (executable):**
+```json
+"testSteps": [
+  "curl -s http://localhost:3000/api/health | jq -e '.status == \"ok\"'",
+  "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/api/users | grep 200",
+  "test -f frontend/src/components/Button.tsx",
+  "grep -q 'export function Button' frontend/src/components/Button.tsx",
+  "cd frontend && npx tsc --noEmit",
+  "docker compose exec -T web python manage.py test app.tests.TestUserAPI",
+  "npx playwright test tests/e2e/dashboard.spec.ts",
+  "npx playwright test --grep 'login flow'",
+  "cd frontend && npm test -- --testPathPattern=Button.test.tsx"
+]
+```
+
+**For UI/visual verification, use Playwright tests:**
+```json
+"testSteps": [
+  "npx playwright test tests/e2e/chat-panel.spec.ts"
+]
+```
+
+The Playwright test file can check:
+- Element visibility and positioning
+- Console errors (no errors in DevTools)
+- Network requests completing
+- Visual layout (screenshots, viewport checks)
+- Accessibility (axe-core integration)
+
+❌ **BAD test steps (not executable - will fail):**
+```json
+"testSteps": [
+  "Visit http://localhost:3000/dashboard",
+  "User can see the dashboard",
+  "Click the submit button",
+  "Form validates correctly",
+  "Chat panel renders in top 60%",
+  "Check DevTools for errors"
+]
+```
+
+**If a step can't be automated**, leave it out of testSteps and put it in acceptanceCriteria instead. Ralph will verify acceptanceCriteria via code review, not by running commands.

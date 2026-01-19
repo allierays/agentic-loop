@@ -121,7 +121,7 @@ run_with_timeout() {
 
 # Safely update JSON file atomically
 # Usage: update_json <file> [jq args...] <filter>
-# Example: update_json file.json --arg id "US-001" '.stories[] | select(.id==$id)'
+# Example: update_json file.json --arg id "TASK-001" '.stories[] | select(.id==$id)'
 update_json() {
   local file="$1"
   shift

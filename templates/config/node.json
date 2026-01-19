@@ -1,30 +1,79 @@
 {
+  "auth": {
+    "testUser": "",
+    "testPassword": "",
+    "loginEndpoint": "/api/auth/login",
+    "loginMethod": "POST",
+    "tokenType": "jwt",
+    "tokenHeader": "Authorization",
+    "tokenPrefix": "Bearer"
+  },
+
+  "docker": {
+    "enabled": false,
+    "composeFile": "docker-compose.yml",
+    "serviceName": "app",
+    "execPrefix": "docker compose exec -T"
+  },
+
+  "paths": {
+    "src": "src",
+    "tests": "tests",
+    "e2e": "tests/e2e"
+  },
+
+  "commands": {
+    "dev": "npm run dev",
+    "install": "npm install",
+    "seed": "",
+    "resetDb": ""
+  },
+
   "migrations": {
     "command": "npx prisma migrate deploy",
     "pattern": "prisma/migrations/.*"
   },
+
   "checks": {
     "typescript": "npx tsc --noEmit",
     "lint": "npm run lint",
     "test": "npm test"
   },
+
   "api": {
-    "baseUrl": "http://localhost:3000"
+    "baseUrl": "http://localhost:3000",
+    "healthEndpoint": "/api/health",
+    "timeout": 30
   },
+
   "playwright": {
     "enabled": true,
     "testDir": "tests/e2e",
-    "projects": ["chromium", "mobile"]
+    "projects": ["chromium", "mobile"],
+    "baseUrl": "http://localhost:3000"
   },
+
   "verification": {
     "codeReviewEnabled": true,
-    "mcpEnabled": true,
+    "browserEnabled": true,
     "a11yEnabled": true,
-    "mobileViewport": 375
+    "mobileViewport": 375,
+    "screenshotOnFailure": true
   },
+
+  "urls": {
+    "app": "http://localhost:3000",
+    "docs": "http://localhost:3000/api/docs"
+  },
+
+  "env": {
+    "required": ["DATABASE_URL"],
+    "optional": ["REDIS_URL", "SENTRY_DSN"]
+  },
+
   "maxIterations": 20,
   "maxSessionSeconds": 600,
-  "testUrlBase": "http://localhost:3000",
+
   "contextRotThreshold": {
     "maxStories": 10,
     "maxFilesChanged": 20

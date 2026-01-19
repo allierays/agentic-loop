@@ -47,13 +47,13 @@ Print this complete reference for the user. Do not add any commentary.
 |---------|-------------|
 | `ralph run` | Run loop until all stories pass |
 | `ralph run --max 10` | Limit to N iterations (default: 20) |
-| `ralph run --story US-001` | Run for specific story only |
+| `ralph run --story TASK-001` | Run for specific task only |
 
 ### Verification
 | Command | Description |
 |---------|-------------|
 | `ralph check` | Run all configured checks |
-| `ralph verify US-001` | Verify a specific story |
+| `ralph verify TASK-001` | Verify a specific task |
 
 ### Signs (Learned Patterns)
 | Command | Description |

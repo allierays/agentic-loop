@@ -131,7 +131,7 @@ run_loop() {
       rm -f "$RALPH_DIR/last_review_failure.json"
       rm -f "$RALPH_DIR/last_test_failure.log"
       rm -f "$RALPH_DIR/last_playwright_failure.log"
-      rm -f "$RALPH_DIR/last_mcp_failure.json"
+      rm -f "$RALPH_DIR/last_browser_failure.json"
 
       # Run migrations if new migration files were created
       if ! run_migrations_if_needed "$pre_story_sha"; then

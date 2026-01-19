@@ -62,7 +62,7 @@ pre-commit run check-secrets        # Run specific hook
 | `ralph run --max 10` | Limit iterations |
 | `ralph status` | Show progress |
 | `ralph check` | Run verification only |
-| `ralph verify US-001` | Verify specific story |
+| `ralph verify TASK-001` | Verify specific task |
 | `ralph signs` | List learned patterns |
 | `ralph sign "pattern"` | Teach Ralph a pattern |
 | `ralph prd "idea"` | Generate PRD from description |

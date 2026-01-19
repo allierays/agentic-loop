@@ -43,7 +43,7 @@ Review the idea file, then approve. Claude splits it into small, executable stor
   },
   "stories": [
     {
-      "id": "US-001",
+      "id": "TASK-001",
       "title": "Add OAuth provider configuration",
       "files": { "create": ["src/api/auth/config.ts"], "reuse": ["src/lib/db.ts"] },
       "acceptanceCriteria": ["..."],

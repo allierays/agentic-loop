@@ -43,23 +43,73 @@ ralph_init() {
 
   print_success "Ralph initialized!"
   echo ""
+
+  # Prompt for test credentials
+  configure_test_auth
+
+  echo ""
   echo "Next steps:"
-  echo "  1. Review and customize .ralph/config.json"
+  echo "  1. Review .ralph/config.json (test credentials, checks, etc.)"
   echo "  2. Generate PRD:"
   echo "     - Thorough: /idea 'feature description' (brainstorm + architecture + scalability)"
   echo "     - Quick:    ralph prd 'feature description' (basic PRD)"
   echo "  3. Start loop: ralph run"
 }
 
+# Configure test authentication credentials
+configure_test_auth() {
+  echo ""
+  print_info "=== Test Authentication Setup ==="
+  echo ""
+  echo "Ralph needs test credentials to verify authenticated endpoints."
+  echo "(You can skip this and edit .ralph/config.json later)"
+  echo ""
+
+  # Ask if they want to configure auth
+  read -p "Configure test credentials now? [y/N] " -n 1 -r
+  echo ""
+
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    print_info "Skipped. Edit .ralph/config.json to add credentials later."
+    return 0
+  fi
+
+  echo ""
+  read -p "Test user email/username: " test_user
+  read -s -p "Test user password: " test_password
+  echo ""
+
+  if [[ -z "$test_user" || -z "$test_password" ]]; then
+    print_warning "Credentials not provided. Edit .ralph/config.json to add them later."
+    return 0
+  fi
+
+  # Update config.json with credentials
+  local config="$RALPH_DIR/config.json"
+  if [[ -f "$config" ]]; then
+    local tmpfile
+    tmpfile=$(mktemp)
+    if jq --arg user "$test_user" --arg pass "$test_password" \
+       '.auth.testUser = $user | .auth.testPassword = $pass' \
+       "$config" > "$tmpfile" 2>/dev/null; then
+      mv "$tmpfile" "$config"
+      print_success "Test credentials saved to .ralph/config.json"
+    else
+      rm -f "$tmpfile"
+      print_warning "Failed to update config. Edit .ralph/config.json manually."
+    fi
+  fi
+}
+
 # Detect the type of project based on files present
 detect_project_type() {
   local project_type="minimal"
 
-  # Check for monorepo patterns first (more specific)
+  # Check for fullstack patterns first (more specific)
   if [[ -d "frontend" && -d "core" ]]; then
-    project_type="django-react"
+    project_type="fullstack"
   elif [[ -d "frontend" && -d "backend" ]]; then
-    project_type="monorepo"
+    project_type="fullstack"
   # Then check for single-language projects
   elif [[ -f "Cargo.toml" ]]; then
     project_type="rust"
