@@ -159,21 +159,27 @@ EOF
 }
 
 ensure_gitignore() {
-  # Ensure node_modules is in .gitignore
-  if [[ -f ".gitignore" ]]; then
-    # Check if node_modules is already ignored
-    if ! grep -q "^node_modules" .gitignore 2>/dev/null; then
-      echo "node_modules/" >> .gitignore
-    fi
+  local patterns=(
+    "node_modules/"
+    ".env"
+    ".env.local"
+    "*.log"
+    ".DS_Store"
+    ".ralph/last_*"
+    ".ralph/screenshots/"
+    ".ralph/archive/"
+  )
+
+  if [[ ! -f ".gitignore" ]]; then
+    # Create .gitignore with all patterns
+    printf '%s\n' "${patterns[@]}" > .gitignore
   else
-    # Create .gitignore with common entries
-    cat > .gitignore << 'EOF'
-node_modules/
-.env
-.env.local
-*.log
-.DS_Store
-EOF
+    # Add missing patterns
+    for pattern in "${patterns[@]}"; do
+      if ! grep -qF "$pattern" .gitignore 2>/dev/null; then
+        echo "$pattern" >> .gitignore
+      fi
+    done
   fi
 }
 
