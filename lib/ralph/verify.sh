@@ -591,12 +591,20 @@ run_browser_validation() {
   local result
   local exit_code=0
 
-  # Run browser verification with timeout
-  result=$(npx tsx "$verify_script" "$url" \
+  # Run browser verification with 60s wrapper timeout (in case Playwright hangs)
+  result=$(run_with_timeout 60 npx tsx "$verify_script" "$url" \
     --selectors "$selectors" \
     --screenshot "$screenshot_path" \
     --timeout 30000 \
     2>&1) || exit_code=$?
+
+  # Check for timeout
+  if [[ $exit_code -eq 124 ]]; then
+    print_error "failed (timed out after 60s)"
+    echo "    The page may be stuck loading or the dev server isn't responding."
+    echo "    Check: curl -I $url"
+    return run_curl_check "$url"
+  fi
 
   # Check if we got any output
   if [[ -z "$result" ]]; then
@@ -635,7 +643,7 @@ run_browser_validation() {
     if [[ -n "$check_mobile" ]]; then
       echo -n "    Mobile viewport... "
       local mobile_result
-      mobile_result=$(npx tsx "$verify_script" "$url" \
+      mobile_result=$(run_with_timeout 60 npx tsx "$verify_script" "$url" \
         --selectors "$selectors" \
         --screenshot "$RALPH_DIR/screenshots/${story}-mobile.png" \
         --mobile \
