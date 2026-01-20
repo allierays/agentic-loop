@@ -147,8 +147,24 @@ For fullstack projects with separate frontend:
 jq '.commands.dev = "cd frontend && npm run dev"' .ralph/config.json > .ralph/config.tmp && mv .ralph/config.tmp .ralph/config.json
 ```
 
-### 2d. Detect Test Framework
+### 2d. Detect Build & Test
 
+Check for build script in package.json:
+```bash
+cat package.json 2>/dev/null | jq -r '.scripts.build // empty'
+cat frontend/package.json 2>/dev/null | jq -r '.scripts.build // empty'
+```
+
+Update config with build command:
+```bash
+# If build script exists in root
+jq '.checks.build = "npm run build"' .ralph/config.json > .ralph/config.tmp && mv .ralph/config.tmp .ralph/config.json
+
+# If build script exists in frontend/
+jq '.checks.build = "cd frontend && npm run build"' .ralph/config.json > .ralph/config.tmp && mv .ralph/config.tmp .ralph/config.json
+```
+
+Detect test framework:
 ```bash
 test -f playwright.config.ts && echo "playwright"
 test -f vitest.config.ts && echo "vitest"

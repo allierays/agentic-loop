@@ -222,6 +222,7 @@ Add `"e2e": true` to **any frontend story where users interact** with the featur
 When `e2e: true`, the story should:
 - Create a Playwright test file in `tests/e2e/{story-id}.spec.ts`
 - Include the test in `testSteps`: `"npx playwright test tests/e2e/{story-id}.spec.ts"`
+- **Skip in CI** (runs nightly instead): Add `test.skip(!!process.env.CI, 'Runs nightly');` at top of test
 
 Don't ask - if users touch it, test it.
 
