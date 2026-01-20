@@ -558,14 +558,31 @@ run_browser_validation() {
   echo "    Running Playwright verification..."
 
   local result
-  local exit_code
+  local exit_code=0
 
-  # Run browser verification
+  # Run browser verification with timeout
   result=$(npx tsx "$verify_script" "$url" \
     --selectors "$selectors" \
     --screenshot "$screenshot_path" \
     --timeout 30000 \
     2>&1) || exit_code=$?
+
+  # Check if we got any output
+  if [[ -z "$result" ]]; then
+    print_error "failed (no output from Playwright)"
+    echo "    Exit code: $exit_code"
+    echo "    This usually means Playwright crashed or isn't installed correctly."
+    echo "    Try: npm install playwright && npx playwright install chromium"
+    return run_curl_check "$url"
+  fi
+
+  # Check if result is valid JSON
+  if ! echo "$result" | jq -e . >/dev/null 2>&1; then
+    print_error "failed (invalid response)"
+    echo "    Raw output:"
+    echo "$result" | head -20 | sed 's/^/      /'
+    return run_curl_check "$url"
+  fi
 
   # Parse result
   local passed
