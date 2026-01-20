@@ -33,6 +33,12 @@ PROMPT_FILE="${PROMPT_FILE:-PROMPT.md}"
 # Export for use in sourced files
 export RALPH_DIR PROMPT_FILE RALPH_LIB RALPH_TEMPLATES RALPH_SKILLS
 
+# Ensure setup ran (in case postinstall was skipped)
+if [[ ! -f ".pre-commit-config.yaml" ]] || [[ ! -d ".ralph" ]]; then
+  echo "First run - setting up vibe-and-thrive..."
+  bash "$SCRIPT_DIR/postinstall.sh" 2>/dev/null || true
+fi
+
 # Source function libraries
 source "$RALPH_LIB/utils.sh"
 source "$RALPH_LIB/init.sh"
