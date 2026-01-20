@@ -520,33 +520,14 @@ run_browser_validation() {
     browser_installed=true
   fi
 
-  # If either is missing, offer to install
+  # If either is missing, auto-install (Ralph runs autonomously)
   if [[ "$playwright_installed" == "false" ]] || [[ "$browser_installed" == "false" ]]; then
-    # Check if we're in an interactive terminal
-    if [[ -t 0 ]]; then
-      echo ""
-      if [[ "$playwright_installed" == "false" ]]; then
-        print_warning "    Playwright package not installed."
-      else
-        print_warning "    Playwright browser binaries not installed."
-      fi
-      read -p "    Install now? (~150MB download) [y/N] " -n 1 -r
-      echo ""
-      if [[ $REPLY =~ ^[Yy]$ ]]; then
-        echo "    Installing Playwright and Chromium..."
-        if npm install playwright &>/dev/null && npx playwright install chromium; then
-          print_success "    Playwright installed!"
-        else
-          print_error "    Installation failed, falling back to curl check"
-          return run_curl_check "$url"
-        fi
-      else
-        print_info "    Falling back to curl check"
-        return run_curl_check "$url"
-      fi
+    echo ""
+    print_info "    Installing Playwright for browser verification (~150MB)..."
+    if npm install playwright &>/dev/null && npx playwright install chromium &>/dev/null; then
+      print_success "    Playwright installed!"
     else
-      print_warning "    Playwright not fully installed, falling back to curl check"
-      print_info "    (Install with: npm install playwright && npx playwright install chromium)"
+      print_warning "    Installation failed, falling back to curl check"
       return run_curl_check "$url"
     fi
   fi
