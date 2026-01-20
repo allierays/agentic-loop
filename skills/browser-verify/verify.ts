@@ -182,11 +182,23 @@ async function verify(options: VerifyOptions): Promise<VerifyResult> {
     // Collect console errors
     const consoleErrors: string[] = [];
     page.on('console', (msg: ConsoleMessage) => {
-      if (msg.type() === 'error') {
-        const text = msg.text();
+      const type = msg.type();
+      const text = msg.text();
+
+      // Capture actual console.error calls
+      if (type === 'error') {
         // Ignore some common noise
         if (!text.includes('favicon') && !text.includes('DevTools')) {
           consoleErrors.push(text);
+        }
+      }
+
+      // Also capture logs/warnings that indicate errors (e.g., custom loggers)
+      if ((type === 'log' || type === 'warning') &&
+          (text.includes('_error') || text.includes('Error:') || text.includes('ERROR'))) {
+        // Ignore known non-critical patterns
+        if (!text.includes('ResizeObserver')) {
+          consoleErrors.push(`[${type}] ${text}`);
         }
       }
     });
