@@ -20,6 +20,25 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Progress bar for story display
+progress_bar() {
+  local current=$1 total=$2 width=${3:-6}
+  local filled=$((current * width / total))
+  local empty=$((width - filled))
+  printf '%*s' "$filled" '' | tr ' ' '█'
+  printf '%*s' "$empty" '' | tr ' ' '░'
+}
+
+# Emoji for story type
+type_emoji() {
+  case "$1" in
+    frontend) echo "📦" ;;
+    backend)  echo "⚙️" ;;
+    testing)  echo "🧪" ;;
+    *)        echo "📝" ;;
+  esac
+}
+
 # Print colored output
 print_error() { echo -e "${RED}Error: $1${NC}" >&2; }
 print_success() { echo -e "${GREEN}$1${NC}"; }

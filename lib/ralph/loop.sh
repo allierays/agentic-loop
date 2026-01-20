@@ -115,19 +115,27 @@ run_loop() {
     fi
 
     # 4. Spawn Claude (fresh context, with timeout)
+    # Get story details for banner
+    local story_title story_desc story_type story_emoji
+    story_title=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .title // "Untitled"' "$RALPH_DIR/prd.json")
+    story_desc=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .description // ""' "$RALPH_DIR/prd.json" | head -c 50)
+    story_type=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .type // "general"' "$RALPH_DIR/prd.json")
+    story_emoji=$(type_emoji "$story_type")
+
+    # Get progress
+    local total_stories passed_stories current_num
+    total_stories=$(jq '[.stories[]] | length' "$RALPH_DIR/prd.json")
+    passed_stories=$(jq '[.stories[] | select(.passes==true)] | length' "$RALPH_DIR/prd.json")
+    current_num=$((passed_stories + 1))
+
+    # Display dynamic banner
     echo ""
-    echo "  ╔═══════════════════════════════════════════════════╗"
-    echo "  ║                                                   ║"
-    echo "  ║   ██████   █████  ██      ██████  ██   ██         ║"
-    echo "  ║   ██   ██ ██   ██ ██      ██   ██ ██   ██         ║"
-    echo "  ║   ██████  ███████ ██      ██████  ███████         ║"
-    echo "  ║   ██   ██ ██   ██ ██      ██      ██   ██         ║"
-    echo "  ║   ██   ██ ██   ██ ███████ ██      ██   ██         ║"
-    echo "  ║                                                   ║"
-    printf "  ║   Story: %-40s  ║\n" "$story"
-    echo "  ║   Starting Claude... (may take a minute)          ║"
-    echo "  ║                                                   ║"
-    echo "  ╚═══════════════════════════════════════════════════╝"
+    echo "┌─────────────────────────────────────────────────────────┐"
+    printf "│  %s %-14s                     [%d/%d] %s  │\n" "$story_emoji" "$story" "$current_num" "$total_stories" "$(progress_bar $current_num $total_stories)"
+    printf "│  %-55s  │\n" "$story_title"
+    printf "│  %-55s  │\n" "${story_desc}..."
+    printf "│  Type: %-49s  │\n" "$story_type"
+    echo "└─────────────────────────────────────────────────────────┘"
     echo ""
 
     local timeout_seconds
