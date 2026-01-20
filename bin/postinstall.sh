@@ -32,6 +32,8 @@ repos:
     hooks:
       - id: build
         name: Build check
+      - id: check-env-files
+        name: Block .env files
       - id: check-secrets
         name: Check for hardcoded secrets
       - id: check-hardcoded-urls

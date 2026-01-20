@@ -11,6 +11,13 @@
   always_run: true
 
 # Security checks (blocking - these will fail the commit)
+- id: check-env-files
+  name: Block .env files from commit
+  entry: bash -c 'echo "ERROR: .env files should not be committed. Add to .gitignore." && exit 1'
+  language: system
+  files: '\.env($|\.)'
+  pass_filenames: false
+
 - id: check-secrets
   name: Check for hardcoded secrets
   entry: npx vibe-check --only secrets --fail-on error
