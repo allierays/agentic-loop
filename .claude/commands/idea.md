@@ -300,5 +300,32 @@ The Playwright test file can check:
 ## Error Handling
 
 - If user provides no arguments, ask what they want to brainstorm
-- If .ralph/prd.json already exists, warn: "A PRD already exists. Archive it first: `mv .ralph/prd.json .ralph/archive/`"
 - If user abandons mid-flow, the idea file is still saved for later
+
+### If PRD Already Exists
+
+Before writing to `.ralph/prd.json`, check if it exists:
+
+```bash
+cat .ralph/prd.json 2>/dev/null | jq '{stories: .stories | length, completed: [.stories[] | select(.passes == true)] | length}'
+```
+
+If it exists, say:
+"📋 `.ralph/prd.json` already exists with {N} stories ({M} completed, {P} pending).
+
+Options:
+- **'append'** - Add new stories to existing PRD (recommended)
+- **'overwrite'** - Replace entirely
+- **'cancel'** - Stop here"
+
+**STOP and wait for user choice.**
+
+If **'append'**:
+- Find highest existing task ID (e.g., if TASK-019 exists, new tasks start at TASK-020)
+- Read existing PRD, add new stories to the `stories` array
+- Update `metadata.estimatedStories` count
+- Write back to `.ralph/prd.json`
+
+If **'overwrite'**:
+- Archive first: `mkdir -p .ralph/archive && mv .ralph/prd.json .ralph/archive/prd-$(date +%Y%m%d-%H%M%S).json`
+- Write new PRD
