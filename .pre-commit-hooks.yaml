@@ -2,10 +2,10 @@
 # All hooks use language: node for consistency
 
 # Build check (blocking - ensures code compiles)
-# Only runs if package.json has a build script
+# Checks root, frontend/, and client/ for build script
 - id: build
   name: Build check
-  entry: bash -c 'if grep -q "\"build\":" package.json 2>/dev/null; then npm run build; else echo "No build script, skipping"; fi'
+  entry: bash -c 'if grep -q "\"build\":" package.json 2>/dev/null; then npm run build; elif grep -q "\"build\":" frontend/package.json 2>/dev/null; then cd frontend && npm run build; elif grep -q "\"build\":" client/package.json 2>/dev/null; then cd client && npm run build; else echo "No build script found, skipping"; fi'
   language: system
   pass_filenames: false
   always_run: true
