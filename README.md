@@ -58,6 +58,8 @@ Claude asks clarifying questions, explores your codebase, then generates:
 
 Review and approve when prompted.
 
+> **Note:** If Claude skips writing to `docs/ideas/`, tell it: "Please write the idea to docs/ideas/ and generate the PRD as the /idea command specifies"
+
 ### Step 3: Execute with Ralph
 
 Type `/exit` or open a new terminal, then run:
