@@ -10,7 +10,7 @@ ralph_sign() {
     echo "  ralph sign 'Always use camelCase in WebSocket responses' frontend"
     echo "  ralph sign 'Run migrations before seeding' backend"
     echo "  ralph sign 'Check for null before accessing nested props' general"
-    exit 1
+    return 1
   fi
 
   local pattern="$1"
@@ -19,7 +19,7 @@ ralph_sign() {
   # Ensure .ralph directory exists
   if [[ ! -d "$RALPH_DIR" ]]; then
     print_error "Ralph not initialized. Run 'ralph init' first."
-    exit 1
+    return 1
   fi
 
   # Ensure signs.json exists

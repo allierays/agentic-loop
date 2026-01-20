@@ -27,9 +27,9 @@ ralph_prd() {
   if [[ -n "$from_file" ]]; then
     if [[ ! -f "$from_file" ]]; then
       print_error "File not found: $from_file"
-      exit 1
+      return 1
     fi
-    notes=$(cat "$from_file")
+    notes=$(cat "$from_file") || { print_error "Failed to read $from_file"; return 1; }
   fi
 
   # Trim whitespace
@@ -41,7 +41,7 @@ ralph_prd() {
     echo "Examples:"
     echo "  ralph prd 'Add user authentication with OAuth'"
     echo "  ralph prd --file docs/feature-spec.md"
-    exit 1
+    return 1
   fi
 
   # Check if PRD already exists
@@ -59,7 +59,7 @@ ralph_prd() {
   # Check Claude CLI is available
   if ! command -v claude &>/dev/null; then
     print_error "Claude CLI not found. Install it with: npm install -g @anthropic-ai/claude-code"
-    exit 1
+    return 1
   fi
 
   echo ""

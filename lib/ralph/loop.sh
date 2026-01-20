@@ -27,6 +27,18 @@ run_loop() {
   require_file "$RALPH_DIR/prd.json" "No PRD found. Run 'ralph prd' first."
   require_file "$PROMPT_FILE" "PROMPT.md not found. Run 'ralph init' first."
 
+  # Validate PRD is valid JSON
+  if ! jq -e . "$RALPH_DIR/prd.json" >/dev/null 2>&1; then
+    print_error "prd.json is not valid JSON. Please fix or regenerate it."
+    return 1
+  fi
+
+  # Validate PRD has required structure
+  if ! jq -e '.stories' "$RALPH_DIR/prd.json" >/dev/null 2>&1; then
+    print_error "prd.json is missing 'stories' array. Please fix or regenerate it."
+    return 1
+  fi
+
   local iteration=0
 
   while [[ $iteration -lt $max_iterations ]]; do

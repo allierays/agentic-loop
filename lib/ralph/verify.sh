@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 # verify.sh - Full UAT verification pipeline for ralph
 
+# Validate required source files exist before sourcing
+if [[ ! -f "$RALPH_LIB/playwright.sh" ]]; then
+  echo "Error: Missing $RALPH_LIB/playwright.sh" >&2
+  exit 1
+fi
+if [[ ! -f "$RALPH_LIB/api.sh" ]]; then
+  echo "Error: Missing $RALPH_LIB/api.sh" >&2
+  exit 1
+fi
+
 # Source additional verification modules
 source "$RALPH_LIB/playwright.sh"
 source "$RALPH_LIB/api.sh"
@@ -215,8 +225,9 @@ EOF
   echo "    Reviewing changes..."
 
   local result
-  result=$(echo "$prompt" | claude -p --dangerously-skip-permissions 2>/dev/null) || {
-    print_warning "    Code review skipped (Claude unavailable)"
+  # 2 minute timeout for code review
+  result=$(echo "$prompt" | run_with_timeout 120 claude -p --dangerously-skip-permissions 2>/dev/null) || {
+    print_warning "    Code review skipped (Claude unavailable or timed out)"
     return 0
   }
 

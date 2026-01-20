@@ -133,7 +133,7 @@ detect_project_type() {
 ralph_status() {
   if [[ ! -d "$RALPH_DIR" ]]; then
     print_error "Ralph not initialized. Run 'ralph init' first."
-    exit 1
+    return 1
   fi
 
   echo ""

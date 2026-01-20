@@ -50,9 +50,9 @@ run_api_validation() {
 
     echo -n "    $method $path... "
 
-    # Make the request
+    # Make the request (10 second timeout)
     local response_code
-    response_code=$(curl -sf -o /dev/null -w "%{http_code}" -X "$method" "$full_url" 2>/dev/null)
+    response_code=$(curl -sf -m 10 -o /dev/null -w "%{http_code}" -X "$method" "$full_url" 2>/dev/null)
 
     if [[ "$response_code" =~ ^2[0-9][0-9]$ ]]; then
       print_success "$response_code"
@@ -166,7 +166,7 @@ run_api_error_tests() {
       echo -n "    Testing 400 (bad request)... "
 
       local response_code
-      response_code=$(curl -sf -o /dev/null -w "%{http_code}" \
+      response_code=$(curl -sf -m 10 -o /dev/null -w "%{http_code}" \
         -X "$method" \
         -H "Content-Type: application/json" \
         -d '{}' \
@@ -184,7 +184,7 @@ run_api_error_tests() {
       echo -n "    Testing 401 (unauthorized)... "
 
       local response_code
-      response_code=$(curl -sf -o /dev/null -w "%{http_code}" \
+      response_code=$(curl -sf -m 10 -o /dev/null -w "%{http_code}" \
         -X "$method" \
         "$full_url" 2>/dev/null)
 
