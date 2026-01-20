@@ -329,6 +329,34 @@ run_unit_tests() {
   fi
 }
 
+# Auto-fix lint issues before running checks
+run_auto_fix() {
+  echo "    Auto-fixing lint issues..."
+
+  # Python: ruff fix
+  if command -v ruff &>/dev/null; then
+    ruff check --fix . 2>/dev/null || true
+  fi
+
+  # JavaScript/TypeScript: eslint fix
+  if [[ -f "package.json" ]] && command -v npx &>/dev/null; then
+    if grep -q '"eslint"' package.json 2>/dev/null || [[ -f ".eslintrc.js" ]] || [[ -f "eslint.config.js" ]]; then
+      npx eslint --fix . 2>/dev/null || true
+    fi
+  fi
+
+  # Check frontend directory too (monorepo support)
+  local fe_dir=""
+  [[ -d "frontend" ]] && fe_dir="frontend"
+  [[ -d "client" ]] && fe_dir="client"
+
+  if [[ -n "$fe_dir" && -f "$fe_dir/package.json" ]]; then
+    if grep -q '"eslint"' "$fe_dir/package.json" 2>/dev/null; then
+      (cd "$fe_dir" && npx eslint --fix . 2>/dev/null) || true
+    fi
+  fi
+}
+
 # Run all checks defined in config.json
 run_configured_checks() {
   local config="$RALPH_DIR/config.json"
@@ -337,6 +365,9 @@ run_configured_checks() {
     echo "    (no config.json, skipping)"
     return 0
   fi
+
+  # Auto-fix lint issues before checking
+  run_auto_fix
 
   # Get list of check names (excluding 'test' which we run separately)
   local check_names
