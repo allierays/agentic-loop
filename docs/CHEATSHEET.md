@@ -31,6 +31,7 @@ ralph status             Check progress
 | `check-any-types` | TypeScript `any` usage | No |
 | `check-function-length` | Functions > 50 lines | No |
 | `check-commented-code` | Large commented blocks | No |
+| `check-ai-models` | Hardcoded AI model names | No |
 
 **Commands:**
 ```bash
@@ -45,12 +46,14 @@ pre-commit run check-secrets        # Run specific hook
 | Command | Purpose |
 |---------|---------|
 | `/idea` | Brainstorm → PRD → Ready for Ralph |
+| `/sign` | Add a learned pattern for Ralph to remember |
 | `/vibe-help` | Quick reference cheatsheet |
 | `/tour` | Interactive walkthrough |
 | `/vibe-check` | Full code quality audit |
 | `/review` | Code review with security checks |
 | `/explain` | Explain code line by line |
 | `/styleguide` | Generate design system reference |
+| `/my-dna` | Set up your personal coding preferences |
 
 ---
 
@@ -81,6 +84,7 @@ pre-commit run check-secrets        # Run specific hook
 | Copy-paste code | "Extract into reusable function" |
 | No error handling | "Add loading, error, empty states" |
 | `dangerouslySetInnerHTML` | "Sanitize HTML or use text content" |
+| Hardcoded `gpt-4`, `claude-3` | "Use env vars or settings.AI_MODEL" |
 
 ---
 

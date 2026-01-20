@@ -249,6 +249,8 @@ For persistent issues, add a sign:
 npx ralph sign "Import from @/lib/utils not @/utils" frontend
 ```
 
+Or use the `/sign` slash command during a Claude session to add patterns interactively.
+
 Now every future story will see this pattern.
 
 ## Commands

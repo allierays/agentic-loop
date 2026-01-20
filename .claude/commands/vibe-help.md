@@ -33,11 +33,13 @@ npx ralph check          run verification only
 
 ---
 
-## Setup
+## Setup & Learning
 
 ```
 /tour                    guided setup
 /my-dna                  set preferences
+/sign                    teach Ralph a pattern
+npx ralph signs          view learned patterns
 ```
 
 ---

@@ -13,6 +13,7 @@ Print this complete reference for the user. Do not add any commentary.
 | Command | Description |
 |---------|-------------|
 | `/idea [feature]` | Brainstorm in plan mode, generate PRD for Ralph |
+| `/sign` | Add a learned pattern for Ralph to remember |
 | `/my-dna` | Set up your personal style preferences |
 | `/vibe-check` | Audit code quality before shipping |
 | `/review` | Code review with OWASP security checks |
