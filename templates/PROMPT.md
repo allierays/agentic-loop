@@ -139,6 +139,42 @@ For all endpoints:
 - **Set sensible limits**: Max page size, max request body size
 - **Batch operations**: Use bulk inserts when creating many records
 
+## AI/LLM Configuration
+
+**NEVER hardcode AI model names, API keys, or endpoints.** Always use environment variables or settings.
+
+```python
+# ❌ Bad - hardcoded model
+model = "gpt-4"
+client = OpenAI(api_key="sk-...")
+
+# ✅ Good - from environment/settings
+model = os.environ.get("OPENAI_MODEL", "gpt-4")
+client = OpenAI()  # Uses OPENAI_API_KEY env var
+```
+
+```python
+# ❌ Bad - hardcoded in code
+response = openai.chat.completions.create(
+    model="gpt-4-turbo",
+    max_tokens=4096,
+)
+
+# ✅ Good - from settings/config
+from django.conf import settings
+response = openai.chat.completions.create(
+    model=settings.AI_MODEL,
+    max_tokens=settings.AI_MAX_TOKENS,
+)
+```
+
+If the project has an AI gateway or wrapper, use it:
+```python
+# ✅ Best - use project's AI abstraction
+from myapp.ai import get_completion
+response = get_completion(prompt)
+```
+
 ---
 
 ## Current Story

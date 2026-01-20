@@ -20,6 +20,7 @@ import { checkAnyTypes } from './check-any-types.js';
 import { checkSnakeCaseTs } from './check-snake-case-ts.js';
 import { checkUnsafeHtml } from './check-unsafe-html.js';
 import { checkDockerPlatform } from './check-docker-platform.js';
+import { checkHardcodedAiModels } from './check-hardcoded-ai-models.js';
 
 /** All available hooks */
 export const hooks: Hook[] = [
@@ -43,6 +44,9 @@ export const hooks: Hook[] = [
 
   // Infrastructure
   checkDockerPlatform,
+
+  // AI/LLM
+  checkHardcodedAiModels,
 ];
 
 /** Get a hook by its ID */
@@ -76,4 +80,5 @@ export {
   checkSnakeCaseTs,
   checkUnsafeHtml,
   checkDockerPlatform,
+  checkHardcodedAiModels,
 };
