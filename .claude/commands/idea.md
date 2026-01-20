@@ -212,6 +212,17 @@ npx ralph run
 - `a11y` - Accessibility requirements
 - `mobile` - How it works on mobile
 
+### E2E Tests (use judgment)
+Add `"e2e": true` to stories that are **critical user flows**:
+- Onboarding, auth, checkout, multi-step wizards → include e2e
+- Simple CRUD pages, display components → skip e2e (browser validation is enough)
+
+When `e2e: true`, the story should:
+- Create a Playwright test file in `tests/e2e/{story-id}.spec.ts`
+- Include the test in `testSteps`: `"npx playwright test tests/e2e/{story-id}.spec.ts"`
+
+Don't ask the user - use your judgment based on the feature type.
+
 ### Backend stories also need:
 - `apiEndpoints` - Endpoints to test
 - `validation` - Input validation rules
