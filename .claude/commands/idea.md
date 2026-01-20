@@ -321,7 +321,8 @@ Options:
 **STOP and wait for user choice.**
 
 If **'append'**:
-- Find highest existing task ID (e.g., if TASK-019 exists, new tasks start at TASK-020)
+- Find highest existing story number (ignore prefix - could be US-019 or TASK-019)
+- **Always use TASK- prefix** for new stories (e.g., if highest is US-019 or TASK-019, new stories start at TASK-020)
 - Read existing PRD, add new stories to the `stories` array
 - Update `metadata.estimatedStories` count
 - Write back to `.ralph/prd.json`

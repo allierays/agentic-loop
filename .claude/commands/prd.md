@@ -61,7 +61,8 @@ Options:
 **STOP and wait for user choice.**
 
 If user chooses **'append'**:
-- Note the highest existing task ID (e.g., if TASK-005 exists, new tasks start at TASK-006)
+- Find highest existing story number (ignore prefix - could be US-005 or TASK-005)
+- **Always use TASK- prefix** for new stories (e.g., if highest is US-005 or TASK-005, new stories start at TASK-006)
 - New stories will be added after existing ones
 
 ### Step 4: Split into Stories
