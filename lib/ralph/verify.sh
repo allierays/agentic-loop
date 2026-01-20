@@ -338,7 +338,7 @@ run_auto_fix() {
     ruff check --fix . 2>/dev/null || true
   fi
 
-  # JavaScript/TypeScript: eslint fix
+  # JavaScript/TypeScript: eslint fix (root)
   if [[ -f "package.json" ]] && command -v npx &>/dev/null; then
     if grep -q '"eslint"' package.json 2>/dev/null || [[ -f ".eslintrc.js" ]] || [[ -f "eslint.config.js" ]]; then
       npx eslint --fix . 2>/dev/null || true
@@ -349,11 +349,28 @@ run_auto_fix() {
   local fe_dir=""
   [[ -d "frontend" ]] && fe_dir="frontend"
   [[ -d "client" ]] && fe_dir="client"
+  [[ -d "web" ]] && fe_dir="web"
 
   if [[ -n "$fe_dir" && -f "$fe_dir/package.json" ]]; then
+    # ESLint fix
     if grep -q '"eslint"' "$fe_dir/package.json" 2>/dev/null; then
       (cd "$fe_dir" && npx eslint --fix . 2>/dev/null) || true
     fi
+
+    # Next.js lint fix
+    if grep -q '"next"' "$fe_dir/package.json" 2>/dev/null; then
+      (cd "$fe_dir" && npx next lint --fix 2>/dev/null) || true
+    fi
+
+    # Prettier fix (common in frontend)
+    if grep -q '"prettier"' "$fe_dir/package.json" 2>/dev/null; then
+      (cd "$fe_dir" && npx prettier --write . 2>/dev/null) || true
+    fi
+  fi
+
+  # Prettier fix (root - for non-monorepo)
+  if [[ -f "package.json" ]] && grep -q '"prettier"' package.json 2>/dev/null; then
+    npx prettier --write . 2>/dev/null || true
   fi
 }
 
