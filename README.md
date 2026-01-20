@@ -100,6 +100,7 @@ Ralph loops through stories one at a time, writes tests, verifies, and commits.
 │  6. Repeat until all stories pass                           │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
+```
 
 ---
 
