@@ -476,16 +476,27 @@ run_browser_validation() {
     return 0
   fi
 
+  # Get base URL from config (required for relative URLs)
+  local base_url
+  base_url=$(get_config '.testUrlBase' "")
+
   # Check if Docker mode - Playwright needs special handling
   local docker_enabled
   docker_enabled=$(get_config '.docker.enabled' "false")
   if [[ "$docker_enabled" == "true" ]]; then
     echo "    (Docker mode: using curl check - set verification.browserEnabled=false to hide this)"
     # In Docker, fall back to curl unless they've set up remote browser
-    # TODO: Support PLAYWRIGHT_WS_ENDPOINT for remote browser connection
     local url
     url=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .testUrl // empty' "$RALPH_DIR/prd.json" 2>/dev/null)
     if [[ -n "$url" ]]; then
+      # Handle relative URLs
+      if [[ "$url" =~ ^/ ]]; then
+        if [[ -z "$base_url" ]]; then
+          print_error "testUrlBase not set in config.json (needed for relative URL: $url)"
+          return 1
+        fi
+        url="${base_url}${url}"
+      fi
       return run_curl_check "$url"
     fi
     return 0
@@ -497,6 +508,15 @@ run_browser_validation() {
   if [[ -z "$url" ]]; then
     echo "    (no testUrl defined, skipping browser validation)"
     return 0
+  fi
+
+  # Handle relative URLs by prepending base URL from config
+  if [[ "$url" =~ ^/ ]]; then
+    if [[ -z "$base_url" ]]; then
+      print_error "testUrlBase not set in config.json (needed for relative URL: $url)"
+      return 1
+    fi
+    url="${base_url}${url}"
   fi
 
   if ! validate_url "$url"; then
