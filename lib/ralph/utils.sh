@@ -233,6 +233,41 @@ safe_exec() {
   bash -c "$cmd" > "$log_file" 2>&1
 }
 
+# Send notification via iMessage (macOS only)
+# Reads RALPH_NOTIFY_PHONE from .env or environment
+send_notification() {
+  local message="$1"
+  local phone=""
+
+  # Try to get phone from .env file first
+  if [[ -f ".env" ]]; then
+    phone=$(grep -E '^RALPH_NOTIFY_PHONE=' .env 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" | xargs)
+  fi
+
+  # Fall back to environment variable
+  if [[ -z "$phone" ]]; then
+    phone="${RALPH_NOTIFY_PHONE:-}"
+  fi
+
+  # No phone configured, skip silently
+  if [[ -z "$phone" ]]; then
+    return 0
+  fi
+
+  # macOS only - use iMessage
+  if [[ "$(uname)" == "Darwin" ]]; then
+    osascript -e "tell application \"Messages\" to send \"$message\" to buddy \"$phone\"" 2>/dev/null || {
+      print_warning "Failed to send iMessage notification (is Messages app signed in?)"
+      return 1
+    }
+    print_info "Notification sent to $phone"
+  else
+    print_warning "Notifications only supported on macOS"
+  fi
+
+  return 0
+}
+
 # Run migrations if new migration files were created during story
 run_migrations_if_needed() {
   local pre_sha="$1"

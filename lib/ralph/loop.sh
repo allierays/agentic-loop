@@ -46,6 +46,10 @@ run_loop() {
     if [[ -f "$RALPH_DIR/.stop" ]]; then
       rm -f "$RALPH_DIR/.stop"
       print_warning "Stop signal received. Exiting gracefully."
+      local passed failed
+      passed=$(jq '[.stories[] | select(.passes==true)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+      failed=$(jq '[.stories[] | select(.passes==false)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+      send_notification "🛑 Ralph stopped: $passed passed, $failed remaining"
       return 0
     fi
 
@@ -71,6 +75,7 @@ run_loop() {
 
     if [[ -z "$story" ]]; then
       print_success "All stories complete!"
+      send_notification "✅ Ralph finished: All stories passed!"
       archive_feature
       return 0
     fi
@@ -187,6 +192,10 @@ run_loop() {
   done
 
   print_warning "Max iterations ($max_iterations) reached"
+  local passed failed
+  passed=$(jq '[.stories[] | select(.passes==true)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+  failed=$(jq '[.stories[] | select(.passes==false)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+  send_notification "⚠️ Ralph stopped: $passed passed, $failed remaining (max iterations reached)"
   return 1
 }
 
