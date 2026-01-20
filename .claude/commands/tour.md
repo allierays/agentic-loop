@@ -169,12 +169,24 @@ Detect test framework:
 test -f playwright.config.ts && echo "playwright"
 test -f vitest.config.ts && echo "vitest"
 test -f jest.config.js && echo "jest"
+test -f manage.py && echo "django"
+test -f pytest.ini && echo "pytest"
+test -f pyproject.toml && grep -q "pytest" pyproject.toml && echo "pytest"
 ```
 
 Update config:
 ```bash
 # If playwright found
 jq '.playwright.enabled = true' .ralph/config.json > .ralph/config.tmp && mv .ralph/config.tmp .ralph/config.json
+
+# If Django found (NO --parallel - it hides errors)
+jq '.checks.test = "python manage.py test --keepdb"' .ralph/config.json > .ralph/config.tmp && mv .ralph/config.tmp .ralph/config.json
+
+# If Django + Docker
+jq '.checks.test = "docker compose exec -T web python manage.py test --keepdb"' .ralph/config.json > .ralph/config.tmp && mv .ralph/config.tmp .ralph/config.json
+
+# If pytest found
+jq '.checks.test = "pytest"' .ralph/config.json > .ralph/config.tmp && mv .ralph/config.tmp .ralph/config.json
 
 # If vitest/jest found
 jq '.checks.test = "npm test"' .ralph/config.json > .ralph/config.tmp && mv .ralph/config.tmp .ralph/config.json
