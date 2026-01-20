@@ -30,6 +30,8 @@ repos:
   - repo: https://github.com/allthriveai/vibe-and-thrive
     rev: v1.0.0
     hooks:
+      - id: build
+        name: Build check
       - id: check-secrets
         name: Check for hardcoded secrets
       - id: check-hardcoded-urls
