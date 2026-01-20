@@ -1,6 +1,14 @@
 # vibe-and-thrive pre-commit hooks
 # All hooks use language: node for consistency
 
+# Build check (blocking - ensures code compiles)
+- id: build
+  name: Build check
+  entry: npm run build
+  language: system
+  pass_filenames: false
+  always_run: true
+
 # Security checks (blocking - these will fail the commit)
 - id: check-secrets
   name: Check for hardcoded secrets
