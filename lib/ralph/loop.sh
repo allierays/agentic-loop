@@ -99,8 +99,18 @@ run_loop() {
 
     # 4. Spawn Claude (fresh context, with timeout)
     echo ""
-    print_info "Running Claude for story: $story"
-    echo "    (this may take a minute to start...)"
+    echo "  ╔═══════════════════════════════════════════════════╗"
+    echo "  ║                                                   ║"
+    echo "  ║   ██████   █████  ██      ██████  ██   ██         ║"
+    echo "  ║   ██   ██ ██   ██ ██      ██   ██ ██   ██         ║"
+    echo "  ║   ██████  ███████ ██      ██████  ███████         ║"
+    echo "  ║   ██   ██ ██   ██ ██      ██      ██   ██         ║"
+    echo "  ║   ██   ██ ██   ██ ███████ ██      ██   ██         ║"
+    echo "  ║                                                   ║"
+    printf "  ║   Story: %-40s  ║\n" "$story"
+    echo "  ║   Starting Claude... (may take a minute)          ║"
+    echo "  ║                                                   ║"
+    echo "  ╚═══════════════════════════════════════════════════╝"
     echo ""
 
     local timeout_seconds
