@@ -336,6 +336,17 @@ your-project/
     └── ideas/           # Documented feature ideas
 ```
 
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| "Invalid API key" | Remove `ANTHROPIC_API_KEY` from `.env` - Ralph uses Claude Max subscription |
+| "jq: command not found" | Install jq: `brew install jq` (macOS) or `apt install jq` (Linux) |
+| Browser verification skipped | Install Playwright: `npm install playwright && npx playwright install chromium` |
+| "pre-commit: command not found" | Install pre-commit: `pip install pre-commit` then `pre-commit install` |
+| Story keeps failing | Check `.ralph/last_failure.txt` for the error |
+| Claude times out | Increase `maxSessionSeconds` in config.json |
+
 ## Tips
 
 ### Writing Good PRDs

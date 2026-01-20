@@ -165,6 +165,16 @@ npm install vibe-and-thrive
 
 That's it. The postinstall sets up everything automatically.
 
+### What Gets Installed
+
+| Item | Location | Purpose |
+|------|----------|---------|
+| Slash commands | `.claude/commands/` | /idea, /tour, /vibe-check, etc. |
+| Ralph config | `.ralph/config.json` | Project settings for verification |
+| Pre-commit hooks | `.pre-commit-config.yaml` | Block secrets and security issues |
+| Project guide | `CLAUDE.md` | Auto-detected project info for Claude |
+| Gitignore entries | `.gitignore` | Ignore Ralph temp files |
+
 ---
 
 ## Links

@@ -104,85 +104,14 @@ Ralph loops through stories one at a time, writes tests, verifies, and commits.
 
 ---
 
-## Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| "Invalid API key" | Remove `ANTHROPIC_API_KEY` from `.env` - Ralph uses Claude Max subscription |
-| "jq: command not found" | Install jq: `brew install jq` (macOS) or `apt install jq` (Linux) |
-| Browser verification skipped | Install Playwright: `npm install playwright && npx playwright install chromium` |
-| "pre-commit: command not found" | Install pre-commit: `pip install pre-commit` then `pre-commit install` |
-
-
-### What Ralph Reads
-
-| File | Purpose |
-|------|---------|
-| `.ralph/prd.json` | Stories to implement (the work) |
-| `PROMPT.md` | Base instructions (how to code) |
-| `.ralph/config.json` | Project settings (URLs, commands) |
-| `.ralph/signs.json` | Learned patterns from past runs |
-| `~/.claude/DNA.md` | Your personal preferences |
-
-### Verification Pipeline
-
-1. **Build** - `npm run build` (catches compile errors)
-2. **Code review** - Claude reviews diff for security/patterns
-3. **Unit tests** - Runs `testSteps` from story
-4. **E2E tests** - Playwright tests if `e2e: true`
-5. **Browser check** - Console errors, network failures, missing elements
-
-All stories complete → all tests passing → all commits made → push when ready.
-
-📖 **[Full Ralph documentation →](docs/RALPH.md)**
-
-## What Gets Installed
-
-When you run `npm install vibe-and-thrive`, postinstall automatically sets up:
-
-| Item | Location | Purpose |
-|------|----------|---------|
-| Slash commands | `.claude/commands/` | /idea, /tour, /vibe-check, etc. |
-| Ralph config | `.ralph/config.json` | Project settings for verification |
-| Pre-commit hooks | `.pre-commit-config.yaml` | Block secrets and security issues |
-| Project guide | `CLAUDE.md` | Auto-detected project info for Claude |
-| Gitignore entries | `.gitignore` | Ignore Ralph temp files |
-
-## Commands
-
-### Claude Code Slash Commands
-
-| Command | What it does |
-|---------|--------------|
-| `/idea [feature]` | Brainstorm and generate PRD for Ralph |
-| `/tour` | Interactive walkthrough for new users |
-| `/my-dna` | Set up your personal voice in CLAUDE.md |
-| `/vibe-check` | Audit code quality before shipping |
-| `/review` | Code review with security checks |
-| `/explain` | Understand existing code line by line |
-| `/styleguide` | Generate UI component reference |
-| `/vibe-help` | Quick reference cheatsheet |
-
-### Terminal Commands
-
-| Command | What it does |
-|---------|--------------|
-| `npx ralph run` | Start autonomous loop |
-| `npx ralph stop` | Stop after current story |
-| `npx ralph status` | Check progress |
-| `npx ralph check` | Run verification only |
-| `npx ralph verify TASK-001` | Verify specific task |
-| `npx ralph signs` | Show learned patterns |
-| `npx ralph sign "pattern"` | Teach Ralph a pattern |
-
 ## Documentation
 
 | Doc | Description |
 |-----|-------------|
-| [Ralph Architecture](docs/RALPH.md) | How the autonomous loop works |
+| [How Ralph Works](docs/RALPH.md) | Architecture, config, troubleshooting |
+| [Cheatsheet](docs/CHEATSHEET.md) | All commands, quick reference |
 | [Workflow Guide](docs/WORKFLOW.md) | End-to-end development process |
-| [Cheatsheet](docs/CHEATSHEET.md) | Quick reference for all commands |
-| [Bad Patterns](docs/BAD-PATTERNS.md) | AI code issues vibe-check catches |
+| [Bad Patterns](docs/BAD-PATTERNS.md) | AI code issues to avoid |
 | [Prompting Guide](docs/PROMPTING-GUIDE.md) | Writing effective PROMPT.md |
 | [TDD Guide](docs/TDD.md) | Test-driven development with Ralph |
 | [Styleguide](docs/STYLEGUIDE.md) | Creating UI component references |
