@@ -2,22 +2,30 @@
 
 **Ship quality code faster with AI.**
 
-A toolkit for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that helps you go from idea to shipped code.
+A toolkit for implementing [RALPH](https://ghuntley.com/ralph/) with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that helps you go from idea to shipped code.
 
-### Customize
-- **`/my-dna`** - Set up your personal coding preferences
+> You focus on what matters: your ideas. Brainstorm with `/idea`, then let Ralph handle the rest - coding, testing, and committing in an iterative loop until everything passes.
+
+### This repo includes: 
+#### Customize
+- **`/my-dna`** - Add your own voice and values to your claude.md
 - **`/styleguide`** - Generate a UI component reference for consistent design
 
-### Ship Features
-- **`/idea`** - Brainstorm features and generate PRDs
-- **Ralph** - Autonomous loop: implement → verify → commit → repeat
+#### Ship Features
+- **`npx ralph run`** - RALPH Autonomous loop: Brainstorm ideas → turn ideas into atomic prds → implement → verify → commit → repeat
 
-### Guardrails
-- **`/vibe-check`** - Catch AI code smells (debug statements, empty catches, any types)
-- **`/review`** - Security-focused code review with OWASP checks
-- **Pre-commit hooks** - Block secrets, hardcoded URLs, and security issues
+#### Guardrails
+- **`/vibe-check`** - manually run the same automated tests and guardrail checks at any time
+- **`/review`** - manually run the same automated Security-focused code review with OWASP checks
+- **Pre-commit hooks** - Automatically Block secrets, hardcoded URLs, and security issues with precommit hooks. Catch and fix issues before your CI/CD does
 
-## Install
+---
+See More for on how the [RALPH loop](docs/RALPH.md) works in this repo
+
+---
+
+
+## Getting Started
 
 ### Prerequisites
 
@@ -26,36 +34,34 @@ A toolkit for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that
 - `jq` (for config management): `brew install jq` or `apt install jq`
 - Optional: [Playwright](https://playwright.dev/) for browser verification (installed automatically by `/tour`)
 
-### Install
+
+## Step 0: Install 
 
 ```bash
-cd your-project
+cd [your-project]
 npm install vibe-and-thrive
 ```
+This automatically sets up slash commands, pre-commit hooks, to make the Ralph loop autonomous.
 
-This automatically sets up slash commands, pre-commit hooks, and Ralph.
-
-### Get Started
-
-```bash
-claude
-> /tour
-```
-
-The tour auto-detects your project settings and walks you through the workflow.
-
-## How It Works
-
-### Step 1: Start Claude
+## Step 1: Start claude (--dangerously-skip-permissions is optional)
 
 ```bash
-claude
+claude --dangerously-skip-permissions 
 ```
+
+## Step 1b: Optional run tour and customizations 
+Inside of a claude session run 
+```
+ /tour
+```
+1. The tour auto-detects your project settings and walks you through the workflow.
+2. You can set up your own styleguide for all your frontend work to reference. I highly recommend you do this. 
+3. run /my-dna to add your own writing style, core values, and things you want represented in your application so that your app represents you and what you want.   
 
 ### Step 2: Brainstorm Your Idea
 
 ```
-/idea [your next feature]
+/idea [describe your next feature]
 ```
 
 Claude asks clarifying questions, explores your codebase, then generates:
