@@ -586,17 +586,64 @@ run_browser_validation() {
     return run_curl_check "$url"
   fi
 
+  # Check for auth config
+  local auth_login=""
+  local login_url
+  local test_user
+  local test_password
+  login_url=$(get_config '.auth.loginUrl' "")
+  test_user=$(get_config '.auth.testUser' "")
+  test_password=$(get_config '.auth.testPassword' "")
+
+  if [[ -n "$login_url" && -n "$test_user" && -n "$test_password" ]]; then
+    # Build auth login JSON
+    local username_selector
+    local password_selector
+    local submit_selector
+    local success_indicator
+    username_selector=$(get_config '.auth.usernameSelector' "input[name='email'], input[name='username'], input[type='email']")
+    password_selector=$(get_config '.auth.passwordSelector' "input[name='password'], input[type='password']")
+    submit_selector=$(get_config '.auth.submitSelector' "button[type='submit'], input[type='submit']")
+    success_indicator=$(get_config '.auth.successIndicator' "")
+
+    auth_login=$(jq -n \
+      --arg loginUrl "$login_url" \
+      --arg usernameSelector "$username_selector" \
+      --arg passwordSelector "$password_selector" \
+      --arg submitSelector "$submit_selector" \
+      --arg username "$test_user" \
+      --arg password "$test_password" \
+      --arg successIndicator "$success_indicator" \
+      '{
+        loginUrl: $loginUrl,
+        usernameSelector: $usernameSelector,
+        passwordSelector: $passwordSelector,
+        submitSelector: $submitSelector,
+        username: $username,
+        password: $password,
+        successIndicator: (if $successIndicator == "" then null else $successIndicator end)
+      }')
+  fi
+
   echo "    Running Playwright verification..."
 
   local result
   local exit_code=0
 
+  # Build the command with optional auth
+  local cmd_args=(
+    npx tsx "$verify_script" "$url"
+    --selectors "$selectors"
+    --screenshot "$screenshot_path"
+    --timeout 30000
+  )
+
+  if [[ -n "$auth_login" ]]; then
+    cmd_args+=(--auth-login "$auth_login")
+  fi
+
   # Run browser verification with 60s wrapper timeout (in case Playwright hangs)
-  result=$(run_with_timeout 60 npx tsx "$verify_script" "$url" \
-    --selectors "$selectors" \
-    --screenshot "$screenshot_path" \
-    --timeout 30000 \
-    2>&1) || exit_code=$?
+  result=$(run_with_timeout 60 "${cmd_args[@]}" 2>&1) || exit_code=$?
 
   # Check for timeout
   if [[ $exit_code -eq 124 ]]; then

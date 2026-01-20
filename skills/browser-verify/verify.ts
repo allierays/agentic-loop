@@ -25,6 +25,16 @@
 
 import { chromium, Browser, Page, ConsoleMessage } from 'playwright';
 
+interface AuthLogin {
+  loginUrl: string;
+  usernameSelector: string;
+  passwordSelector: string;
+  submitSelector: string;
+  username: string;
+  password: string;
+  successIndicator?: string; // Selector or URL pattern to confirm login worked
+}
+
 interface VerifyOptions {
   url: string;
   selectors: string[];
@@ -35,6 +45,7 @@ interface VerifyOptions {
   checkNetwork: boolean;
   viewport: { width: number; height: number };
   authCookie?: { name: string; value: string; domain: string };
+  authLogin?: AuthLogin;
 }
 
 interface VerifyResult {
@@ -70,6 +81,18 @@ Options:
   --viewport <W>x<H>              Viewport size (default: 1280x720)
   --mobile                        Mobile viewport (375x667)
   --auth-cookie '<json>'          Set auth cookie
+  --auth-login '<json>'           Login before verifying (see below)
+
+Auth Login JSON format:
+  {
+    "loginUrl": "http://localhost:3000/login",
+    "usernameSelector": "input[name='email']",
+    "passwordSelector": "input[name='password']",
+    "submitSelector": "button[type='submit']",
+    "username": "test@test.local",
+    "password": "testpass123",
+    "successIndicator": "/dashboard"  // URL pattern or selector
+  }
 `);
     process.exit(1);
   }
@@ -136,10 +159,62 @@ Options:
           process.exit(1);
         }
         break;
+      case '--auth-login':
+        try {
+          options.authLogin = JSON.parse(args[++i]);
+        } catch {
+          console.error('Invalid --auth-login JSON');
+          process.exit(1);
+        }
+        break;
     }
   }
 
   return options;
+}
+
+async function performLogin(page: Page, auth: AuthLogin, timeout: number): Promise<{ success: boolean; error?: string }> {
+  try {
+    // Navigate to login page
+    await page.goto(auth.loginUrl, {
+      timeout,
+      waitUntil: 'networkidle',
+    });
+
+    // Wait for and fill username
+    await page.waitForSelector(auth.usernameSelector, { timeout: 10000 });
+    await page.fill(auth.usernameSelector, auth.username);
+
+    // Fill password
+    await page.waitForSelector(auth.passwordSelector, { timeout: 5000 });
+    await page.fill(auth.passwordSelector, auth.password);
+
+    // Click submit
+    await page.waitForSelector(auth.submitSelector, { timeout: 5000 });
+    await page.click(auth.submitSelector);
+
+    // Wait for login to complete
+    if (auth.successIndicator) {
+      if (auth.successIndicator.startsWith('/') || auth.successIndicator.startsWith('http')) {
+        // It's a URL pattern - wait for navigation
+        await page.waitForURL(`**${auth.successIndicator}*`, { timeout: 15000 });
+      } else {
+        // It's a selector - wait for element
+        await page.waitForSelector(auth.successIndicator, { timeout: 15000 });
+      }
+    } else {
+      // No indicator - just wait for navigation away from login page
+      await page.waitForFunction(
+        (loginUrl) => !window.location.href.includes(loginUrl),
+        auth.loginUrl,
+        { timeout: 15000 }
+      );
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: `Login failed: ${err.message}` };
+  }
 }
 
 async function verify(options: VerifyOptions): Promise<VerifyResult> {
@@ -178,6 +253,17 @@ async function verify(options: VerifyOptions): Promise<VerifyResult> {
     }
 
     page = await context.newPage();
+
+    // Perform login if auth credentials provided
+    if (options.authLogin) {
+      const loginResult = await performLogin(page, options.authLogin, options.timeout);
+      if (!loginResult.success) {
+        result.errors.push(loginResult.error || 'Login failed');
+        result.pass = false;
+        return result;
+      }
+      result.warnings.push('Logged in as ' + options.authLogin.username);
+    }
 
     // Collect console errors
     const consoleErrors: string[] = [];
