@@ -123,7 +123,7 @@ Say: "Now I'll split this into executable PRDs for Ralph. Each story will be sma
 
 Break the idea into small, executable PRDs following the JSON structure below.
 
-### Step 6: Write PRD and Review
+### Step 6: Write PRD
 
 1. Ensure .ralph directory exists:
    ```bash
@@ -132,17 +132,11 @@ Break the idea into small, executable PRDs following the JSON structure below.
 
 2. Write to `.ralph/prd.json`
 
-3. Open the PRD for review:
-   ```bash
-   open -a TextEdit .ralph/prd.json
-   ```
+3. Say: "I've created the PRD with {N} stories in `.ralph/prd.json`.
 
-4. Say: "I've created the PRD with {N} stories.
-
-   Review `.ralph/prd.json` and let me know:
-   - **'approved'** - Ready for `ralph run`
-   - **'edit [changes]'** - Tell me what to change
-   - Or edit the JSON directly and say **'done'**"
+   Review and let me know:
+   - **'approved'** - Ready for `npx ralph run`
+   - **'edit [changes]'** - Tell me what to change"
 
 **STOP and wait for user response. Do not proceed until they approve.**
 
@@ -150,19 +144,17 @@ Break the idea into small, executable PRDs following the JSON structure below.
 
 Once the user approves the PRD, say:
 
-"Your idea is ready for execution!
+"Ready for autonomous development!
 
 **Idea:** `docs/ideas/{feature-name}.md`
 **PRD:** `.ralph/prd.json` ({N} stories)
 
-To start autonomous development:
+Run:
 ```bash
-ralph run
+npx ralph run
 ```
 
-Ralph will work through each story, running tests and committing as it goes."
-
-**DO NOT start implementing code. The user will run `ralph run` separately.**
+**DO NOT start implementing code. The user will run `npx ralph run` separately.**
 
 ---
 
