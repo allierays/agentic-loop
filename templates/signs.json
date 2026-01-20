@@ -20,6 +20,27 @@
       "category": "frontend",
       "learnedFrom": null,
       "createdAt": "2026-01-20T00:00:00-08:00"
+    },
+    {
+      "id": "sign-004",
+      "pattern": "Use camelCase for TypeScript/JavaScript variables, functions, and API response fields - convert snake_case from backend to camelCase in frontend",
+      "category": "frontend",
+      "learnedFrom": null,
+      "createdAt": "2026-01-20T00:00:00-08:00"
+    },
+    {
+      "id": "sign-005",
+      "pattern": "Add data-testid attributes to interactive elements for Playwright e2e tests",
+      "category": "frontend",
+      "learnedFrom": null,
+      "createdAt": "2026-01-20T00:00:00-08:00"
+    },
+    {
+      "id": "sign-006",
+      "pattern": "Never use 'any' type in TypeScript - create proper interfaces and types instead",
+      "category": "frontend",
+      "learnedFrom": null,
+      "createdAt": "2026-01-20T00:00:00-08:00"
     }
   ]
 }
