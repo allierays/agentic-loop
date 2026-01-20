@@ -93,6 +93,9 @@ main() {
     unsign)
       ralph_unsign "$@"
       ;;
+    notify)
+      ralph_notify "$@"
+      ;;
     progress)
       if [[ -f "$RALPH_DIR/progress.txt" ]]; then
         tail -50 "$RALPH_DIR/progress.txt"

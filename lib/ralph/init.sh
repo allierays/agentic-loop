@@ -199,6 +199,7 @@ Commands:
   verify <story-id>       Verify a specific story
   sign <pattern> [cat]    Add a learned pattern (sign)
   signs                   List all learned patterns
+  notify [phone]          Set up iMessage notifications (macOS)
   help                    Show this help message
 
 PRD Generation:

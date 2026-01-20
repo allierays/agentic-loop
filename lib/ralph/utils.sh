@@ -233,21 +233,67 @@ safe_exec() {
   bash -c "$cmd" > "$log_file" 2>&1
 }
 
+# Set up or show notification config
+ralph_notify() {
+  local config_dir="$HOME/.config/ralph"
+  local config_file="$config_dir/notify"
+
+  if [[ $# -eq 0 ]]; then
+    # Show current config
+    if [[ -f "$config_file" ]]; then
+      echo "Notification config (~/.config/ralph/notify):"
+      cat "$config_file"
+    else
+      echo "No notification configured."
+      echo ""
+      echo "To set up iMessage notifications (macOS):"
+      echo "  npx ralph notify +15551234567"
+      echo ""
+      echo "Ralph will text you when the loop finishes."
+    fi
+    return 0
+  fi
+
+  local phone="$1"
+
+  # Validate phone format (basic check)
+  if [[ ! "$phone" =~ ^\+?[0-9]{10,15}$ ]]; then
+    print_error "Invalid phone number format. Use: +15551234567"
+    return 1
+  fi
+
+  # Create config directory and file
+  mkdir -p "$config_dir"
+  echo "phone=$phone" > "$config_file"
+
+  print_success "Notification configured!"
+  echo "Phone: $phone"
+  echo ""
+  echo "Ralph will send iMessage when the loop finishes."
+  echo "(Requires macOS with Messages signed into your Apple ID)"
+
+  # Test notification
+  echo ""
+  read -p "Send a test message? [y/N] " -n 1 -r
+  echo ""
+  if [[ $REPLY =~ ^[Yy]$ ]]; then
+    send_notification "🧪 Test from Ralph - notifications are working!"
+  fi
+}
+
 # Send notification via iMessage (macOS only)
-# Reads RALPH_NOTIFY_PHONE from .env or environment
+# Reads phone from ~/.config/ralph/notify (global, one-time setup)
 send_notification() {
   local message="$1"
+  local config_file="$HOME/.config/ralph/notify"
+
+  # No config file, skip silently
+  if [[ ! -f "$config_file" ]]; then
+    return 0
+  fi
+
   local phone=""
-
-  # Try to get phone from .env file first
-  if [[ -f ".env" ]]; then
-    phone=$(grep -E '^RALPH_NOTIFY_PHONE=' .env 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" | xargs)
-  fi
-
-  # Fall back to environment variable
-  if [[ -z "$phone" ]]; then
-    phone="${RALPH_NOTIFY_PHONE:-}"
-  fi
+  phone=$(grep -E '^phone=' "$config_file" 2>/dev/null | cut -d'=' -f2 | tr -d '"' | tr -d "'" | xargs)
 
   # No phone configured, skip silently
   if [[ -z "$phone" ]]; then
