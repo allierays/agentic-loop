@@ -1,6 +1,6 @@
 {
   "name": "vibe-and-thrive",
-  "version": "1.4.1",
+  "version": "1.4.2",
   "description": "Catch common AI-generated code issues before they hit your codebase",
   "author": "AllThrive AI <hello@allthrive.ai>",
   "license": "MIT",
