@@ -7,7 +7,7 @@ Vibe-and-thrive is a toolkit for [Claude Code](https://docs.anthropic.com/en/doc
 - **Ralph** - Autonomous coding loop that writes, tests, and commits until done
 - **`/vibe-check`** - Code quality audits to catch common AI-generated issues
 - **`/review`** - Security-focused code review with OWASP checks
-- **Pre-commit hooks** - Block secrets, localhost URLs, and security issues
+- **Pre-commit hooks** - Build check, block secrets, localhost URLs, and security issues
 - **`/styleguide`** - Generate a UI component reference from your codebase
 - **`/my-dna`** - Interactive guide to adding your personal voice to CLAUDE.md
 
@@ -87,9 +87,9 @@ When you run `ralph run`, Ralph:
 
 1. Gets the next TODO story from `.ralph/prd.json`
 2. Spawns a fresh Claude session to implement it
-3. Runs 6-step verification:
+3. Runs verification pipeline:
    - Code review (security, patterns)
-   - Lint and type checks
+   - Build, lint, and type checks
    - Unit tests
    - Playwright e2e tests
    - Browser validation (console errors, network failures, missing elements)

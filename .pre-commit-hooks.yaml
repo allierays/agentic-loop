@@ -2,9 +2,10 @@
 # All hooks use language: node for consistency
 
 # Build check (blocking - ensures code compiles)
+# Only runs if package.json has a build script
 - id: build
   name: Build check
-  entry: npm run build
+  entry: bash -c 'if grep -q "\"build\":" package.json 2>/dev/null; then npm run build; else echo "No build script, skipping"; fi'
   language: system
   pass_filenames: false
   always_run: true
