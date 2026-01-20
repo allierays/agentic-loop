@@ -1,0 +1,25 @@
+{
+  "signs": [
+    {
+      "id": "sign-001",
+      "pattern": "NEVER hardcode AI model names (gpt-4, claude-3, gemini, etc) - always use environment variables or settings",
+      "category": "backend",
+      "learnedFrom": null,
+      "createdAt": "2026-01-20T00:00:00-08:00"
+    },
+    {
+      "id": "sign-002",
+      "pattern": "Use environment variables for all API keys and secrets, never hardcode them",
+      "category": "general",
+      "learnedFrom": null,
+      "createdAt": "2026-01-20T00:00:00-08:00"
+    },
+    {
+      "id": "sign-003",
+      "pattern": "Always handle loading, error, and empty states for async operations",
+      "category": "frontend",
+      "learnedFrom": null,
+      "createdAt": "2026-01-20T00:00:00-08:00"
+    }
+  ]
+}

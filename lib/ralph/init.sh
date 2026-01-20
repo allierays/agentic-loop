@@ -27,8 +27,12 @@ ralph_init() {
     cp "$RALPH_TEMPLATES/config/minimal.json" "$RALPH_DIR/config.json"
   fi
 
-  # Create empty signs
-  echo '{"signs": []}' > "$RALPH_DIR/signs.json"
+  # Create signs with defaults
+  if [[ -f "$RALPH_TEMPLATES/signs.json" ]]; then
+    cp "$RALPH_TEMPLATES/signs.json" "$RALPH_DIR/signs.json"
+  else
+    echo '{"signs": []}' > "$RALPH_DIR/signs.json"
+  fi
 
   # Create empty progress log
   local timestamp
