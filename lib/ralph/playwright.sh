@@ -110,9 +110,19 @@ run_playwright_tests() {
       return 0
     fi
   else
-    # No story-specific test - check if any tests exist
+    # No story-specific test - check if e2e was expected
+    local e2e_required
+    e2e_required=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .e2e // false' "$RALPH_DIR/prd.json" 2>/dev/null)
+
+    if [[ "$e2e_required" == "true" ]]; then
+      print_warning "missing (e2e: true but no test file created)"
+      rm -f "$log_file"
+      return 1  # Fail if e2e was expected but not created
+    fi
+
+    # Check if any tests exist to run
     if [[ -z "$(find "$test_dir" -name '*.spec.ts' -o -name '*.spec.js' 2>/dev/null | head -1)" ]]; then
-      print_warning "skipped (no tests found)"
+      echo "skipped (not required for this story)"
       rm -f "$log_file"
       return 0
     fi

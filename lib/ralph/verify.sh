@@ -506,7 +506,7 @@ run_browser_validation() {
   url=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .testUrl // empty' "$RALPH_DIR/prd.json" 2>/dev/null)
 
   if [[ -z "$url" ]]; then
-    echo "    (no testUrl defined, skipping browser validation)"
+    echo "    skipped (no testUrl - infrastructure or backend story)"
     return 0
   fi
 
