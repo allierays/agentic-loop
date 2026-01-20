@@ -17,6 +17,8 @@ Vibe-and-thrive is a toolkit for [Claude Code](https://docs.anthropic.com/en/doc
 
 - Node.js 18+
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI installed and authenticated
+- `jq` (for config management): `brew install jq` or `apt install jq`
+- Optional: [Playwright](https://playwright.dev/) for browser verification (installed automatically by `/tour`)
 
 ### Install
 
@@ -25,16 +27,16 @@ cd your-project
 npm install vibe-and-thrive
 ```
 
-This launches an interactive setup that installs slash commands, pre-commit hooks, and Ralph.
+This automatically sets up slash commands, pre-commit hooks, and Ralph.
 
-### Verify
+### Get Started
 
 ```bash
 claude
-> /vibe-help
+> /tour
 ```
 
-If you see the command reference, you're ready to go.
+The tour auto-detects your project settings and walks you through the workflow.
 
 ## How It Works
 
@@ -47,7 +49,7 @@ claude
 ### Step 2: Brainstorm Your Idea
 
 ```
-/idea add user authentication
+/idea [your next feature]
 ```
 
 Claude asks clarifying questions, explores your codebase, then generates:
@@ -58,7 +60,7 @@ Review and approve when prompted.
 
 ### Step 3: Execute with Ralph
 
-Exit Claude, then in your **terminal**:
+Type `/exit` or open a new terminal, then run:
 
 ```bash
 npx ralph run
@@ -68,7 +70,14 @@ Ralph loops through stories one at a time, writes tests, verifies, and commits.
 
 > **Pro tip:** Use two terminals - plan with Claude in one, run Ralph in another.
 
-**Troubleshooting:** If you see "Invalid API key", check your `.env` file for `ANTHROPIC_API_KEY`. Remove or comment it out - Ralph uses your Claude Max subscription, not an API key.
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| "Invalid API key" | Remove `ANTHROPIC_API_KEY` from `.env` - Ralph uses Claude Max subscription |
+| "jq: command not found" | Install jq: `brew install jq` (macOS) or `apt install jq` (Linux) |
+| Browser verification skipped | Install Playwright: `npm install playwright && npx playwright install chromium` |
+| "pre-commit: command not found" | Install pre-commit: `pip install pre-commit` then `pre-commit install` |
 
 ## Ralph Details
 
@@ -76,31 +85,30 @@ When you run `ralph run`, Ralph:
 
 1. Gets the next TODO story from `.ralph/prd.json`
 2. Spawns a fresh Claude session to implement it
-3. Runs 6-step verification (code review, lint, tests, e2e, browser, PRD steps)
+3. Runs 6-step verification:
+   - Code review (security, patterns)
+   - Lint and type checks
+   - Unit tests
+   - Playwright e2e tests
+   - Browser validation (console errors, network failures, missing elements)
+   - PRD test steps
 4. Auto-runs migrations if new migration files are detected
 5. Commits on success, retries on failure
 6. Repeats until all stories are done
 
 All stories complete → all tests passing → all commits made → push when ready.
 
-## Project Structure
+## What Gets Installed
 
-```
-vibe-and-thrive/
-├── bin/                    # CLI entry points (ralph, vibe, vibe-check)
-├── lib/ralph/              # Ralph core logic (loop, verify, init, etc.)
-├── skills/                 # Reusable skills for Claude
-│   └── browser-verify/     # Playwright-based page verification
-│       ├── SKILL.md        # Documentation for Claude
-│       └── verify.ts       # Verification script
-├── templates/              # Config templates for different project types
-├── .claude/commands/       # Slash commands (/idea, /prd, /vibe-check, etc.)
-└── integrations/           # ESLint plugin, lint-staged config
-```
+When you run `npm install vibe-and-thrive`, postinstall automatically sets up:
 
-### Skills
-
-Skills bundle documentation with tools so Claude knows both **what** a skill does and **how** to use it. The `browser-verify` skill, for example, launches a real Chromium browser to verify pages work correctly—detecting console errors, failed network requests, and missing elements.
+| Item | Location | Purpose |
+|------|----------|---------|
+| Slash commands | `.claude/commands/` | /idea, /tour, /vibe-check, etc. |
+| Ralph config | `.ralph/config.json` | Project settings for verification |
+| Pre-commit hooks | `.pre-commit-config.yaml` | Block secrets and security issues |
+| Project guide | `CLAUDE.md` | Auto-detected project info for Claude |
+| Gitignore entries | `.gitignore` | Ignore Ralph temp files |
 
 ## Commands
 
@@ -108,7 +116,7 @@ Skills bundle documentation with tools so Claude knows both **what** a skill doe
 
 | Command | What it does |
 |---------|--------------|
-| `/idea "feature"` | Brainstorm and generate PRD for Ralph |
+| `/idea [feature]` | Brainstorm and generate PRD for Ralph |
 | `/tour` | Interactive walkthrough for new users |
 | `/my-dna` | Set up your personal voice in CLAUDE.md |
 | `/vibe-check` | Audit code quality before shipping |
@@ -122,6 +130,7 @@ Skills bundle documentation with tools so Claude knows both **what** a skill doe
 | Command | What it does |
 |---------|--------------|
 | `npx ralph run` | Start autonomous loop |
+| `npx ralph stop` | Stop after current story |
 | `npx ralph status` | Check progress |
 | `npx ralph check` | Run verification only |
 | `npx ralph verify TASK-001` | Verify specific task |

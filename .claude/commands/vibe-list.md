@@ -12,7 +12,7 @@ Print this complete reference for the user. Do not add any commentary.
 
 | Command | Description |
 |---------|-------------|
-| `/idea "feature"` | Brainstorm in plan mode, generate PRD for Ralph |
+| `/idea [feature]` | Brainstorm in plan mode, generate PRD for Ralph |
 | `/my-dna` | Set up your personal style preferences |
 | `/vibe-check` | Audit code quality before shipping |
 | `/review` | Code review with OWASP security checks |
@@ -29,38 +29,39 @@ Print this complete reference for the user. Do not add any commentary.
 ### Setup & Status
 | Command | Description |
 |---------|-------------|
-| `ralph init` | Initialize `.ralph/` in current directory |
-| `ralph status` | Show feature, stories, pass/fail counts |
-| `ralph progress` | Show last 50 lines of progress log |
-| `ralph version` | Show version info |
-| `ralph help` | Show built-in help |
+| `npx ralph init` | Initialize `.ralph/` in current directory |
+| `npx ralph status` | Show feature, stories, pass/fail counts |
+| `npx ralph progress` | Show last 50 lines of progress log |
+| `npx ralph version` | Show version info |
+| `npx ralph help` | Show built-in help |
 
 ### PRD Generation
 | Command | Description |
 |---------|-------------|
-| `ralph prd "notes"` | Generate PRD interactively from description |
-| `ralph prd --file spec.md` | Generate PRD from a file |
-| `ralph prd --accept` | Save generated PRD to `.ralph/prd.json` |
+| `npx ralph prd "notes"` | Generate PRD interactively from description |
+| `npx ralph prd --file spec.md` | Generate PRD from a file |
+| `npx ralph prd --accept` | Save generated PRD to `.ralph/prd.json` |
 
 ### Autonomous Loop
 | Command | Description |
 |---------|-------------|
-| `ralph run` | Run loop until all stories pass |
-| `ralph run --max 10` | Limit to N iterations (default: 20) |
-| `ralph run --story TASK-001` | Run for specific task only |
+| `npx ralph run` | Run loop until all stories pass |
+| `npx ralph run --max 10` | Limit to N iterations (default: 20) |
+| `npx ralph run --story TASK-001` | Run for specific task only |
+| `npx ralph stop` | Stop after current story completes |
 
 ### Verification
 | Command | Description |
 |---------|-------------|
-| `ralph check` | Run all configured checks |
-| `ralph verify TASK-001` | Verify a specific task |
+| `npx ralph check` | Run all configured checks |
+| `npx ralph verify TASK-001` | Verify a specific task |
 
 ### Signs (Learned Patterns)
 | Command | Description |
 |---------|-------------|
-| `ralph signs` | List all learned patterns |
-| `ralph sign "pattern" [cat]` | Add pattern with optional category |
-| `ralph unsign <id or text>` | Remove a sign by ID or text match |
+| `npx ralph signs` | List all learned patterns |
+| `npx ralph sign "pattern" [cat]` | Add pattern with optional category |
+| `npx ralph unsign <id or text>` | Remove a sign by ID or text match |
 
 ---
 
@@ -75,20 +76,19 @@ Print this complete reference for the user. Do not add any commentary.
 ## The Loop
 
 ```
-/idea "your feature"     Brainstorm → PRD
-ralph run                Autonomous coding
-ralph status             Check progress
-/vibe-check              Audit before shipping
+/idea [feature]          Brainstorm → PRD
+npx ralph run            Autonomous coding
+npx ralph status         Check progress
+npx ralph stop           Stop after current story
 ```
 
 ---
 
 ## Slash Command Details
 
-### /idea "feature description"
+### /idea [feature description]
 Brainstorm in plan mode, explore codebase, ask clarifying questions.
 - Writes idea to `docs/ideas/{feature}.md`
-- Opens in TextEdit for review
 - On approval, splits into PRD stories
 - Writes to `.ralph/prd.json`
 
@@ -137,16 +137,16 @@ Creates `~/.claude/DNA.md` - applies to all your projects.
 
 ```bash
 # Add patterns Ralph should follow
-ralph sign "Always use camelCase in WebSocket responses" frontend
-ralph sign "Run migrations before seeding" backend
-ralph sign "Check for null before accessing nested props" general
+npx ralph sign "Always use camelCase in WebSocket responses" frontend
+npx ralph sign "Run migrations before seeding" backend
+npx ralph sign "Check for null before accessing nested props" general
 
 # List learned patterns
-ralph signs
+npx ralph signs
 
 # Remove a sign
-ralph unsign sign-001
-ralph unsign "camelCase"
+npx ralph unsign sign-001
+npx ralph unsign "camelCase"
 ```
 
 ---

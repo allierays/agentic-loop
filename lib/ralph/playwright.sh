@@ -13,9 +13,9 @@ ensure_playwright() {
       return 1
     fi
 
-    # Install Playwright
-    npx playwright install chromium 2>/dev/null || {
-      print_warning "Could not install Playwright browsers"
+    # Install Playwright package and browsers
+    npm install playwright 2>/dev/null && npx playwright install chromium 2>/dev/null || {
+      print_warning "Could not install Playwright - run: npm install playwright && npx playwright install chromium"
     }
 
     # Create minimal config if it doesn't exist

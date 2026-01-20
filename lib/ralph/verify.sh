@@ -465,6 +465,21 @@ run_browser_validation() {
     return 0
   fi
 
+  # Check if Docker mode - Playwright needs special handling
+  local docker_enabled
+  docker_enabled=$(get_config '.docker.enabled' "false")
+  if [[ "$docker_enabled" == "true" ]]; then
+    echo "    (Docker mode: using curl check - set verification.browserEnabled=false to hide this)"
+    # In Docker, fall back to curl unless they've set up remote browser
+    # TODO: Support PLAYWRIGHT_WS_ENDPOINT for remote browser connection
+    local url
+    url=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .testUrl // empty' "$RALPH_DIR/prd.json" 2>/dev/null)
+    if [[ -n "$url" ]]; then
+      return run_curl_check "$url"
+    fi
+    return 0
+  fi
+
   local url
   url=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .testUrl // empty' "$RALPH_DIR/prd.json" 2>/dev/null)
 
@@ -480,10 +495,60 @@ run_browser_validation() {
 
   echo "    URL: $url"
 
-  # Check if Playwright is available
+  # Check if npx is available
   if ! command -v npx &>/dev/null; then
     print_warning "    npx not found, skipping browser validation"
     return 0
+  fi
+
+  # Check if Playwright package is installed
+  local playwright_installed=false
+  if npm list playwright &>/dev/null || npm list -g playwright &>/dev/null; then
+    playwright_installed=true
+  fi
+
+  # Check if browser binaries are installed (look for chromium in cache)
+  # macOS uses ~/Library/Caches, Linux uses ~/.cache
+  local browser_installed=false
+  local playwright_cache=""
+  if [[ -d "$HOME/Library/Caches/ms-playwright" ]]; then
+    playwright_cache="$HOME/Library/Caches/ms-playwright"
+  elif [[ -d "$HOME/.cache/ms-playwright" ]]; then
+    playwright_cache="$HOME/.cache/ms-playwright"
+  fi
+  if [[ -n "$playwright_cache" ]] && ls "$playwright_cache"/chromium-* &>/dev/null; then
+    browser_installed=true
+  fi
+
+  # If either is missing, offer to install
+  if [[ "$playwright_installed" == "false" ]] || [[ "$browser_installed" == "false" ]]; then
+    # Check if we're in an interactive terminal
+    if [[ -t 0 ]]; then
+      echo ""
+      if [[ "$playwright_installed" == "false" ]]; then
+        print_warning "    Playwright package not installed."
+      else
+        print_warning "    Playwright browser binaries not installed."
+      fi
+      read -p "    Install now? (~150MB download) [y/N] " -n 1 -r
+      echo ""
+      if [[ $REPLY =~ ^[Yy]$ ]]; then
+        echo "    Installing Playwright and Chromium..."
+        if npm install playwright &>/dev/null && npx playwright install chromium; then
+          print_success "    Playwright installed!"
+        else
+          print_error "    Installation failed, falling back to curl check"
+          return run_curl_check "$url"
+        fi
+      else
+        print_info "    Falling back to curl check"
+        return run_curl_check "$url"
+      fi
+    else
+      print_warning "    Playwright not fully installed, falling back to curl check"
+      print_info "    (Install with: npm install playwright && npx playwright install chromium)"
+      return run_curl_check "$url"
+    fi
   fi
 
   # Get selectors to check from story (if defined)

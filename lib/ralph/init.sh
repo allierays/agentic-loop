@@ -58,6 +58,11 @@ ralph_init() {
 
 # Configure test authentication credentials
 configure_test_auth() {
+  # Skip if not running in an interactive terminal
+  if [[ ! -t 0 ]]; then
+    return 0
+  fi
+
   echo ""
   print_info "=== Test Authentication Setup ==="
   echo ""

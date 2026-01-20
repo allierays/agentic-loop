@@ -11,10 +11,10 @@ Print this cheatsheet for the user. Do not add any commentary or explanation.
 ## The Loop
 
 ```
-/idea "your feature"     brainstorm & generate PRD
-ralph run                autonomous coding, commits when done
-ralph status             check progress
-/vibe-check              manually run a full vibe check anytime
+/idea [feature]          brainstorm & generate PRD
+npx ralph run            autonomous coding loop
+npx ralph status         check progress
+npx ralph stop           stop after current story
 ```
 
 ---
@@ -23,11 +23,21 @@ Run `/vibe-list` to see all commands.
 
 ---
 
-## Setup & Help
+## Quality
 
 ```
-npm install vibe-and-thrive   first-time setup
-vibe help                     terminal quick reference
+/vibe-check              audit code quality
+/review                  security-focused review
+npx ralph check          run verification only
+```
+
+---
+
+## Setup
+
+```
+/tour                    guided setup
+/my-dna                  set preferences
 ```
 
 ---
