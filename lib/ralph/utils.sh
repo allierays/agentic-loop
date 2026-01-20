@@ -113,8 +113,7 @@ run_with_timeout() {
   elif command -v gtimeout &>/dev/null; then
     gtimeout "$seconds" "$@"
   else
-    # Fallback: just run without timeout
-    print_warning "Warning: timeout command not found, running without timeout"
+    # Fallback: just run without timeout (safe - Claude sessions complete on their own)
     "$@"
   fi
 }
