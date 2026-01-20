@@ -2,14 +2,20 @@
 
 **Ship quality code faster with AI.**
 
-Vibe-and-thrive is a toolkit for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that helps you go from idea to shipped code. It includes:
+A toolkit for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that helps you go from idea to shipped code.
 
-- **Ralph** - Autonomous coding loop that writes, tests, and commits until done
-- **`/vibe-check`** - Code quality audits to catch common AI-generated issues
+### Customize
+- **`/my-dna`** - Set up your personal coding preferences
+- **`/styleguide`** - Generate a UI component reference for consistent design
+
+### Ship Features
+- **`/idea`** - Brainstorm features and generate PRDs
+- **Ralph** - Autonomous loop: implement → verify → commit → repeat
+
+### Guardrails
+- **`/vibe-check`** - Catch AI code smells (debug statements, empty catches, any types)
 - **`/review`** - Security-focused code review with OWASP checks
-- **Pre-commit hooks** - Build check, block secrets, localhost URLs, and security issues
-- **`/styleguide`** - Generate a UI component reference from your codebase
-- **`/my-dna`** - Interactive guide to adding your personal voice to CLAUDE.md
+- **Pre-commit hooks** - Block secrets, hardcoded URLs, and security issues
 
 ## Install
 
@@ -159,6 +165,19 @@ When you run `npm install vibe-and-thrive`, postinstall automatically sets up:
 | `npx ralph verify TASK-001` | Verify specific task |
 | `npx ralph signs` | Show learned patterns |
 | `npx ralph sign "pattern"` | Teach Ralph a pattern |
+
+## Documentation
+
+| Doc | Description |
+|-----|-------------|
+| [Ralph Architecture](docs/RALPH.md) | How the autonomous loop works |
+| [Workflow Guide](docs/WORKFLOW.md) | End-to-end development process |
+| [Cheatsheet](docs/CHEATSHEET.md) | Quick reference for all commands |
+| [Bad Patterns](docs/BAD-PATTERNS.md) | AI code issues vibe-check catches |
+| [Prompting Guide](docs/PROMPTING-GUIDE.md) | Writing effective PROMPT.md |
+| [TDD Guide](docs/TDD.md) | Test-driven development with Ralph |
+| [Styleguide](docs/STYLEGUIDE.md) | Creating UI component references |
+| [Contributing](docs/CONTRIBUTING.md) | How to contribute |
 
 ## License
 
