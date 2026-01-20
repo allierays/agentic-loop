@@ -263,6 +263,20 @@ build_prompt() {
     echo "$story_json" | jq -r '.scale | to_entries[] | "- **\(.key):** \(.value)"' 2>/dev/null
   fi
 
+  # For frontend stories, instruct Claude to read the styleguide first
+  local story_type
+  story_type=$(echo "$story_json" | jq -r '.type // "frontend"' 2>/dev/null)
+  local styleguide_path
+  styleguide_path=$(get_config '.styleguide' "")
+
+  if [[ "$story_type" == "frontend" && -n "$styleguide_path" && -f "$styleguide_path" ]]; then
+    echo ""
+    echo "### Styleguide"
+    echo ""
+    echo "**FIRST:** Read the project styleguide at \`$styleguide_path\` before implementing."
+    echo "Use existing components, colors, and patterns from the styleguide."
+  fi
+
   echo ""
   echo "## Feature Context"
   echo ""
