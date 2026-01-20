@@ -83,22 +83,43 @@ Ralph loops through stories one at a time, writes tests, verifies, and commits.
 
 ## Ralph Details
 
-When you run `ralph run`, Ralph:
+```
+┌─────────────────────────────────────────────────────────────┐
+│                        RALPH LOOP                           │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  1. Read prd.json → find next story where passes=false      │
+│  2. Build prompt (story + context + failures + signs)       │
+│  3. Spawn Claude with prompt                                │
+│  4. Run verification (build, tests, browser, code review)   │
+│  5. Pass? → commit, next story                              │
+│     Fail? → save error, retry with failure context          │
+│  6. Repeat until all stories pass                           │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
 
-1. Gets the next TODO story from `.ralph/prd.json`
-2. Spawns a fresh Claude session to implement it
-3. Runs verification pipeline:
-   - Code review (security, patterns)
-   - Build, lint, and type checks
-   - Unit tests
-   - Playwright e2e tests
-   - Browser validation (console errors, network failures, missing elements)
-   - PRD test steps
-4. Auto-runs migrations if new migration files are detected
-5. Commits on success, retries on failure
-6. Repeats until all stories are done
+### What Ralph Reads
+
+| File | Purpose |
+|------|---------|
+| `.ralph/prd.json` | Stories to implement (the work) |
+| `PROMPT.md` | Base instructions (how to code) |
+| `.ralph/config.json` | Project settings (URLs, commands) |
+| `.ralph/signs.json` | Learned patterns from past runs |
+| `~/.claude/DNA.md` | Your personal preferences |
+
+### Verification Pipeline
+
+1. **Build** - `npm run build` (catches compile errors)
+2. **Code review** - Claude reviews diff for security/patterns
+3. **Unit tests** - Runs `testSteps` from story
+4. **E2E tests** - Playwright tests if `e2e: true`
+5. **Browser check** - Console errors, network failures, missing elements
 
 All stories complete → all tests passing → all commits made → push when ready.
+
+📖 **[Full Ralph documentation →](docs/RALPH.md)**
 
 ## What Gets Installed
 
