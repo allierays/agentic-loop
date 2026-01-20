@@ -84,15 +84,6 @@ Ralph loops through stories one at a time, writes tests, verifies, and commits.
 
 > **Pro tip:** Use two terminals - plan with Claude in one, run Ralph in another.
 
-## Troubleshooting
-
-| Issue | Solution |
-|-------|----------|
-| "Invalid API key" | Remove `ANTHROPIC_API_KEY` from `.env` - Ralph uses Claude Max subscription |
-| "jq: command not found" | Install jq: `brew install jq` (macOS) or `apt install jq` (Linux) |
-| Browser verification skipped | Install Playwright: `npm install playwright && npx playwright install chromium` |
-| "pre-commit: command not found" | Install pre-commit: `pip install pre-commit` then `pre-commit install` |
-
 ## Ralph Details
 
 ```
@@ -109,7 +100,18 @@ Ralph loops through stories one at a time, writes tests, verifies, and commits.
 │  6. Repeat until all stories pass                           │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
-```
+
+---
+
+## Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| "Invalid API key" | Remove `ANTHROPIC_API_KEY` from `.env` - Ralph uses Claude Max subscription |
+| "jq: command not found" | Install jq: `brew install jq` (macOS) or `apt install jq` (Linux) |
+| Browser verification skipped | Install Playwright: `npm install playwright && npx playwright install chromium` |
+| "pre-commit: command not found" | Install pre-commit: `pip install pre-commit` then `pre-commit install` |
+
 
 ### What Ralph Reads
 
