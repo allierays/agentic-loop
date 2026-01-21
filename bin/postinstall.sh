@@ -3,6 +3,11 @@
 
 set -euo pipefail
 
+# Skip in CI environments
+if [[ "${CI:-}" == "true" ]] || [[ "${GITHUB_ACTIONS:-}" == "true" ]]; then
+  exit 0
+fi
+
 # Get the package directory (where vibe-and-thrive is installed)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PKG_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
