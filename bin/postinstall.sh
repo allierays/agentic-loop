@@ -177,6 +177,7 @@ ensure_gitignore() {
     ".ralph/last_*"
     ".ralph/screenshots/"
     ".ralph/archive/"
+    ".backups/"
   )
 
   if [[ ! -f ".gitignore" ]]; then
