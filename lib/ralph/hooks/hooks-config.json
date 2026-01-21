@@ -1,0 +1,72 @@
+{
+  "_comment": "Copy this 'hooks' section into your ~/.claude/settings.json or .claude/settings.json",
+  "_instructions": "Replace VIBE_PATH with the path to your vibe-and-thrive installation",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "VIBE_PATH/lib/ralph/hooks/protect-prd.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "VIBE_PATH/lib/ralph/hooks/warn-debug.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "VIBE_PATH/lib/ralph/hooks/warn-secrets.sh",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "VIBE_PATH/lib/ralph/hooks/warn-urls.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "VIBE_PATH/lib/ralph/hooks/log-tools.sh",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "VIBE_PATH/lib/ralph/hooks/inject-context.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "VIBE_PATH/lib/ralph/hooks/save-learnings.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

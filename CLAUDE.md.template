@@ -2,6 +2,74 @@
 
 > Copy this file to your project root as `CLAUDE.md` and customize for your stack.
 
+## Core Principles
+
+- **Readability First**: Code is read more than written. Prioritize clarity over cleverness.
+- **KISS**: Keep it simple. Avoid over-engineering.
+- **DRY**: Don't repeat yourself. Extract reusable logic into functions/components.
+- **YAGNI**: Don't build features you don't need yet.
+
+## Naming Conventions
+
+| Type | Convention | Example |
+|------|------------|---------|
+| Variables | descriptive camelCase | `userProfile`, `isLoading`, `itemCount` |
+| Functions | verb-noun pattern | `fetchUserData()`, `validateInput()`, `handleSubmit()` |
+| Components | PascalCase | `UserProfile`, `MarketCard`, `SearchInput` |
+| Constants | SCREAMING_SNAKE_CASE | `MAX_RETRIES`, `API_BASE_URL` |
+| Types/Interfaces | PascalCase | `UserResponse`, `ApiError` |
+
+## Immutability (CRITICAL)
+
+Always use spread operators. Never mutate directly:
+
+```typescript
+// ❌ Bad - mutation
+user.name = 'new name';
+items.push(newItem);
+state.count++;
+
+// ✅ Good - immutable updates
+const updatedUser = { ...user, name: 'new name' };
+const updatedItems = [...items, newItem];
+setState(prev => ({ ...prev, count: prev.count + 1 }));
+```
+
+## Function Size & Complexity
+
+- **Max 50 lines per function** - split larger functions
+- **Max 4 levels of nesting** - extract nested logic to helper functions
+- **Single responsibility** - one function does one thing
+- **Early returns** - use guard clauses to reduce nesting
+
+```typescript
+// ❌ Bad - deeply nested
+function processUser(user) {
+  if (user) {
+    if (user.isActive) {
+      if (user.hasPermission) {
+        // actual logic buried here
+      }
+    }
+  }
+}
+
+// ✅ Good - early returns
+function processUser(user) {
+  if (!user) return;
+  if (!user.isActive) return;
+  if (!user.hasPermission) return;
+
+  // actual logic at top level
+}
+```
+
+## Type Safety
+
+- Use TypeScript interfaces for all data shapes
+- Never use `any` - use `unknown` if type is truly unknown
+- Define return types for public functions
+
 ## Code Quality Standards
 
 When writing code for this project, follow these guidelines to avoid common AI-generated code issues.

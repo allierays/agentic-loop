@@ -96,6 +96,21 @@ main() {
     notify)
       ralph_notify "$@"
       ;;
+    backup)
+      source "$RALPH_LIB/backup.sh"
+      ralph_backup "$@"
+      ;;
+    restore)
+      source "$RALPH_LIB/backup.sh"
+      ralph_restore "$@"
+      ;;
+    backups)
+      source "$RALPH_LIB/backup.sh"
+      ralph_list_backups
+      ;;
+    hooks)
+      bash "$RALPH_LIB/hooks/install.sh" "$@"
+      ;;
     progress)
       if [[ -f "$RALPH_DIR/progress.txt" ]]; then
         tail -50 "$RALPH_DIR/progress.txt"

@@ -200,6 +200,11 @@ Commands:
   sign <pattern> [cat]    Add a learned pattern (sign)
   signs                   List all learned patterns
   notify [phone]          Set up iMessage notifications (macOS)
+  backup                  Backup detected databases to .backups/
+  backups                 List available database backups
+  restore <path>          Restore database from backup
+  hooks                   Install Claude Code hooks (real-time feedback)
+  hooks --global          Install hooks globally (~/.claude/settings.json)
   help                    Show this help message
 
 PRD Generation:

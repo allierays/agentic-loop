@@ -108,10 +108,63 @@ If you encounter a blocker you cannot resolve:
 
 ## Code Quality Standards
 
+### Core Principles
+- **Readability First**: Code is read more than written. Prioritize clarity.
+- **KISS**: Keep it simple. Avoid over-engineering.
+- **DRY**: Don't repeat yourself. Extract reusable logic.
+- **YAGNI**: Don't build features you don't need yet.
+
+### Naming Conventions
+- Variables: descriptive camelCase (`userProfile`, `isLoading`, `marketSearchQuery`)
+- Functions: verb-noun pattern (`fetchUserData`, `validateInput`, `handleSubmit`)
+- Components: PascalCase (`UserProfile`, `MarketCard`)
+- Constants: SCREAMING_SNAKE_CASE (`MAX_RETRIES`, `API_BASE_URL`)
+
+### Immutability (CRITICAL)
+Always use spread operators. Never mutate directly:
+```typescript
+// ❌ Bad - mutation
+user.name = 'new name';
+items.push(newItem);
+
+// ✅ Good - immutable
+const updatedUser = { ...user, name: 'new name' };
+const updatedItems = [...items, newItem];
+```
+
+### Error Handling
+Every async operation needs proper error handling:
+```typescript
+// ✅ Good
+try {
+  const data = await fetchData();
+  return { success: true, data };
+} catch (error) {
+  console.error('Failed to fetch data:', error);
+  return { success: false, error: error.message };
+}
+```
+
+### Type Safety
+- Use TypeScript interfaces for all data shapes
+- Never use `any` - use `unknown` if type is truly unknown
+- Define return types for functions
+
+### Functions
+- Max 50 lines per function (split if longer)
+- Single responsibility - one function does one thing
+- Early returns for guard clauses
+
+### React Specific
+- Functional components with typed props
+- Custom hooks for reusable stateful logic
+- Use `prev =>` for state updates that depend on previous state
+- Avoid excessive ternaries - extract to variables or early returns
+
+### General
 - Follow existing code patterns in the codebase
 - Handle ALL error cases defined in the story
 - Implement loading states for async operations
-- Keep functions small and focused
 - Use meaningful variable and function names
 - Add data-testid attributes for Playwright
 

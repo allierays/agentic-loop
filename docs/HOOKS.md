@@ -1,6 +1,100 @@
-# Pre-commit Hooks Reference
+# Hooks Reference
 
-All 16 hooks available in vibe-and-thrive.
+vibe-and-thrive provides two types of hooks:
+
+1. **Pre-commit hooks** - Run at git commit time (catch issues before they're committed)
+2. **Claude Code hooks** - Run during Claude sessions (real-time feedback while coding)
+
+---
+
+## Claude Code Hooks (Real-time)
+
+These hooks fire during Claude Code sessions, providing real-time feedback while Ralph or Claude works.
+
+### Installation
+
+```bash
+# Install to project (recommended)
+ralph hooks
+
+# Install globally (all projects)
+ralph hooks --global
+```
+
+### Available Hooks
+
+| Hook | Event | Purpose |
+|------|-------|---------|
+| `protect-prd.sh` | PreToolUse | Blocks edits to prd.json (Ralph manages it) |
+| `warn-debug.sh` | PostToolUse | Warns about console.log/debugger in new code |
+| `warn-secrets.sh` | PostToolUse | Warns about hardcoded secrets/API keys |
+| `warn-urls.sh` | PostToolUse | Warns about hardcoded localhost URLs |
+| `inject-context.sh` | SessionStart | Loads signs + progress into session context |
+| `save-learnings.sh` | Stop | Extracts learnings for potential signs |
+| `log-tools.sh` | PostToolUse | Logs tool usage to .ralph/tool-log.txt |
+
+### Security Hooks (synced with pre-commit)
+
+The `warn-secrets.sh` and `warn-urls.sh` hooks use the same patterns as the pre-commit hooks, providing consistent checks:
+
+**Secrets detected:**
+- AWS Access Keys (AKIA...)
+- Stripe API keys (sk_live_*, sk_test_*)
+- GitHub tokens (ghp_*, gho_*, etc.)
+- Slack tokens (xoxb-*, xoxp-*, etc.)
+- SendGrid API keys (SG.*)
+- Private keys (-----BEGIN PRIVATE KEY-----)
+- Generic API key patterns
+
+**URLs detected:**
+- localhost URLs (http://localhost:3000)
+- 127.0.0.1 URLs
+- Hardcoded production URLs (excluding safe CDNs)
+
+### Manual Configuration
+
+If you prefer manual setup, add to `~/.claude/settings.json` or `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [{ "type": "command", "command": "/path/to/protect-prd.sh" }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [{ "type": "command", "command": "/path/to/warn-debug.sh" }]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [{ "type": "command", "command": "/path/to/inject-context.sh" }]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [{ "type": "command", "command": "/path/to/save-learnings.sh" }]
+      }
+    ]
+  }
+}
+```
+
+### Hook Output
+
+Claude Code hooks produce:
+- `.ralph/tool-log.txt` - Record of all tools used in session
+- `.ralph/suggested-signs.txt` - Potential patterns to add as signs
+
+---
+
+## Pre-commit Hooks (Git)
+
+All 16 pre-commit hooks available in vibe-and-thrive.
 
 ## Hooks That Block Commits
 

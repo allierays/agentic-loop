@@ -1,6 +1,15 @@
 # vibe-and-thrive pre-commit hooks
 # All hooks use language: node for consistency
 
+# Database backup (non-blocking - creates backup before commit)
+- id: backup-db
+  name: Backup databases
+  entry: bash -c 'npx --yes ralph backup --quiet 2>/dev/null || true'
+  language: system
+  pass_filenames: false
+  always_run: true
+  stages: [pre-commit]
+
 # Build check (blocking - ensures code compiles)
 # Checks common locations for build script: root, frontend/, client/, apps/web/
 - id: build

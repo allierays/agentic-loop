@@ -18,6 +18,7 @@ A toolkit for implementing [RALPH](https://ghuntley.com/ralph/) with [Claude Cod
 - **`/vibe-check`** - manually run the same automated tests and guardrail checks at any time
 - **`/review`** - manually run the same automated Security-focused code review with OWASP checks
 - **Pre-commit hooks** - Automatically Block secrets, hardcoded URLs, and security issues with precommit hooks. Catch and fix issues before your CI/CD does
+- **Claude Code hooks** - Real-time warnings while coding (debug statements, secrets, hardcoded URLs). Run `ralph hooks` to install
 
 ---
 See More for on how the [RALPH loop](docs/RALPH.md) works in this repo
@@ -111,6 +112,7 @@ Ralph loops through stories one at a time, writes tests, verifies, and commits.
 | [How Ralph Works](docs/RALPH.md) | Architecture, config, troubleshooting |
 | [Cheatsheet](docs/CHEATSHEET.md) | All commands, quick reference |
 | [Workflow Guide](docs/WORKFLOW.md) | End-to-end development process |
+| [Hooks Reference](docs/HOOKS.md) | Pre-commit and Claude Code hooks |
 | [Bad Patterns](docs/BAD-PATTERNS.md) | AI code issues to avoid |
 | [Prompting Guide](docs/PROMPTING-GUIDE.md) | Writing effective PROMPT.md |
 | [TDD Guide](docs/TDD.md) | Test-driven development with Ralph |

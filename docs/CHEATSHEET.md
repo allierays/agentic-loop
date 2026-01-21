@@ -41,6 +41,28 @@ pre-commit run check-secrets        # Run specific hook
 
 ---
 
+## Claude Code Hooks (Real-time)
+
+Hooks that fire during Claude sessions for immediate feedback:
+
+| Hook | Event | Purpose |
+|------|-------|---------|
+| `protect-prd.sh` | PreToolUse | Blocks edits to prd.json |
+| `warn-debug.sh` | PostToolUse | Warns about console.log/debugger |
+| `warn-secrets.sh` | PostToolUse | Warns about hardcoded secrets |
+| `warn-urls.sh` | PostToolUse | Warns about localhost URLs |
+| `inject-context.sh` | SessionStart | Loads signs & progress |
+| `save-learnings.sh` | Stop | Extracts learnings for signs |
+| `log-tools.sh` | PostToolUse | Logs to .ralph/tool-log.txt |
+
+**Install:**
+```bash
+ralph hooks              # Project-level
+ralph hooks --global     # All projects
+```
+
+---
+
 ## Claude Code Commands
 
 | Command | Purpose |
@@ -69,6 +91,8 @@ pre-commit run check-secrets        # Run specific hook
 | `ralph signs` | List learned patterns |
 | `ralph sign "pattern"` | Teach Ralph a pattern |
 | `ralph prd "idea"` | Generate PRD from description |
+| `ralph hooks` | Install Claude Code hooks (project) |
+| `ralph hooks --global` | Install Claude Code hooks (global) |
 
 ---
 
@@ -176,6 +200,7 @@ That's it. The postinstall sets up everything automatically.
 | Slash commands | `.claude/commands/` | /idea, /tour, /vibe-check, etc. |
 | Ralph config | `.ralph/config.json` | Project settings for verification |
 | Pre-commit hooks | `.pre-commit-config.yaml` | Block secrets and security issues |
+| Claude Code hooks | `ralph hooks` to install | Real-time warnings while coding |
 | Project guide | `CLAUDE.md` | Auto-detected project info for Claude |
 | Gitignore entries | `.gitignore` | Ignore Ralph temp files |
 
