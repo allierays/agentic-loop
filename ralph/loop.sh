@@ -83,7 +83,6 @@ run_loop() {
     fi
 
     if [[ -z "$story" ]]; then
-      print_success "All stories complete!"
       send_notification "✅ Ralph finished: All stories passed!"
       archive_feature
       return 0
@@ -392,20 +391,15 @@ build_prompt() {
   fi
 }
 
-# Archive completed feature
+# Mark feature as complete (keep PRD for appending new stories)
 archive_feature() {
   local feature_name
   feature_name=$(jq -r '.feature.name' "$RALPH_DIR/prd.json")
 
   print_success "Feature '$feature_name' complete!"
 
-  # Archive the PRD
-  local archive_dir="$RALPH_DIR/archive"
-  mkdir -p "$archive_dir"
-
-  local timestamp
-  timestamp=$(date +%Y%m%d-%H%M%S)
-  mv "$RALPH_DIR/prd.json" "$archive_dir/prd-${timestamp}.json"
+  # Update status to complete (don't archive - user may want to append stories)
+  update_json "$RALPH_DIR/prd.json" '.feature.status = "complete"'
 
   # Final commit if git available
   if command -v git &>/dev/null && [[ -d ".git" ]]; then
@@ -413,9 +407,12 @@ archive_feature() {
     git commit -m "feat: complete $feature_name" || true
   fi
 
-  log_progress "FEATURE" "ARCHIVED" "$feature_name"
+  log_progress "FEATURE" "COMPLETE" "$feature_name"
 
   echo ""
-  echo "PRD archived to: $archive_dir/prd-${timestamp}.json"
-  echo "Run 'ralph prd' to start a new feature."
+  echo "All stories passed! PRD kept at: $RALPH_DIR/prd.json"
+  echo ""
+  echo "Next:"
+  echo "  /idea 'new feature'     # Add more stories (will append)"
+  echo "  ralph status            # See completed stories"
 }
