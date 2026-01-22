@@ -1,8 +1,8 @@
 {
   "name": "vibe-and-thrive",
   "version": "1.4.3",
-  "description": "Catch common AI-generated code issues before they hit your codebase",
-  "author": "AllThrive AI <hello@allthrive.ai>",
+  "description": "Ship quality code faster with AI - RALPH autonomous loop, Claude Code hooks, and pre-commit checks",
+  "author": "Allie Dyer Bluemel <allie@allthrive.ai>",
   "license": "MIT",
   "repository": {
     "type": "git",
