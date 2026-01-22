@@ -81,3 +81,4 @@ yarn-error.log*
 # Claude Code local settings (contains user-specific paths)
 # Users run `ralph hooks` to install their own
 .claude/settings.json
+*.tgz
