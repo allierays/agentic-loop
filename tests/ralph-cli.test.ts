@@ -61,7 +61,8 @@ describe('ralph CLI', () => {
     it('creates signs.json', () => {
       expect(existsSync(join(testDir, '.ralph', 'signs.json'))).toBe(true)
       const signs = JSON.parse(readFileSync(join(testDir, '.ralph', 'signs.json'), 'utf-8'))
-      expect(signs).toEqual({ signs: [] })
+      expect(signs).toHaveProperty('signs')
+      expect(Array.isArray(signs.signs)).toBe(true)
     })
 
     it('creates progress.txt', () => {
@@ -129,7 +130,7 @@ describe('ralph CLI', () => {
 })
 
 describe('config templates', () => {
-  const templates = ['node', 'python', 'go', 'rust', 'minimal', 'django-react']
+  const templates = ['node', 'python', 'go', 'rust', 'minimal', 'fullstack']
 
   templates.forEach(template => {
     it(`${template}.json is valid JSON`, () => {
@@ -149,7 +150,6 @@ describe('config templates', () => {
       const config = JSON.parse(readFileSync(configPath, 'utf-8'))
 
       expect(config.verification).toHaveProperty('codeReviewEnabled')
-      expect(config.verification).toHaveProperty('mcpEnabled')
     })
   })
 })

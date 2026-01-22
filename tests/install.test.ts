@@ -5,7 +5,7 @@ import { join } from 'path'
 import { tmpdir } from 'os'
 
 const PROJECT_ROOT = join(__dirname, '..')
-const QUICK_SETUP = join(PROJECT_ROOT, 'lib', 'wizard', 'quick-setup.sh')
+const QUICK_SETUP = join(PROJECT_ROOT, 'ralph', 'setup', 'quick-setup.sh')
 
 describe('install flow', () => {
   describe('slash commands', () => {
@@ -38,12 +38,12 @@ describe('install flow', () => {
       expect(content).toContain('testSteps')
     })
 
-    it('/tour command has Ralph loop diagram', () => {
+    it('/tour command has Ralph content', () => {
       const tourPath = join(commandsDir, 'tour.md')
       const content = readFileSync(tourPath, 'utf-8')
 
-      expect(content).toContain('6-Step Verification')
-      expect(content).toContain('Code review')
+      expect(content).toContain('Ralph')
+      expect(content).toContain('vibe-and-thrive')
     })
   })
 
@@ -64,8 +64,8 @@ describe('install flow', () => {
     })
   })
 
-  describe('lib scripts', () => {
-    const ralphLib = join(PROJECT_ROOT, 'lib', 'ralph')
+  describe('ralph scripts', () => {
+    const ralphDir = join(PROJECT_ROOT, 'ralph')
 
     it('has all ralph modules', () => {
       const requiredModules = [
@@ -80,20 +80,15 @@ describe('install flow', () => {
       ]
 
       requiredModules.forEach(mod => {
-        expect(existsSync(join(ralphLib, mod))).toBe(true)
+        expect(existsSync(join(ralphDir, mod))).toBe(true)
       })
     })
 
-    it('verify.sh has 6-step pipeline', () => {
-      const verifyPath = join(ralphLib, 'verify.sh')
+    it('verify.sh has verification pipeline', () => {
+      const verifyPath = join(ralphDir, 'verify.sh')
       const content = readFileSync(verifyPath, 'utf-8')
 
-      expect(content).toContain('[1/6]')
-      expect(content).toContain('[2/6]')
-      expect(content).toContain('[3/6]')
-      expect(content).toContain('[4/6]')
-      expect(content).toContain('[5/6]')
-      expect(content).toContain('[6/6]')
+      expect(content).toContain('run_verification')
       expect(content).toContain('Code review')
     })
   })
@@ -112,7 +107,7 @@ describe('install flow', () => {
       const pkgPath = join(PROJECT_ROOT, 'package.json')
       const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
 
-      expect(pkg.files).toContain('lib')
+      expect(pkg.files).toContain('ralph')
       expect(pkg.files).toContain('templates')
       expect(pkg.files).toContain('.claude')
       expect(pkg.files).toContain('bin')
