@@ -52,13 +52,11 @@ if echo "$NEW_CONTENT" | grep -qE 'except.*:\s*$' && echo "$NEW_CONTENT" | grep 
   fi
 fi
 
-# Output warning as additional context (non-blocking)
+# Block if empty catch detected
 if [[ -n "$WARNINGS" ]]; then
   jq -n --arg warn "$WARNINGS" '{
-    "continue": true,
-    "hookSpecificOutput": {
-      "additionalContext": $warn
-    }
+    "continue": false,
+    "message": $warn
   }'
 else
   echo '{"continue": true}'

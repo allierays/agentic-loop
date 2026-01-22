@@ -149,37 +149,43 @@ interface User {
 }
 ```
 
-### Handle Errors Properly
+### Handle Errors Properly (BLOCKING)
 
-Never silently swallow errors:
+**Empty catch blocks will be blocked by Claude Code hooks.** Never silently swallow errors - always log, handle, or rethrow.
 
 ```python
-# Bad
+# ❌ BLOCKED - empty except
 try:
     do_something()
 except Exception:
     pass
 
-# Good
+# ✅ Good - log and handle
 try:
     do_something()
 except SpecificException as e:
     logger.error(f"Failed to do something: {e}")
-    raise
+    raise  # or handle appropriately
 ```
 
 ```typescript
-// Bad
+// ❌ BLOCKED - empty catch
 try { doSomething(); } catch (e) {}
 
-// Good
+// ✅ Good - log and handle
 try {
   doSomething();
-} catch (e) {
-  console.error('Failed to do something:', e);
-  throw e;
+} catch (error) {
+  console.error('Failed to do something:', error);
+  throw error;  // or handle appropriately
 }
 ```
+
+**Acceptable patterns:**
+- Log the error: `console.error('Context:', error)`
+- Rethrow: `throw error`
+- Return error state: `return { error: error.message }`
+- Intentional ignore with comment: `catch (e) { /* Expected for optional feature */ }`
 
 ### Complete Your TODOs
 
