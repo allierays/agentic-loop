@@ -8,8 +8,8 @@ A toolkit for implementing [RALPH](https://ghuntley.com/ralph/) with [Claude Cod
 
 ### This repo includes: 
 #### Customize
-- **`/my-dna`** - Add your own voice and values to your claude.md
-- **`/styleguide`** - Generate a UI component reference for consistent design
+- **`/my-dna`** - Add your own voice and values to your claude.md (This helps you personalize your experience and output)
+- **`/styleguide`** - Generate a UI component reference for consistent design (Stop AI from generating everything in purple add your unique style in an html and then reference it)
 
 #### Ship Features
 - **`npx ralph run`** - RALPH Autonomous loop: Brainstorm ideas → turn ideas into atomic prds → implement → verify → commit → repeat
@@ -17,7 +17,7 @@ A toolkit for implementing [RALPH](https://ghuntley.com/ralph/) with [Claude Cod
 #### Guardrails
 - **`/vibe-check`** - manually run the same automated tests and guardrail checks at any time
 - **`/review`** - manually run the same automated Security-focused code review with OWASP checks
-- **Pre-commit hooks** - Automatically Block secrets, hardcoded URLs, and security issues with precommit hooks. Catch and fix issues before your CI/CD does
+- **Pre-commit hooks** - Automatically block secrets, hardcoded URLs, and security issues with precommit hooks from entering into your git repo. Catch and fix issues before your CI/CD does
 - **Claude Code hooks** - Real-time warnings while coding (debug statements, secrets, hardcoded URLs). Run `ralph hooks` to install
 
 ---
