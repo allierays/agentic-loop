@@ -32,10 +32,14 @@ PROMPT_FILE="${PROMPT_FILE:-PROMPT.md}"
 # Export for use in sourced files
 export RALPH_DIR PROMPT_FILE RALPH_LIB RALPH_TEMPLATES
 
-# Ensure setup ran (in case postinstall was skipped)
-if [[ ! -f ".pre-commit-config.yaml" ]] || [[ ! -d ".ralph" ]]; then
-  echo "First run - setting up vibe-and-thrive..."
-  bash "$SCRIPT_DIR/postinstall.sh" 2>/dev/null || true
+# Ensure minimal setup exists (in case postinstall was skipped or global install)
+if [[ ! -d ".ralph" ]]; then
+  mkdir -p ".ralph/archive" ".ralph/screenshots"
+  [[ ! -f ".ralph/config.json" ]] && echo '{"checks": {"build": true, "lint": true, "test": true}}' > ".ralph/config.json"
+  [[ ! -f ".ralph/signs.json" ]] && echo '{"signs": []}' > ".ralph/signs.json"
+fi
+if [[ ! -f "PROMPT.md" ]] && [[ -f "$RALPH_TEMPLATES/PROMPT.md" ]]; then
+  cp "$RALPH_TEMPLATES/PROMPT.md" "PROMPT.md"
 fi
 
 # Source function libraries

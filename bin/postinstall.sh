@@ -16,6 +16,17 @@ PKG_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 # npm runs postinstall from package dir, we need project root
 PROJECT_ROOT="$(cd "$PKG_ROOT/../.." && pwd)"
 
+# Verify we're in a valid project (has package.json), not a global install
+if [[ ! -f "$PROJECT_ROOT/package.json" ]]; then
+  # Might be global install or npm link - skip silently
+  exit 0
+fi
+
+# Don't run in the vibe-and-thrive package itself
+if [[ -f "$PROJECT_ROOT/package.json" ]] && grep -q '"name": "vibe-and-thrive"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
+  exit 0
+fi
+
 # Change to project root for setup
 cd "$PROJECT_ROOT" || exit 0
 
@@ -59,14 +70,32 @@ install_ralph() {
   # Users will run /idea or ralph prd to generate a PRD
   mkdir -p ".ralph/archive" ".ralph/screenshots"
 
-  # Create minimal config if missing
+  # Copy config template based on detected project type
   if [[ ! -f ".ralph/config.json" ]]; then
-    echo '{"checks": {"build": true, "lint": true, "test": true}}' > ".ralph/config.json"
+    local config_template=""
+    if [[ -f "manage.py" ]] || [[ -f "pyproject.toml" ]]; then
+      config_template="$PKG_ROOT/templates/config/python.json"
+    elif [[ -d "frontend" ]] && [[ -d "backend" || -d "core" ]]; then
+      config_template="$PKG_ROOT/templates/config/fullstack.json"
+    elif [[ -f "package.json" ]]; then
+      config_template="$PKG_ROOT/templates/config/node.json"
+    fi
+
+    if [[ -n "$config_template" ]] && [[ -f "$config_template" ]]; then
+      cp "$config_template" ".ralph/config.json"
+    else
+      # Fall back to minimal config
+      echo '{"checks": {"build": true, "lint": true, "test": true}}' > ".ralph/config.json"
+    fi
   fi
 
-  # Create empty signs if missing
+  # Copy signs template if available, otherwise create empty
   if [[ ! -f ".ralph/signs.json" ]]; then
-    echo '{"signs": []}' > ".ralph/signs.json"
+    if [[ -f "$PKG_ROOT/templates/signs.json" ]]; then
+      cp "$PKG_ROOT/templates/signs.json" ".ralph/signs.json"
+    else
+      echo '{"signs": []}' > ".ralph/signs.json"
+    fi
   fi
 
   # Create PROMPT.md if missing
