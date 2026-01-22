@@ -11,7 +11,8 @@ A toolkit for implementing [RALPH](https://ghuntley.com/ralph/) with [Claude Cod
 - **`/my-dna`** - Add your own voice and values to your claude.md (This helps you personalize your experience and output)
 - **`/styleguide`** - Generate a UI component reference for consistent design (Stop AI from generating everything in purple add your unique style in an html and then reference it)
 
-#### Ship Features
+#### Autonmous Code Loops with RALPH principles
+Run this in the terminal not in a claude cli session. It will use your claude subscription not an API key.
 - **`npx ralph run`** - RALPH Autonomous loop: Brainstorm ideas → turn ideas into atomic prds → implement → verify → commit → repeat
 
 #### Guardrails
