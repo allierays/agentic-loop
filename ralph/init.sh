@@ -2,29 +2,7 @@
 # init.sh - Initialize ralph in a project
 
 ralph_init() {
-  local needs_init=false
-  local partial_init=false
-
-  # Check what's missing
-  if [[ ! -d "$RALPH_DIR" ]]; then
-    needs_init=true
-  elif [[ ! -f "PROMPT.md" ]] || [[ ! -f "$RALPH_DIR/config.json" ]]; then
-    # Directory exists but key files are missing
-    partial_init=true
-    needs_init=true
-  fi
-
-  if [[ "$needs_init" == "false" ]]; then
-    print_info "Ralph already initialized in this directory."
-    print_info "Run 'ralph status' to see current state."
-    return 0
-  fi
-
-  if [[ "$partial_init" == "true" ]]; then
-    echo "Completing partial initialization..."
-  else
-    echo "Initializing ralph..."
-  fi
+  echo "Initializing ralph..."
 
   # Create directory structure
   mkdir -p "$RALPH_DIR/archive" "$RALPH_DIR/screenshots"

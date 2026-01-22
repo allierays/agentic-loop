@@ -24,8 +24,24 @@ run_loop() {
 
   # Validate prerequisites
   check_dependencies
-  require_file "$RALPH_DIR/prd.json" "No PRD found. Run 'ralph prd' first."
-  require_file "$PROMPT_FILE" "PROMPT.md not found. Run 'ralph init' first."
+
+  if [[ ! -f "$RALPH_DIR/prd.json" ]]; then
+    print_error "No PRD found."
+    echo ""
+    echo "Create one with:"
+    echo "  /idea 'your feature description'   # thorough (recommended)"
+    echo "  ralph prd 'your feature'           # quick"
+    echo ""
+    exit 1
+  fi
+
+  if [[ ! -f "$PROMPT_FILE" ]]; then
+    print_error "PROMPT.md not found."
+    echo ""
+    echo "Create it with: ralph init"
+    echo ""
+    exit 1
+  fi
 
   # Validate PRD is valid JSON
   if ! jq -e . "$RALPH_DIR/prd.json" >/dev/null 2>&1; then

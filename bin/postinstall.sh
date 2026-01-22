@@ -55,8 +55,23 @@ EOF
 }
 
 install_ralph() {
-  if [[ ! -d ".ralph" ]] && [[ -f "$PKG_ROOT/bin/ralph.sh" ]]; then
-    "$PKG_ROOT/bin/ralph.sh" init > /dev/null 2>&1 || true
+  # Just create the directory structure - don't run full init
+  # Users will run /idea or ralph prd to generate a PRD
+  mkdir -p ".ralph/archive" ".ralph/screenshots"
+
+  # Create minimal config if missing
+  if [[ ! -f ".ralph/config.json" ]]; then
+    echo '{"checks": {"build": true, "lint": true, "test": true}}' > ".ralph/config.json"
+  fi
+
+  # Create empty signs if missing
+  if [[ ! -f ".ralph/signs.json" ]]; then
+    echo '{"signs": []}' > ".ralph/signs.json"
+  fi
+
+  # Create PROMPT.md if missing
+  if [[ ! -f "PROMPT.md" ]] && [[ -f "$PKG_ROOT/templates/PROMPT.md" ]]; then
+    cp "$PKG_ROOT/templates/PROMPT.md" "PROMPT.md"
   fi
 }
 
@@ -282,10 +297,13 @@ echo ""
 if [[ -n "${CLAUDECODE:-}" ]]; then
   echo "  [CLAUDE: Run the /tour slash command to help the user get started]"
 else
-  echo "  Start Claude Code and type /tour:"
+  echo "  Next steps:"
   echo ""
-  echo "    claude"
-  echo "    /tour"
+  echo "    claude                        # Start Claude Code"
+  echo "    /idea 'your feature'          # Generate a PRD"
+  echo "    ralph run                     # Execute autonomously"
+  echo ""
+  echo "  Or type /tour for a guided walkthrough."
 fi
 
 echo ""
