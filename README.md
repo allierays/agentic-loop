@@ -119,6 +119,21 @@ Ralph loops through stories one at a time, writes tests, verifies, and commits.
 | [Styleguide](docs/STYLEGUIDE.md) | Creating UI component references |
 | [Contributing](docs/CONTRIBUTING.md) | How to contribute |
 
+## Project Structure
+
+```
+vibe-and-thrive/
+├── src/                    # TypeScript (vibe-check CLI)
+│   └── checks/             # Pre-commit check implementations
+├── ralph/                  # Bash (autonomous loop)
+│   ├── hooks/              # Claude Code hooks
+│   └── browser-verify/     # Browser verification tool
+├── templates/              # Files copied to user projects
+├── .claude/commands/       # Slash commands
+├── docs/                   # Documentation
+└── bin/                    # CLI entry points
+```
+
 ## License
 
 MIT - see [LICENSE](LICENSE)
