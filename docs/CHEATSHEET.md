@@ -208,7 +208,9 @@ That's it. The postinstall sets up everything automatically.
 
 ## Links
 
+- [Claude Code Beginner Guide](docs/CLAUDE-CODE-GUIDE.md) - New to Claude Code? Start here
 - [Bad Patterns Guide](docs/BAD-PATTERNS.md)
 - [Prompting Guide](docs/PROMPTING-GUIDE.md)
 - [Workflow Guide](docs/WORKFLOW.md)
+- [Hooks Reference](docs/HOOKS.md)
 - [GitHub Repo](https://github.com/allthriveai/vibe-and-thrive)
