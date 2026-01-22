@@ -134,7 +134,8 @@ vibe-and-thrive/
 ├── templates/              # Files for user projects
 │   ├── PROMPT.md           # Base prompt for Ralph sessions
 │   ├── config/             # Project type configs (node, python)
-│   └── optional/           # Extra configs (eslint, vscode, etc.)
+│   ├── optional/           # Extra configs (eslint, vscode, etc.)
+│   └── examples/           # Example CLAUDE.md files by stack
 ├── docs/                   # Documentation
 └── bin/                    # CLI entry points (ralph, vibe-check)
 ```
