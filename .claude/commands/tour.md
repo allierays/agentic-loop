@@ -52,7 +52,17 @@ Print this exactly:
      ```
    - Then: ✓ CLAUDE.md created
 
-5. **Check Docker:**
+5. **Check Claude Code hooks:**
+   ```bash
+   test -f .claude/settings.json && jq -e '.hooks' .claude/settings.json > /dev/null 2>&1
+   ```
+   - If missing: Install hooks:
+     ```bash
+     npx ralph hooks
+     ```
+   - Then: ✓ Claude Code hooks installed
+
+6. **Check Docker:**
    ```bash
    test -f docker-compose.yml || test -f docker-compose.yaml || test -f compose.yml
    ```
@@ -61,7 +71,7 @@ Print this exactly:
      - Say: "✓ Docker detected - Ralph will run commands inside containers"
      - **Skip Playwright check** (browser verification uses curl in Docker mode)
 
-6. **Check & Install Playwright (if not Docker):**
+7. **Check & Install Playwright (if not Docker):**
 
    Check BOTH the npm package AND browser binaries:
    ```bash

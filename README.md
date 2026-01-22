@@ -18,7 +18,7 @@ A toolkit for implementing [RALPH](https://ghuntley.com/ralph/) with [Claude Cod
 - **`/vibe-check`** - manually run the same automated tests and guardrail checks at any time
 - **`/review`** - manually run the same automated Security-focused code review with OWASP checks
 - **Pre-commit hooks** - Automatically block secrets, hardcoded URLs, and security issues with precommit hooks from entering into your git repo. Catch and fix issues before your CI/CD does
-- **Claude Code hooks** - Real-time warnings while coding (debug statements, secrets, hardcoded URLs). Run `ralph hooks` to install
+- **Claude Code hooks** - Real-time warnings while coding (debug statements, secrets, hardcoded URLs)
 
 ---
 See More for on how the [RALPH loop](docs/RALPH.md) works in this repo

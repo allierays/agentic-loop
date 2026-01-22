@@ -80,6 +80,76 @@ configure_mcp() {
   }' "$claude_json" > "$tmp" && mv "$tmp" "$claude_json"
 }
 
+install_claude_hooks() {
+  # Skip if jq not available
+  command -v jq &>/dev/null || return 0
+
+  local settings_file=".claude/settings.json"
+  local hooks_dir="$PKG_ROOT/lib/ralph/hooks"
+
+  # Skip if hooks directory doesn't exist
+  [[ ! -d "$hooks_dir" ]] && return 0
+
+  # Ensure .claude directory exists
+  mkdir -p ".claude"
+
+  # Create settings file if it doesn't exist
+  [[ ! -f "$settings_file" ]] && echo '{}' > "$settings_file"
+
+  # Skip if hooks already configured
+  jq -e '.hooks' "$settings_file" > /dev/null 2>&1 && return 0
+
+  # Build hooks config
+  local hooks_config
+  hooks_config=$(cat <<EOF
+{
+  "PreToolUse": [
+    {
+      "matcher": "Edit|Write",
+      "hooks": [
+        {"type": "command", "command": "$hooks_dir/protect-prd.sh", "timeout": 5}
+      ]
+    }
+  ],
+  "PostToolUse": [
+    {
+      "matcher": "Edit|Write",
+      "hooks": [
+        {"type": "command", "command": "$hooks_dir/warn-debug.sh", "timeout": 5},
+        {"type": "command", "command": "$hooks_dir/warn-secrets.sh", "timeout": 5},
+        {"type": "command", "command": "$hooks_dir/warn-urls.sh", "timeout": 5}
+      ]
+    },
+    {
+      "matcher": "*",
+      "hooks": [
+        {"type": "command", "command": "$hooks_dir/log-tools.sh", "timeout": 3}
+      ]
+    }
+  ],
+  "SessionStart": [
+    {
+      "hooks": [
+        {"type": "command", "command": "$hooks_dir/inject-context.sh", "timeout": 5}
+      ]
+    }
+  ],
+  "Stop": [
+    {
+      "hooks": [
+        {"type": "command", "command": "$hooks_dir/save-learnings.sh", "timeout": 10}
+      ]
+    }
+  ]
+}
+EOF
+)
+
+  # Merge hooks into settings
+  local tmp=$(mktemp)
+  jq --argjson hooks "$hooks_config" '.hooks = $hooks' "$settings_file" > "$tmp" && mv "$tmp" "$settings_file"
+}
+
 generate_claude_md() {
   local runtime="" framework="" language="" styling="" testing="" structure=""
   local marker="<!-- vibe-and-thrive-detected -->"
@@ -199,6 +269,7 @@ install_claude_skills
 install_precommit_hooks
 install_ralph
 configure_mcp
+install_claude_hooks
 generate_claude_md
 
 # Print success message
