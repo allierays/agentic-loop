@@ -123,16 +123,28 @@ Ralph loops through stories one at a time, writes tests, verifies, and commits.
 
 ```
 vibe-and-thrive/
-├── src/                    # TypeScript (vibe-check CLI)
-│   └── checks/             # Pre-commit check implementations
-├── ralph/                  # Bash (autonomous loop)
-│   ├── hooks/              # Claude Code hooks
-│   └── browser-verify/     # Browser verification tool
-├── templates/              # Files copied to user projects
-├── .claude/commands/       # Slash commands
+├── .claude/commands/       # Slash commands for interactive use (/idea, /review, etc.)
+├── ralph/                  # Autonomous loop (Bash)
+│   ├── hooks/              # Claude Code hooks (real-time warnings)
+│   ├── browser-verify/     # Playwright verification tool
+│   └── setup/              # Setup wizards (/tour)
+├── src/                    # Pre-commit checks (TypeScript)
+│   └── checks/             # Check implementations (secrets, urls, etc.)
+├── templates/              # Copied to your project on install
+│   ├── PROMPT.md           # Base prompt for Ralph sessions
+│   └── config/             # Project type configs (node, python, etc.)
+├── examples/               # Example CLAUDE.md files by stack
 ├── docs/                   # Documentation
-└── bin/                    # CLI entry points
+└── bin/                    # CLI entry points (ralph, vibe-check)
 ```
+
+### Three Layers of Quality Checks
+
+| Layer | When | What |
+|-------|------|------|
+| **Slash commands** | Interactive coding | `/vibe-check`, `/review` - you ask Claude to check |
+| **Claude Code hooks** | While coding | Real-time warnings as Claude writes code |
+| **Pre-commit hooks** | At `git commit` | Blocks secrets, URLs, debug statements |
 
 ## License
 
