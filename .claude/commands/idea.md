@@ -130,9 +130,19 @@ Break the idea into small, executable PRDs following the JSON structure below.
    mkdir -p .ralph
    ```
 
-2. Write to `.ralph/prd.json`
+2. Write to `.ralph/prd.json` ensuring:
+   - Valid JSON syntax
+   - `feature.name` is set (not null/empty)
+   - `feature.status` is "pending"
+   - `stories` array is not empty
+   - Each story has `id`, `title`, and `passes: false`
 
-3. Say: "I've created the PRD with {N} stories in `.ralph/prd.json`.
+3. Validate the PRD was written correctly:
+   ```bash
+   jq -e '.feature.name and (.stories | length > 0) and (.stories | all(.id and .title and .passes == false))' .ralph/prd.json && echo "PRD valid" || echo "PRD invalid"
+   ```
+
+4. Say: "I've created the PRD with {N} stories in `.ralph/prd.json`.
 
    Review and let me know:
    - **'approved'** - Ready for `npx ralph run`

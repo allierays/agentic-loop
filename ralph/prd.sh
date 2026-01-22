@@ -254,8 +254,23 @@ ralph_prd_accept() {
   # Ensure .ralph directory exists
   mkdir -p "$RALPH_DIR"
 
+  # Normalize the PRD before saving:
+  # - Ensure all stories have passes: false
+  # - Ensure all stories have id and title
+  # - Set status to pending
+  prd_json=$(echo "$prd_json" | jq '
+    .feature.status = "pending" |
+    .stories = [.stories[] | . + {passes: (.passes // false)}]
+  ')
+
   # Save
   echo "$prd_json" > "$RALPH_DIR/prd.json"
+
+  # Run full validation
+  if ! validate_prd "$RALPH_DIR/prd.json"; then
+    rm -f "$RALPH_DIR/prd.json"
+    return 1
+  fi
 
   # Show summary
   local name stories complexity
