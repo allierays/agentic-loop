@@ -67,6 +67,11 @@ HOOKS_CONFIG=$(cat <<EOF
           "type": "command",
           "command": "$SCRIPT_DIR/warn-urls.sh",
           "timeout": 5
+        },
+        {
+          "type": "command",
+          "command": "$SCRIPT_DIR/warn-empty-catch.sh",
+          "timeout": 5
         }
       ]
     },
@@ -116,12 +121,13 @@ echo "$MERGED" > "$SETTINGS_FILE"
 echo -e "${GREEN}✓ Hooks installed successfully!${NC}"
 echo ""
 echo "Hooks enabled:"
-echo "  • protect-prd.sh    - Blocks edits to prd.json"
-echo "  • warn-debug.sh     - Warns about console.log/debugger"
-echo "  • warn-secrets.sh   - Warns about hardcoded secrets/API keys"
-echo "  • warn-urls.sh      - Warns about hardcoded localhost URLs"
-echo "  • inject-context.sh - Loads signs & progress at session start"
-echo "  • save-learnings.sh - Extracts learnings at session end"
-echo "  • log-tools.sh      - Logs tool usage to .ralph/tool-log.txt"
+echo "  • protect-prd.sh      - Blocks edits to prd.json"
+echo "  • warn-debug.sh       - Warns about console.log/debugger"
+echo "  • warn-secrets.sh     - Warns about hardcoded secrets/API keys"
+echo "  • warn-urls.sh        - Warns about hardcoded localhost URLs"
+echo "  • warn-empty-catch.sh - Warns about empty catch blocks"
+echo "  • inject-context.sh   - Loads signs & progress at session start"
+echo "  • save-learnings.sh   - Extracts learnings at session end"
+echo "  • log-tools.sh        - Logs tool usage to .ralph/tool-log.txt"
 echo ""
 echo -e "${YELLOW}Note:${NC} Restart Claude Code for hooks to take effect."

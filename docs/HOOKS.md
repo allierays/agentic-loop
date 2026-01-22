@@ -29,6 +29,7 @@ ralph hooks --global
 | `warn-debug.sh` | PostToolUse | Warns about console.log/debugger in new code |
 | `warn-secrets.sh` | PostToolUse | Warns about hardcoded secrets/API keys |
 | `warn-urls.sh` | PostToolUse | Warns about hardcoded localhost URLs |
+| `warn-empty-catch.sh` | PostToolUse | Warns about empty catch/except blocks |
 | `inject-context.sh` | SessionStart | Loads signs + progress into session context |
 | `save-learnings.sh` | Stop | Extracts learnings for potential signs |
 | `log-tools.sh` | PostToolUse | Logs tool usage to .ralph/tool-log.txt |

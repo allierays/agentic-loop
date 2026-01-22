@@ -118,6 +118,97 @@ detect_mongodb() {
 }
 
 # ============================================================================
+# VERIFICATION FUNCTIONS (post-backup integrity checks)
+# ============================================================================
+
+# Verify SQLite backup integrity
+verify_sqlite_backup() {
+  local backup_file="$1"
+
+  if ! command -v sqlite3 &>/dev/null; then
+    return 0  # Can't verify without sqlite3, assume ok
+  fi
+
+  local result
+  result=$(sqlite3 "$backup_file" "PRAGMA integrity_check;" 2>&1)
+
+  if [[ "$result" == "ok" ]]; then
+    return 0
+  else
+    backup_warning "SQLite integrity check failed: $result"
+    return 1
+  fi
+}
+
+# Verify PostgreSQL backup has valid content
+verify_postgres_backup() {
+  local backup_file="$1"
+
+  # Check gzip integrity
+  if ! gzip -t "$backup_file" 2>/dev/null; then
+    backup_warning "PostgreSQL backup gzip corrupted"
+    return 1
+  fi
+
+  # Check for PostgreSQL dump header
+  if ! zcat "$backup_file" 2>/dev/null | head -20 | grep -q "PostgreSQL"; then
+    backup_warning "PostgreSQL backup missing valid header"
+    return 1
+  fi
+
+  return 0
+}
+
+# Verify MySQL backup has valid content
+verify_mysql_backup() {
+  local backup_file="$1"
+
+  # Check gzip integrity
+  if ! gzip -t "$backup_file" 2>/dev/null; then
+    backup_warning "MySQL backup gzip corrupted"
+    return 1
+  fi
+
+  # Check for MySQL dump markers
+  if ! zcat "$backup_file" 2>/dev/null | head -20 | grep -qE "(MySQL|mysqldump)"; then
+    backup_warning "MySQL backup missing valid header"
+    return 1
+  fi
+
+  return 0
+}
+
+# Verify MongoDB backup integrity
+verify_mongodb_backup() {
+  local backup_file="$1"
+
+  # Check gzip integrity
+  if ! gzip -t "$backup_file" 2>/dev/null; then
+    backup_warning "MongoDB backup gzip corrupted"
+    return 1
+  fi
+
+  # Check file has content (mongodump archives have binary content)
+  local size
+  size=$(get_file_size_mb "$backup_file")
+  if [[ "$size" -eq 0 ]]; then
+    # Check actual byte size for small DBs
+    local bytes
+    if [[ "$(uname)" == "Darwin" ]]; then
+      bytes=$(stat -f%z "$backup_file" 2>/dev/null)
+    else
+      bytes=$(stat -c%s "$backup_file" 2>/dev/null)
+    fi
+    if [[ "$bytes" -lt 100 ]]; then
+      backup_warning "MongoDB backup appears empty"
+      return 1
+    fi
+  fi
+
+  return 0
+}
+
+# ============================================================================
 # BACKUP FUNCTIONS
 # ============================================================================
 
@@ -144,8 +235,15 @@ backup_sqlite() {
   # Use sqlite3 .backup command (handles WAL mode safely)
   if command -v sqlite3 &>/dev/null; then
     if sqlite3 "$db_path" ".backup '$backup_file'" 2>/dev/null; then
-      backup_success "SQLite: $db_path -> $backup_file"
-      return 0
+      # Verify backup integrity
+      if verify_sqlite_backup "$backup_file"; then
+        backup_success "SQLite: $db_path -> $backup_file"
+        return 0
+      else
+        rm -f "$backup_file"
+        backup_warning "SQLite backup verification failed, removed: $backup_file"
+        return 1
+      fi
     else
       backup_warning "SQLite backup failed for $db_path (using file copy fallback)"
     fi
@@ -153,8 +251,15 @@ backup_sqlite() {
 
   # Fallback to file copy if sqlite3 not available or failed
   if cp "$db_path" "$backup_file" 2>/dev/null; then
-    backup_success "SQLite (copy): $db_path -> $backup_file"
-    return 0
+    # Verify backup integrity
+    if verify_sqlite_backup "$backup_file"; then
+      backup_success "SQLite (copy): $db_path -> $backup_file"
+      return 0
+    else
+      rm -f "$backup_file"
+      backup_warning "SQLite backup verification failed, removed: $backup_file"
+      return 1
+    fi
   fi
 
   backup_warning "Failed to backup SQLite: $db_path"
@@ -187,8 +292,15 @@ backup_postgres() {
   if pg_dump "$url" 2>/dev/null | gzip > "$backup_file"; then
     # Check if backup is empty (connection may have failed silently)
     if [[ -s "$backup_file" ]]; then
-      backup_success "PostgreSQL: $db_name -> $backup_file"
-      return 0
+      # Verify backup integrity
+      if verify_postgres_backup "$backup_file"; then
+        backup_success "PostgreSQL: $db_name -> $backup_file"
+        return 0
+      else
+        rm -f "$backup_file"
+        backup_warning "PostgreSQL backup verification failed, removed: $backup_file"
+        return 1
+      fi
     else
       rm -f "$backup_file"
       backup_warning "PostgreSQL backup is empty - connection may have failed"
@@ -248,8 +360,15 @@ backup_mysql() {
       --connect-timeout=10 \
       "$db_name" 2>/dev/null | gzip > "$backup_file"; then
     if [[ -s "$backup_file" ]]; then
-      backup_success "MySQL: $db_name -> $backup_file"
-      return 0
+      # Verify backup integrity
+      if verify_mysql_backup "$backup_file"; then
+        backup_success "MySQL: $db_name -> $backup_file"
+        return 0
+      else
+        rm -f "$backup_file"
+        backup_warning "MySQL backup verification failed, removed: $backup_file"
+        return 1
+      fi
     fi
   fi
 
@@ -288,8 +407,15 @@ backup_mongodb() {
       --serverSelectionTimeoutMS=10000 \
       2>/dev/null; then
     if [[ -s "$backup_file" ]]; then
-      backup_success "MongoDB: $db_name -> $backup_file"
-      return 0
+      # Verify backup integrity
+      if verify_mongodb_backup "$backup_file"; then
+        backup_success "MongoDB: $db_name -> $backup_file"
+        return 0
+      else
+        rm -f "$backup_file"
+        backup_warning "MongoDB backup verification failed, removed: $backup_file"
+        return 1
+      fi
     fi
   fi
 

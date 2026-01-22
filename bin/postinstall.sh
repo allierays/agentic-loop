@@ -117,7 +117,8 @@ install_claude_hooks() {
       "hooks": [
         {"type": "command", "command": "$hooks_dir/warn-debug.sh", "timeout": 5},
         {"type": "command", "command": "$hooks_dir/warn-secrets.sh", "timeout": 5},
-        {"type": "command", "command": "$hooks_dir/warn-urls.sh", "timeout": 5}
+        {"type": "command", "command": "$hooks_dir/warn-urls.sh", "timeout": 5},
+        {"type": "command", "command": "$hooks_dir/warn-empty-catch.sh", "timeout": 5}
       ]
     },
     {
