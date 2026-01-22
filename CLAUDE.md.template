@@ -1,349 +1,65 @@
-# Project Instructions for AI Coding Agents
+# Project Instructions
 
-> Copy this file to your project root as `CLAUDE.md` and customize for your stack.
+> Customize this for your project. Keep it short - Claude reads this every session.
 
-## Core Principles
+## Tech Stack
 
-- **Readability First**: Code is read more than written. Prioritize clarity over cleverness.
-- **KISS**: Keep it simple. Avoid over-engineering.
-- **DRY**: Don't repeat yourself. Extract reusable logic into functions/components.
-- **YAGNI**: Don't build features you don't need yet.
+- **Frontend:** [React/Vue/etc.]
+- **Backend:** [Node/Python/etc.]
+- **Database:** [PostgreSQL/etc.]
+- **Key libraries:** [list important ones]
 
-## Naming Conventions
+## Project Structure
 
-| Type | Convention | Example |
-|------|------------|---------|
-| Variables | descriptive camelCase | `userProfile`, `isLoading`, `itemCount` |
-| Functions | verb-noun pattern | `fetchUserData()`, `validateInput()`, `handleSubmit()` |
-| Components | PascalCase | `UserProfile`, `MarketCard`, `SearchInput` |
-| Constants | SCREAMING_SNAKE_CASE | `MAX_RETRIES`, `API_BASE_URL` |
-| Types/Interfaces | PascalCase | `UserResponse`, `ApiError` |
-
-## Immutability (CRITICAL)
-
-Always use spread operators. Never mutate directly:
-
-```typescript
-// ❌ Bad - mutation
-user.name = 'new name';
-items.push(newItem);
-state.count++;
-
-// ✅ Good - immutable updates
-const updatedUser = { ...user, name: 'new name' };
-const updatedItems = [...items, newItem];
-setState(prev => ({ ...prev, count: prev.count + 1 }));
+```
+src/
+├── components/    # React components
+├── hooks/         # Custom hooks
+├── utils/         # Helper functions
+└── api/           # API client
 ```
 
-## Function Size & Complexity
-
-- **Max 50 lines per function** - split larger functions
-- **Max 4 levels of nesting** - extract nested logic to helper functions
-- **Single responsibility** - one function does one thing
-- **Early returns** - use guard clauses to reduce nesting
-
-```typescript
-// ❌ Bad - deeply nested
-function processUser(user) {
-  if (user) {
-    if (user.isActive) {
-      if (user.hasPermission) {
-        // actual logic buried here
-      }
-    }
-  }
-}
-
-// ✅ Good - early returns
-function processUser(user) {
-  if (!user) return;
-  if (!user.isActive) return;
-  if (!user.hasPermission) return;
-
-  // actual logic at top level
-}
-```
-
-## Type Safety
-
-- Use TypeScript interfaces for all data shapes
-- Never use `any` - use `unknown` if type is truly unknown
-- Define return types for public functions
-
-## Code Quality Standards
-
-When writing code for this project, follow these guidelines to avoid common AI-generated code issues.
-
-### Don't Leave Debug Statements
-
-Remove all debug statements before committing:
-
-```python
-# Bad
-print(f"DEBUG: user = {user}")
-breakpoint()
-
-# Good - use proper logging if needed
-logger.debug(f"Processing user {user.id}")
-```
-
-```typescript
-// Bad
-console.log('here', data);
-debugger;
-
-// Good - remove or use proper logging
-logger.debug('Processing data', { userId: data.id });
-```
-
-### Use Named Constants, Not Magic Numbers
-
-```python
-# Bad
-if retries > 5:
-    time.sleep(30)
-
-# Good
-MAX_RETRIES = 5
-RETRY_DELAY_SECONDS = 30
-
-if retries > MAX_RETRIES:
-    time.sleep(RETRY_DELAY_SECONDS)
-```
-
-### Use Environment Variables for URLs
-
-```python
-# Bad
-API_URL = "http://localhost:8000/api"
-
-# Good
-API_URL = os.getenv("API_URL", "http://localhost:8000/api")
-```
-
-```typescript
-// Bad
-const API_URL = 'http://localhost:3000/api';
-
-// Good
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-```
-
-### Use camelCase in TypeScript Interfaces
-
-If your API client transforms responses from snake_case to camelCase:
-
-```typescript
-// Bad - copied from API response
-interface User {
-  first_name: string;
-  last_name: string;
-  created_at: string;
-}
-
-// Good - matches transformed response
-interface User {
-  firstName: string;
-  lastName: string;
-  createdAt: string;
-}
-```
-
-### Handle Errors Properly (BLOCKING)
-
-**Empty catch blocks will be blocked by Claude Code hooks.** Never silently swallow errors - always log, handle, or rethrow.
-
-```python
-# ❌ BLOCKED - empty except
-try:
-    do_something()
-except Exception:
-    pass
-
-# ✅ Good - log and handle
-try:
-    do_something()
-except SpecificException as e:
-    logger.error(f"Failed to do something: {e}")
-    raise  # or handle appropriately
-```
-
-```typescript
-// ❌ BLOCKED - empty catch
-try { doSomething(); } catch (e) {}
-
-// ✅ Good - log and handle
-try {
-  doSomething();
-} catch (error) {
-  console.error('Failed to do something:', error);
-  throw error;  // or handle appropriately
-}
-```
-
-**Acceptable patterns:**
-- Log the error: `console.error('Context:', error)`
-- Rethrow: `throw error`
-- Return error state: `return { error: error.message }`
-- Intentional ignore with comment: `catch (e) { /* Expected for optional feature */ }`
-
-### Complete Your TODOs
-
-Don't leave placeholder comments:
-
-```python
-# Bad
-def process_payment(amount):
-    # TODO: implement this
-    pass
-
-# Good - implement it or raise NotImplementedError with context
-def process_payment(amount):
-    raise NotImplementedError("Payment processing requires Stripe integration - see PAYMENT.md")
-```
-
-### Never Hardcode Secrets
-
-```python
-# Bad - will be caught by pre-commit hook
-API_KEY = "sk-1234567890abcdef..."
-
-# Good
-API_KEY = os.getenv("API_KEY")
-if not API_KEY:
-    raise ValueError("API_KEY environment variable is required")
-```
-
-### Avoid Code Duplication
-
-Extract repeated code into functions:
-
-```python
-# Bad - same validation in multiple places
-def create_user(email):
-    if not email or '@' not in email:
-        raise ValueError("Invalid email")
-    # ...
-
-def update_user(email):
-    if not email or '@' not in email:
-        raise ValueError("Invalid email")
-    # ...
-
-# Good - extract to a function
-def validate_email(email: str) -> None:
-    if not email or '@' not in email:
-        raise ValueError("Invalid email")
-
-def create_user(email):
-    validate_email(email)
-    # ...
-```
-
-## Test-Driven Development (TDD)
-
-When building new features, follow the TDD workflow:
-
-### The TDD Cycle
-
-1. **RED** - Write a failing test that defines what success looks like
-2. **GREEN** - Write the minimum code to make the test pass
-3. **REFACTOR** - Clean up while keeping tests green
-
-### E2E Test Documentation Pattern
-
-Always document tests with SCENARIO/EXPECTED/FAILURE:
-
-```typescript
-test('user can submit feedback', async ({ page }) => {
-  /**
-   * SCENARIO: As a logged-in user, when I fill out the feedback form
-   *           and click submit, my feedback should be saved
-   * EXPECTED: Success message appears, form clears
-   * FAILURE: Error shown, form stuck, or no confirmation
-   */
-});
-```
-
-### Critical Assertion Pattern
-
-When assertions fail, capture debug info before the `expect`:
-
-```typescript
-const isSuccess = await page.locator('[data-testid="success"]').isVisible();
-if (!isSuccess) {
-  console.error('FAIL: Success message not visible');
-  await page.screenshot({ path: 'e2e-feedback-submit-debug.png' });
-}
-expect(isSuccess).toBeTruthy();
-```
-
-### Flexible Locators
-
-Handle UI variations with fallback selectors:
-
-```typescript
-const submitButton = page.getByRole('button', { name: /submit|save/i })
-  .or(page.locator('[data-testid="submit-btn"]'));
-```
-
-### API Helper Pattern
-
-For tests that need to set up data via API:
-
-```typescript
-async function createTestData(page: Page): Promise<{ id: number }> {
-  return await page.evaluate(async (apiBase) => {
-    const response = await fetch(`${apiBase}/api/v1/resource/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-    });
-    return response.json();
-  }, API_BASE_URL);
-}
-```
-
-### Running Tests
+## Commands
 
 ```bash
-# Run all E2E tests
-npx playwright test
-
-# Run with UI for debugging
-npx playwright test --ui
-
-# Run specific test file
-npx playwright test feature.spec.ts --headed
+npm run dev        # Start dev server
+npm test           # Run tests
+npm run build      # Production build
 ```
 
-Use `/tdd-feature` to implement features with this workflow, or `/e2e-scaffold` to generate test file structure.
+## Project Rules
 
-## Pre-commit Hooks
+<!-- Add rules specific to YOUR project -->
 
-This project uses [vibe-and-thrive](https://github.com/allthriveai/vibe-and-thrive) pre-commit hooks that will catch:
+- Use `Button` from `@/components/ui`, not raw `<button>`
+- API responses are camelCase (transformed from snake_case)
+- State management: Zustand (not Redux)
+- Styling: Tailwind only, no inline styles
 
-- Debug statements (`console.log`, `print()`)
-- TODO/FIXME comments
-- Empty catch blocks
-- Hardcoded URLs and secrets
-- snake_case in TypeScript
-- Magic numbers
-- Code duplication
+## Patterns to Follow
 
-Run `/vibe-check` to see issues before committing.
+<!-- Show examples from YOUR codebase -->
 
-## Project-Specific Instructions
+```typescript
+// How we fetch data in this project
+const { data, error } = useSWR('/api/users', fetcher);
 
-<!-- Add your project-specific coding standards below -->
+// How we handle forms
+const form = useForm<FormData>({ resolver: zodResolver(schema) });
+```
 
-### Tech Stack
-- Backend: [Python/Django/FastAPI/Node/etc.]
-- Frontend: [React/Vue/etc.]
-- Database: [PostgreSQL/etc.]
+## Don't Do
 
-### Architecture Notes
-<!-- Add notes about your project structure -->
+<!-- Project-specific things to avoid -->
 
-### Common Patterns
-<!-- Add examples of patterns specific to your codebase -->
+- Don't create new API routes without adding to `api/index.ts`
+- Don't use `localStorage` directly - use our `useStorage` hook
+- Don't add dependencies without checking with the team
+
+## Quality Checks
+
+This project uses [vibe-and-thrive](https://github.com/allthriveai/vibe-and-thrive):
+
+- **While coding:** Claude Code hooks warn about issues in real-time
+- **At commit:** Pre-commit hooks block secrets, debug statements, etc.
+- **On demand:** Run `/vibe-check` or `/review` anytime
