@@ -25,7 +25,7 @@ Use this skill for **frontend story verification**:
 ## Usage
 
 ```bash
-npx tsx skills/browser-verify/verify.ts <url> [options]
+npx tsx lib/ralph/browser-verify/verify.ts <url> [options]
 ```
 
 ### Options
@@ -46,25 +46,25 @@ npx tsx skills/browser-verify/verify.ts <url> [options]
 
 **Basic page check:**
 ```bash
-npx tsx skills/browser-verify/verify.ts http://localhost:3000/dashboard
+npx tsx lib/ralph/browser-verify/verify.ts http://localhost:3000/dashboard
 ```
 
 **Check specific elements exist:**
 ```bash
-npx tsx skills/browser-verify/verify.ts http://localhost:3000/login \
+npx tsx lib/ralph/browser-verify/verify.ts http://localhost:3000/login \
   --selectors '["#email", "#password", "button[type=submit]"]'
 ```
 
 **Take screenshot and check mobile:**
 ```bash
-npx tsx skills/browser-verify/verify.ts http://localhost:3000/dashboard \
+npx tsx lib/ralph/browser-verify/verify.ts http://localhost:3000/dashboard \
   --screenshot .ralph/screenshots/dashboard.png \
   --mobile
 ```
 
 **Debug mode (visible browser):**
 ```bash
-npx tsx skills/browser-verify/verify.ts http://localhost:3000/dashboard \
+npx tsx lib/ralph/browser-verify/verify.ts http://localhost:3000/dashboard \
   --no-headless
 ```
 

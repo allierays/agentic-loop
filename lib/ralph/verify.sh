@@ -627,7 +627,7 @@ run_browser_validation() {
   check_mobile=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .mobile // empty' "$RALPH_DIR/prd.json" 2>/dev/null)
 
   # Build command - use the browser-verify skill
-  local verify_script="$RALPH_SKILLS/browser-verify/verify.ts"
+  local verify_script="$RALPH_LIB/browser-verify/verify.ts"
 
   if [[ ! -f "$verify_script" ]]; then
     print_warning "    browser-verify.ts not found, falling back to curl check"

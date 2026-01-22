@@ -24,14 +24,13 @@ get_script_dir() {
 SCRIPT_DIR="$(get_script_dir)"
 RALPH_LIB="$SCRIPT_DIR/../lib/ralph"
 RALPH_TEMPLATES="$SCRIPT_DIR/../templates"
-RALPH_SKILLS="$SCRIPT_DIR/../skills"
 
 # Project-local directories (can be overridden by environment)
 RALPH_DIR="${RALPH_DIR:-.ralph}"
 PROMPT_FILE="${PROMPT_FILE:-PROMPT.md}"
 
 # Export for use in sourced files
-export RALPH_DIR PROMPT_FILE RALPH_LIB RALPH_TEMPLATES RALPH_SKILLS
+export RALPH_DIR PROMPT_FILE RALPH_LIB RALPH_TEMPLATES
 
 # Ensure setup ran (in case postinstall was skipped)
 if [[ ! -f ".pre-commit-config.yaml" ]] || [[ ! -d ".ralph" ]]; then
