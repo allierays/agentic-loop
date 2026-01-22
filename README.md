@@ -142,8 +142,8 @@ vibe-and-thrive/
 
 | Layer | When | What |
 |-------|------|------|
-| **Slash commands** | Interactive coding | `/vibe-check`, `/review` - you ask Claude to check |
-| **Claude Code hooks** | While coding | Real-time warnings as Claude writes code |
+| **Slash commands** | In Claude Code CLI | `/vibe-check`, `/review` - on-demand checks |
+| **Claude Code hooks** | While Claude writes code | Real-time warnings (debug statements, secrets) |
 | **Pre-commit hooks** | At `git commit` | Blocks secrets, URLs, debug statements |
 
 ## License
