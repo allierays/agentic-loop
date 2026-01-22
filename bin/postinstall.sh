@@ -242,6 +242,24 @@ generate_claude_md() {
   [[ -f "pytest.ini" ]] && testing="${testing:+$testing + }pytest"
   [[ -f "pyproject.toml" ]] && grep -q "pytest" pyproject.toml 2>/dev/null && testing="${testing:+$testing + }pytest"
 
+  # Detect Python package manager (check root and common backend paths)
+  local python_runner=""
+  local api_dir=""
+  [[ -d "apps/api" ]] && api_dir="apps/api"
+  [[ -d "backend" ]] && api_dir="backend"
+  [[ -d "api" ]] && api_dir="api"
+
+  # Check for uv (uv.lock)
+  if [[ -f "uv.lock" ]] || [[ -n "$api_dir" && -f "$api_dir/uv.lock" ]]; then
+    python_runner="uv run python"
+  # Check for poetry (poetry.lock)
+  elif [[ -f "poetry.lock" ]] || [[ -n "$api_dir" && -f "$api_dir/poetry.lock" ]]; then
+    python_runner="poetry run python"
+  # Check for pipenv (Pipfile.lock)
+  elif [[ -f "Pipfile.lock" ]] || [[ -n "$api_dir" && -f "$api_dir/Pipfile.lock" ]]; then
+    python_runner="pipenv run python"
+  fi
+
   # Detect structure
   [[ -d "src/components" || -d "${fe_dir}/src/components" || -d "${fe_dir}/components" ]] && structure="- Components: \`src/components/\` or \`${fe_dir}/\`"
   [[ -d "src/hooks" || -d "${fe_dir}/src/hooks" ]] && structure="${structure:+$structure
@@ -261,6 +279,7 @@ ${framework:+- Framework: $framework}
 ${language:+- Language: $language}
 ${styling:+- Styling: $styling}
 ${testing:+- Testing: $testing}
+${python_runner:+- Python: Use \`$python_runner\` (not bare \`python\`)}
 
 ${structure:+### Project Structure
 $structure}
