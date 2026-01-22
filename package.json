@@ -16,13 +16,11 @@
     "ai",
     "vibe-coding",
     "pre-commit",
-    "eslint-plugin",
-    "lint-staged",
     "code-quality",
     "claude",
     "copilot",
     "cursor",
-    "linting"
+    "ralph"
   ],
   "type": "module",
   "main": "dist/index.js",
@@ -38,25 +36,15 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
-    },
-    "./eslint-plugin": {
-      "types": "./dist/eslint-plugin/index.d.ts",
-      "import": "./dist/eslint-plugin/index.js"
-    },
-    "./lint-staged": {
-      "types": "./dist/lint-staged/config.d.ts",
-      "import": "./dist/lint-staged/config.js"
     }
   },
   "files": [
     "dist",
     "bin",
-    "lib",
-    "skills",
+    "ralph",
     "templates",
     ".claude",
-    ".pre-commit-hooks.yaml",
-    "integrations"
+    ".pre-commit-hooks.yaml"
   ],
   "scripts": {
     "build": "tsc",
@@ -76,13 +64,9 @@
     "node": ">=18.0.0"
   },
   "peerDependencies": {
-    "eslint": ">=8.0.0",
     "playwright": ">=1.40.0"
   },
   "peerDependenciesMeta": {
-    "eslint": {
-      "optional": true
-    },
     "playwright": {
       "optional": true
     }

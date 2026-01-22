@@ -124,17 +124,17 @@ Ralph loops through stories one at a time, writes tests, verifies, and commits.
 
 ```
 vibe-and-thrive/
-├── .claude/commands/       # Slash commands for interactive use (/idea, /review, etc.)
+├── .claude/commands/       # Slash commands (/idea, /review, etc.)
 ├── ralph/                  # Autonomous loop (Bash)
 │   ├── hooks/              # Claude Code hooks (real-time warnings)
-│   ├── browser-verify/     # Playwright verification tool
+│   ├── browser-verify/     # Playwright verification
 │   └── setup/              # Setup wizards (/tour)
 ├── src/                    # Pre-commit checks (TypeScript)
 │   └── checks/             # Check implementations (secrets, urls, etc.)
-├── templates/              # Copied to your project on install
+├── templates/              # Files for user projects
 │   ├── PROMPT.md           # Base prompt for Ralph sessions
-│   └── config/             # Project type configs (node, python, etc.)
-├── examples/               # Example CLAUDE.md files by stack
+│   ├── config/             # Project type configs (node, python)
+│   └── optional/           # Extra configs (eslint, vscode, etc.)
 ├── docs/                   # Documentation
 └── bin/                    # CLI entry points (ralph, vibe-check)
 ```
