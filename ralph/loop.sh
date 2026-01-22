@@ -188,7 +188,12 @@ run_loop() {
         local title
         title=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .title' "$RALPH_DIR/prd.json")
         git add -A
-        git commit -m "feat($story): $title" || true
+        # First commit attempt - pre-commit hooks may auto-fix files
+        if ! git commit -m "feat($story): $title" 2>/dev/null; then
+          # If failed, stage the auto-fixed files and retry once
+          git add -A
+          git commit -m "feat($story): $title" 2>/dev/null || true
+        fi
       fi
 
       log_progress "$story" "COMPLETED"
@@ -404,7 +409,11 @@ archive_feature() {
   # Final commit if git available
   if command -v git &>/dev/null && [[ -d ".git" ]]; then
     git add -A
-    git commit -m "feat: complete $feature_name" || true
+    if ! git commit -m "feat: complete $feature_name" 2>/dev/null; then
+      # Retry after pre-commit auto-fixes
+      git add -A
+      git commit -m "feat: complete $feature_name" 2>/dev/null || true
+    fi
   fi
 
   log_progress "FEATURE" "COMPLETE" "$feature_name"
