@@ -2,13 +2,29 @@
 # init.sh - Initialize ralph in a project
 
 ralph_init() {
-  if [[ -d "$RALPH_DIR" ]]; then
+  local needs_init=false
+  local partial_init=false
+
+  # Check what's missing
+  if [[ ! -d "$RALPH_DIR" ]]; then
+    needs_init=true
+  elif [[ ! -f "PROMPT.md" ]] || [[ ! -f "$RALPH_DIR/config.json" ]]; then
+    # Directory exists but key files are missing
+    partial_init=true
+    needs_init=true
+  fi
+
+  if [[ "$needs_init" == "false" ]]; then
     print_info "Ralph already initialized in this directory."
     print_info "Run 'ralph status' to see current state."
     return 0
   fi
 
-  echo "Initializing ralph..."
+  if [[ "$partial_init" == "true" ]]; then
+    echo "Completing partial initialization..."
+  else
+    echo "Initializing ralph..."
+  fi
 
   # Create directory structure
   mkdir -p "$RALPH_DIR/archive" "$RALPH_DIR/screenshots"
@@ -18,26 +34,32 @@ ralph_init() {
   project_type=$(detect_project_type)
   echo "Detected project type: $project_type"
 
-  # Copy config template based on project type
-  local config_template="$RALPH_TEMPLATES/config/${project_type}.json"
-  if [[ -f "$config_template" ]]; then
-    cp "$config_template" "$RALPH_DIR/config.json"
-  else
-    # Fall back to minimal config
-    cp "$RALPH_TEMPLATES/config/minimal.json" "$RALPH_DIR/config.json"
+  # Copy config template based on project type (only if missing)
+  if [[ ! -f "$RALPH_DIR/config.json" ]]; then
+    local config_template="$RALPH_TEMPLATES/config/${project_type}.json"
+    if [[ -f "$config_template" ]]; then
+      cp "$config_template" "$RALPH_DIR/config.json"
+    else
+      # Fall back to minimal config
+      cp "$RALPH_TEMPLATES/config/minimal.json" "$RALPH_DIR/config.json"
+    fi
   fi
 
-  # Create signs with defaults
-  if [[ -f "$RALPH_TEMPLATES/signs.json" ]]; then
-    cp "$RALPH_TEMPLATES/signs.json" "$RALPH_DIR/signs.json"
-  else
-    echo '{"signs": []}' > "$RALPH_DIR/signs.json"
+  # Create signs with defaults (only if missing)
+  if [[ ! -f "$RALPH_DIR/signs.json" ]]; then
+    if [[ -f "$RALPH_TEMPLATES/signs.json" ]]; then
+      cp "$RALPH_TEMPLATES/signs.json" "$RALPH_DIR/signs.json"
+    else
+      echo '{"signs": []}' > "$RALPH_DIR/signs.json"
+    fi
   fi
 
-  # Create empty progress log
-  local timestamp
-  timestamp=$(date -Iseconds 2>/dev/null || date +%Y-%m-%dT%H:%M:%S)
-  echo "[$timestamp] INIT Ralph initialized" > "$RALPH_DIR/progress.txt"
+  # Create progress log (only if missing)
+  if [[ ! -f "$RALPH_DIR/progress.txt" ]]; then
+    local timestamp
+    timestamp=$(date -Iseconds 2>/dev/null || date +%Y-%m-%dT%H:%M:%S)
+    echo "[$timestamp] INIT Ralph initialized" > "$RALPH_DIR/progress.txt"
+  fi
 
   # Copy PROMPT.md template if it doesn't exist in project
   if [[ ! -f "PROMPT.md" ]]; then
