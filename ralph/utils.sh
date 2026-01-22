@@ -333,6 +333,77 @@ send_notification() {
   return 0
 }
 
+# Validate PRD structure
+# Returns 0 if valid, 1 if invalid with helpful error messages
+validate_prd() {
+  local prd_file="$1"
+
+  # Check file exists
+  if [[ ! -f "$prd_file" ]]; then
+    print_error "PRD file not found: $prd_file"
+    return 1
+  fi
+
+  # Check valid JSON
+  if ! jq -e . "$prd_file" >/dev/null 2>&1; then
+    print_error "prd.json is not valid JSON."
+    echo ""
+    echo "Fix it manually or regenerate with:"
+    echo "  /idea 'your feature'"
+    echo ""
+    return 1
+  fi
+
+  # Check for stories array
+  if ! jq -e '.stories' "$prd_file" >/dev/null 2>&1; then
+    print_error "prd.json is missing 'stories' array."
+    echo ""
+    echo "Regenerate with: /idea 'your feature'"
+    echo ""
+    return 1
+  fi
+
+  # Check stories is not empty
+  local story_count
+  story_count=$(jq '.stories | length' "$prd_file" 2>/dev/null || echo "0")
+  if [[ "$story_count" == "0" ]]; then
+    print_error "prd.json has no stories."
+    echo ""
+    echo "Regenerate with: /idea 'your feature'"
+    echo ""
+    return 1
+  fi
+
+  # Check each story has required fields
+  local invalid_stories
+  invalid_stories=$(jq -r '.stories[] | select(.id == null or .id == "" or .title == null or .title == "") | .id // "unnamed"' "$prd_file" 2>/dev/null)
+  if [[ -n "$invalid_stories" ]]; then
+    print_error "Some stories are missing required fields (id, title):"
+    echo "$invalid_stories" | head -5
+    echo ""
+    echo "Fix the PRD or regenerate with: /idea 'your feature'"
+    echo ""
+    return 1
+  fi
+
+  # Check stories have passes field (initialize if missing)
+  local missing_passes
+  missing_passes=$(jq '[.stories[] | select(.passes == null)] | length' "$prd_file" 2>/dev/null || echo "0")
+  if [[ "$missing_passes" != "0" ]]; then
+    print_info "Initializing $missing_passes stories with passes=false..."
+    update_json "$prd_file" '(.stories[] | select(.passes == null) | .passes) = false'
+  fi
+
+  # Check feature name exists
+  local feature_name
+  feature_name=$(jq -r '.feature.name // empty' "$prd_file" 2>/dev/null)
+  if [[ -z "$feature_name" ]]; then
+    print_warning "PRD is missing feature name (will show as 'unnamed')"
+  fi
+
+  return 0
+}
+
 # Run migrations if new migration files were created during story
 run_migrations_if_needed() {
   local pre_sha="$1"

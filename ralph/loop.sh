@@ -43,15 +43,8 @@ run_loop() {
     exit 1
   fi
 
-  # Validate PRD is valid JSON
-  if ! jq -e . "$RALPH_DIR/prd.json" >/dev/null 2>&1; then
-    print_error "prd.json is not valid JSON. Please fix or regenerate it."
-    return 1
-  fi
-
-  # Validate PRD has required structure
-  if ! jq -e '.stories' "$RALPH_DIR/prd.json" >/dev/null 2>&1; then
-    print_error "prd.json is missing 'stories' array. Please fix or regenerate it."
+  # Validate PRD structure
+  if ! validate_prd "$RALPH_DIR/prd.json"; then
     return 1
   fi
 
