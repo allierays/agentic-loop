@@ -22,7 +22,7 @@ get_script_dir() {
 }
 
 SCRIPT_DIR="$(get_script_dir)"
-RALPH_LIB="$SCRIPT_DIR/../lib/ralph"
+RALPH_LIB="$SCRIPT_DIR/../ralph"
 RALPH_TEMPLATES="$SCRIPT_DIR/../templates"
 
 # Project-local directories (can be overridden by environment)

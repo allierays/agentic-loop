@@ -14,10 +14,10 @@ npm install
 
 ### 2. Create your hook
 
-Create a new file in `src/hooks/`:
+Create a new file in `src/checks/`:
 
 ```typescript
-// src/hooks/check-your-pattern.ts
+// src/checks/check-your-pattern.ts
 import type { CheckResult, Finding } from '../utils/types';
 
 const PATTERNS = [
@@ -53,7 +53,7 @@ export function checkYourPattern(
 }
 ```
 
-### 3. Register it in `src/hooks/index.ts`
+### 3. Register it in `src/checks/index.ts`
 
 ```typescript
 import { checkYourPattern } from './check-your-pattern';
@@ -77,7 +77,7 @@ export const hooks = {
 
 ### 5. Add tests
 
-Create `src/hooks/__tests__/check-your-pattern.test.ts`:
+Create `src/checks/__tests__/check-your-pattern.test.ts`:
 
 ```typescript
 import { describe, it, expect } from 'vitest';

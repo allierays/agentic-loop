@@ -15,7 +15,7 @@ get_script_dir() {
 }
 
 SCRIPT_DIR="$(get_script_dir)"
-LIB_DIR="$SCRIPT_DIR/../lib/wizard"
+LIB_DIR="$SCRIPT_DIR/../ralph/setup"
 
 # Source UI utilities
 source "$LIB_DIR/ui.sh"

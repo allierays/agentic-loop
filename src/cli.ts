@@ -13,7 +13,7 @@ import type {
   Severity,
   HookResult,
 } from './utils/types.js';
-import { hooks, getHooksForFile } from './hooks/index.js';
+import { hooks, getHooksForFile } from './checks/index.js';
 
 /**
  * Parse command line arguments

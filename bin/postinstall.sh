@@ -85,7 +85,7 @@ install_claude_hooks() {
   command -v jq &>/dev/null || return 0
 
   local settings_file=".claude/settings.json"
-  local hooks_dir="$PKG_ROOT/lib/ralph/hooks"
+  local hooks_dir="$PKG_ROOT/ralph/hooks"
 
   # Skip if hooks directory doesn't exist
   [[ ! -d "$hooks_dir" ]] && return 0

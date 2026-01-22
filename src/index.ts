@@ -21,7 +21,7 @@ export {
   getHook,
   getHooksForFile,
   getHookIds,
-} from './hooks/index.js';
+} from './checks/index.js';
 
 // Export main check function
 export { vibeCheck } from './cli.js';
