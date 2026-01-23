@@ -426,21 +426,20 @@ run_configured_checks() {
   # Run pre-commit hooks if available (catches errors before commit attempt)
   if command -v pre-commit &>/dev/null && [[ -f ".pre-commit-config.yaml" ]]; then
     echo -n "    pre-commit hooks... "
-    local precommit_log
-    precommit_log=$(create_temp_file ".log") || return 1
+    local precommit_log="$RALPH_DIR/last_precommit_failure.log"
 
     if pre-commit run --all-files > "$precommit_log" 2>&1; then
       print_success "passed"
+      rm -f "$precommit_log"  # Clean up on success
     else
       print_error "failed"
       echo ""
       echo "    Pre-commit hook errors:"
       # Show the failing hooks and their output
       grep -A 20 "Failed\|error\|Error" "$precommit_log" | head -40 | sed 's/^/      /'
-      rm -f "$precommit_log"
+      # Keep the log file for save_failure_context
       return 1
     fi
-    rm -f "$precommit_log"
   fi
 
   # Config-based checks are optional
@@ -918,6 +917,15 @@ save_failure_context() {
       jq -r '"Errors: " + (.errors | join(", "))' "$RALPH_DIR/last_browser_failure.json" 2>/dev/null
       jq -r '"Console errors: " + (.consoleErrors | join(", "))' "$RALPH_DIR/last_browser_failure.json" 2>/dev/null
       jq -r '"Missing elements: " + (.elementsMissing | join(", "))' "$RALPH_DIR/last_browser_failure.json" 2>/dev/null
+      echo ""
+    fi
+
+    if [[ -f "$RALPH_DIR/last_precommit_failure.log" ]]; then
+      echo "--- Pre-commit / Lint Failure ---"
+      echo "Fix these lint errors before the story can be completed:"
+      echo ""
+      # Extract just the error lines (skip the hook names and status lines)
+      grep -E "^\s*(error|warning|Error|ARG|F841|B007|SIM|-->)" "$RALPH_DIR/last_precommit_failure.log" | head -50
       echo ""
     fi
   } > "$context_file"
