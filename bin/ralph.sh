@@ -126,8 +126,10 @@ main() {
       ralph_help
       ;;
     version|-v|--version)
-      echo "ralph 2.0.0 (bash)"
-      echo "Part of vibe-and-thrive"
+      # Read version from package.json
+      local version
+      version=$(jq -r '.version // "unknown"' "$SCRIPT_DIR/../package.json" 2>/dev/null || echo "unknown")
+      echo "ralph $version (vibe-and-thrive)"
       ;;
     *)
       print_error "Unknown command: $cmd"

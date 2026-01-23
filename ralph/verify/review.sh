@@ -20,18 +20,26 @@ run_code_review() {
     return 0
   fi
 
-  # Get the diff of uncommitted changes
+  # Get the diff of uncommitted changes (limit size to prevent memory issues)
   local diff
-  diff=$(git diff HEAD 2>/dev/null)
+  local max_diff_lines=2000
+  diff=$(git diff HEAD 2>/dev/null | head -n "$max_diff_lines")
 
   if [[ -z "$diff" ]]; then
     # No uncommitted changes, check staged
-    diff=$(git diff --cached 2>/dev/null)
+    diff=$(git diff --cached 2>/dev/null | head -n "$max_diff_lines")
   fi
 
   if [[ -z "$diff" ]]; then
     echo "    (no changes to review)"
     return 0
+  fi
+
+  # Check if diff was truncated
+  local full_diff_lines
+  full_diff_lines=$(git diff HEAD 2>/dev/null | wc -l)
+  if [[ "$full_diff_lines" -gt "$max_diff_lines" ]]; then
+    echo "    (diff truncated from $full_diff_lines to $max_diff_lines lines)"
   fi
 
   # Get story context for the review
