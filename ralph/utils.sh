@@ -404,17 +404,121 @@ validate_prd() {
   return 0
 }
 
+# Auto-detect migration tool and return the command
+detect_migration_tool() {
+  local search_dir="${1:-.}"
+
+  # Alembic (Python/FastAPI/SQLAlchemy)
+  if [[ -f "$search_dir/alembic.ini" ]] || [[ -d "$search_dir/alembic" ]]; then
+    echo "cd $search_dir && alembic upgrade head"
+    return 0
+  fi
+
+  # Prisma (Node.js)
+  if [[ -d "$search_dir/prisma/migrations" ]] || [[ -f "$search_dir/prisma/schema.prisma" ]]; then
+    echo "cd $search_dir && npx prisma migrate deploy"
+    return 0
+  fi
+
+  # Django
+  if [[ -f "$search_dir/manage.py" ]] && [[ -d "$search_dir" ]] && find "$search_dir" -type d -name "migrations" -print -quit | grep -q .; then
+    echo "cd $search_dir && python manage.py migrate"
+    return 0
+  fi
+
+  # Sequelize (Node.js)
+  if [[ -f "$search_dir/.sequelizerc" ]]; then
+    echo "cd $search_dir && npx sequelize-cli db:migrate"
+    return 0
+  fi
+
+  # TypeORM (Node.js)
+  if [[ -f "$search_dir/ormconfig.json" ]] || grep -q '"typeorm"' "$search_dir/package.json" 2>/dev/null; then
+    echo "cd $search_dir && npx typeorm migration:run"
+    return 0
+  fi
+
+  # Knex (Node.js)
+  if [[ -f "$search_dir/knexfile.js" ]] || [[ -f "$search_dir/knexfile.ts" ]]; then
+    echo "cd $search_dir && npx knex migrate:latest"
+    return 0
+  fi
+
+  return 1
+}
+
+# Find all migration tools in project (searches common app directories)
+find_all_migration_tools() {
+  local tools=()
+
+  # Check root
+  local root_tool
+  if root_tool=$(detect_migration_tool "."); then
+    tools+=("$root_tool")
+  fi
+
+  # Check common app directories
+  for dir in apps/* packages/* services/* api backend server; do
+    if [[ -d "$dir" ]]; then
+      local tool
+      if tool=$(detect_migration_tool "$dir"); then
+        tools+=("$tool")
+      fi
+    fi
+  done
+
+  # Return unique tools
+  printf '%s\n' "${tools[@]}" | sort -u
+}
+
 # Ensure database migrations are applied before verification
 # Migration commands are idempotent - they no-op if nothing pending
 run_migrations_if_needed() {
   local pre_sha="$1"  # unused now, kept for API compatibility
   local config="$RALPH_DIR/config.json"
 
-  if [[ ! -f "$config" ]]; then return 0; fi
+  local migrate_cmd=""
 
-  local migrate_cmd
-  migrate_cmd=$(jq -r '.migrations.command // empty' "$config" 2>/dev/null)
-  if [[ -z "$migrate_cmd" ]]; then return 0; fi
+  # Try config first
+  if [[ -f "$config" ]]; then
+    migrate_cmd=$(jq -r '.migrations.command // empty' "$config" 2>/dev/null)
+  fi
+
+  # Auto-detect if not configured
+  if [[ -z "$migrate_cmd" ]]; then
+    local detected_tools
+    detected_tools=$(find_all_migration_tools)
+
+    if [[ -z "$detected_tools" ]]; then
+      return 0  # No migrations to run
+    fi
+
+    # Run all detected migration tools
+    local failed=0
+    while IFS= read -r tool_cmd; do
+      [[ -z "$tool_cmd" ]] && continue
+      echo -n "  Migrations (auto-detected)... "
+
+      local log_file
+      log_file=$(mktemp)
+
+      if safe_exec "$tool_cmd" "$log_file"; then
+        if grep -qiE "applying|migrating|running|upgrade" "$log_file" 2>/dev/null; then
+          print_success "applied"
+        else
+          echo "up to date"
+        fi
+      else
+        print_error "failed"
+        echo "    Command: $tool_cmd"
+        tail -10 "$log_file" | sed 's/^/      /'
+        failed=1
+      fi
+      rm -f "$log_file"
+    done <<< "$detected_tools"
+
+    return $failed
+  fi
 
   # Always run migrations - commands are idempotent (no-op if nothing pending)
   # This ensures DB schema is always in sync before tests run
