@@ -33,8 +33,9 @@ ralph_prd() {
     notes=$(cat "$from_file") || { print_error "Failed to read $from_file"; return 1; }
   fi
 
-  # Trim whitespace
-  notes=$(echo "$notes" | xargs)
+  # Trim leading/trailing whitespace (safer than xargs)
+  notes="${notes#"${notes%%[![:space:]]*}"}"  # trim leading
+  notes="${notes%"${notes##*[![:space:]]}"}"  # trim trailing
 
   if [[ -z "$notes" ]]; then
     print_error "No notes provided. Usage: ralph prd <description>"

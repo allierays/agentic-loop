@@ -47,7 +47,7 @@ ralph_sign() {
   local tmpfile
   tmpfile=$(mktemp)
 
-  jq --arg id "$sign_id" \
+  if jq --arg id "$sign_id" \
      --arg pattern "$pattern" \
      --arg category "$category" \
      --arg learnedFrom "$learned_from" \
@@ -58,9 +58,7 @@ ralph_sign() {
        category: $category,
        learnedFrom: (if $learnedFrom == "" then null else $learnedFrom end),
        createdAt: $createdAt
-     }]' "$RALPH_DIR/signs.json" > "$tmpfile"
-
-  if [[ $? -eq 0 ]]; then
+     }]' "$RALPH_DIR/signs.json" > "$tmpfile" && jq -e . "$tmpfile" >/dev/null 2>&1; then
     mv "$tmpfile" "$RALPH_DIR/signs.json"
     print_success "Added sign: [$category] $pattern"
     log_progress "SIGN" "ADDED" "$sign_id: $pattern"

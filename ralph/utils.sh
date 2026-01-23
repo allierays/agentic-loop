@@ -235,27 +235,45 @@ trap cleanup EXIT
 
 # Validate a command doesn't contain dangerous patterns
 # Returns 0 if safe, 1 if dangerous
+# Note: This is defense-in-depth. Commands come from user config, so user must trust their own config.
 validate_command() {
   local cmd="$1"
 
-  # Block dangerous patterns
+  # Block obviously dangerous patterns (defense-in-depth, not security boundary)
   local dangerous_patterns=(
-    'rm[[:space:]]+-rf[[:space:]]+/'      # rm -rf /
-    'rm[[:space:]]+-rf[[:space:]]+\*'     # rm -rf *
-    'curl.*\|.*bash'                       # curl | bash
-    'curl.*\|.*sh'                         # curl | sh
-    'wget.*\|.*bash'                       # wget | bash
-    'wget.*\|.*sh'                         # wget | sh
-    '\$\([^)]*eval'                        # $(eval ...)
-    'eval[[:space:]]+\$'                   # eval $var
-    '>[[:space:]]*/dev/sd'                 # write to disk devices
-    'mkfs\.'                               # format filesystems
-    'dd[[:space:]]+if='                    # dd commands
+    # Destructive file operations
+    'rm[[:space:]]+-rf[[:space:]]+/'              # rm -rf /
+    'rm[[:space:]]+-rf[[:space:]]+~'              # rm -rf ~ (home dir)
+    'rm[[:space:]]+-rf[[:space:]]+\*'             # rm -rf *
+    'rm[[:space:]]+-rf[[:space:]]+\.\.'           # rm -rf ..
+    'rm[[:space:]].*--no-preserve-root'           # rm with --no-preserve-root
+    # Remote code execution
+    'curl.*\|.*bash'                               # curl | bash
+    'curl.*\|.*sh[[:space:]]*$'                    # curl | sh
+    'wget.*\|.*bash'                               # wget | bash
+    'wget.*\|.*sh[[:space:]]*$'                    # wget | sh
+    'curl.*>[[:space:]]*/tmp/.*&&.*bash'           # curl > /tmp/x && bash
+    # Code injection
+    '\$\([^)]*eval'                                # $(eval ...)
+    'eval[[:space:]]+\$'                           # eval $var
+    'eval[[:space:]]+["\x27]'                      # eval "..." or eval '...'
+    # System damage
+    '>[[:space:]]*/dev/sd'                         # write to disk devices
+    '>[[:space:]]*/dev/nvme'                       # write to nvme devices
+    'mkfs\.'                                       # format filesystems
+    'dd[[:space:]]+if='                            # dd commands
+    ':(){:|:&};:'                                  # fork bomb
+    # Credential theft
+    'cat.*\.ssh/id_'                               # read SSH keys
+    'cat.*/etc/shadow'                             # read shadow file
+    'cat.*\.aws/credentials'                       # read AWS creds
+    'cat.*\.env'                                   # read env files (often has secrets)
   )
 
   for pattern in "${dangerous_patterns[@]}"; do
     if [[ "$cmd" =~ $pattern ]]; then
-      print_error "Command contains dangerous pattern: $cmd"
+      print_error "Command blocked (dangerous pattern): $cmd"
+      log_progress "BLOCKED dangerous command: $cmd"
       return 1
     fi
   done
