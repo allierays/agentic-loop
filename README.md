@@ -37,13 +37,20 @@ See More for on how the [RALPH loop](docs/RALPH.md) works in this repo
 - Optional: [Playwright](https://playwright.dev/) for browser verification (installed automatically by `/tour`)
 
 
-## Step 0: Install 
+## Step 0: Install
 
 ```bash
 cd [your-project]
 npm install vibe-and-thrive
 ```
-This automatically sets up slash commands, pre-commit hooks, to make the Ralph loop autonomous.
+
+This automatically sets up:
+- Slash commands (`/idea`, `/review`, etc.)
+- Pre-commit hooks (secrets, URLs, debug statements)
+- Claude Code hooks (real-time warnings)
+- Ralph configuration files
+
+> **Note:** Claude Code hooks require `jq`. On macOS with Homebrew, it's installed automatically. On Linux, if you see a warning, run `sudo apt install jq` (or your package manager) then `npx ralph hooks`.
 
 ## Step 1: Start claude (--dangerously-skip-permissions is optional)
 
@@ -147,6 +154,58 @@ vibe-and-thrive/
 | **Slash commands** | In Claude Code CLI | `/vibe-check`, `/review` - on-demand checks |
 | **Claude Code hooks** | While Claude writes code | Real-time warnings (debug statements, secrets) |
 | **Pre-commit hooks** | At `git commit` | Blocks secrets, URLs, debug statements |
+
+---
+
+## Troubleshooting
+
+### "SessionStart: startup hook error"
+
+This means Claude Code hooks are configured but the hook scripts can't be found. Fix with:
+
+```bash
+# Reinstall project hooks
+npx ralph hooks --force
+
+# Or reinstall global hooks (if using vibe-and-thrive source repo)
+/path/to/vibe-and-thrive/ralph/hooks/install.sh --global --force
+```
+
+### Hooks not working after moving project
+
+Claude Code hooks use absolute paths. After moving a project or cloning on a new machine, reinstall hooks:
+
+```bash
+npx ralph hooks --force
+```
+
+### Team members getting hook errors
+
+`.claude/settings.json` contains machine-specific paths and should not be committed to git. The postinstall script automatically adds it to `.gitignore`. Each team member's hooks are configured when they run `npm install`.
+
+If `.claude/settings.json` was accidentally committed:
+```bash
+git rm --cached .claude/settings.json
+echo ".claude/settings.json" >> .gitignore
+git commit -m "Remove machine-specific settings from git"
+```
+
+### jq not installed
+
+Claude Code hooks require `jq` for JSON manipulation. On macOS with Homebrew, `npx ralph hooks` installs it automatically. On Linux:
+
+```bash
+# Ubuntu/Debian
+sudo apt install jq
+
+# Fedora/RHEL
+sudo dnf install jq
+
+# Then install hooks
+npx ralph hooks
+```
+
+---
 
 ## License
 

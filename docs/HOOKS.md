@@ -15,11 +15,22 @@ These hooks fire during Claude Code sessions, providing real-time feedback while
 
 ```bash
 # Install to project (recommended)
-ralph hooks
+npx ralph hooks
 
 # Install globally (all projects)
-ralph hooks --global
+npx ralph hooks --global
+
+# Force reinstall (fixes broken hooks)
+npx ralph hooks --force
 ```
+
+> **Requirement:** Claude Code hooks require `jq`. On macOS with Homebrew, it's installed automatically. On Linux, install with `sudo apt install jq` (Ubuntu) or your package manager.
+
+### Important: Machine-Specific Paths
+
+`.claude/settings.json` contains absolute paths to hook scripts and should **not** be committed to git. The installer automatically adds it to `.gitignore`.
+
+If you move your project or clone on a new machine, reinstall hooks with `npx ralph hooks --force`.
 
 ### Available Hooks
 

@@ -38,6 +38,44 @@ print_error() {
     echo -e "${RED}✗${NC} $1"
 }
 
+install_jq() {
+    print_step "Installing jq..."
+
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        if command -v brew &>/dev/null; then
+            brew install jq
+            print_success "Installed jq via Homebrew"
+            return 0
+        else
+            print_error "Homebrew not found. Install jq manually: brew install jq"
+            return 1
+        fi
+    elif command -v apt-get &>/dev/null; then
+        sudo apt-get update -qq && sudo apt-get install -y jq
+        print_success "Installed jq via apt"
+        return 0
+    elif command -v dnf &>/dev/null; then
+        sudo dnf install -y jq
+        print_success "Installed jq via dnf"
+        return 0
+    elif command -v yum &>/dev/null; then
+        sudo yum install -y jq
+        print_success "Installed jq via yum"
+        return 0
+    elif command -v pacman &>/dev/null; then
+        sudo pacman -S --noconfirm jq
+        print_success "Installed jq via pacman"
+        return 0
+    elif command -v apk &>/dev/null; then
+        sudo apk add jq
+        print_success "Installed jq via apk"
+        return 0
+    else
+        print_error "Could not detect package manager. Install jq manually."
+        return 1
+    fi
+}
+
 show_help() {
     cat << EOF
 Usage: $(basename "$0") [OPTIONS] [PROJECT_PATH]
@@ -78,13 +116,13 @@ setup_mcp() {
         print_success "Created $CLAUDE_JSON"
     fi
 
-    # Check if jq is available for JSON manipulation
+    # Check if jq is available, install if missing
     if ! command -v jq &> /dev/null; then
-        print_warning "jq not found. Please install jq and run again, or manually add MCP config."
-        print_warning "brew install jq (macOS) or apt install jq (Linux)"
-        echo ""
-        echo "Manual config - add this to $CLAUDE_JSON:"
-        cat << 'MCPEOF'
+        install_jq || {
+            print_warning "Could not install jq. Manual config required."
+            echo ""
+            echo "Add this to $CLAUDE_JSON:"
+            cat << 'MCPEOF'
 {
   "mcpServers": {
     "chrome-devtools": {
@@ -94,7 +132,8 @@ setup_mcp() {
   }
 }
 MCPEOF
-        return 1
+            return 1
+        }
     fi
 
     # Add Chrome DevTools MCP server to config
@@ -186,6 +225,29 @@ PROMPTEOF
     echo "    PROMPT.md created (customize for your project)"
 
     echo ""
+}
+
+setup_claude_hooks() {
+    local project_path="$1"
+
+    print_step "Setting up Claude Code hooks..."
+
+    # Check if jq is available, install if missing
+    if ! command -v jq &> /dev/null; then
+        install_jq || {
+            print_warning "Could not install jq. Claude Code hooks not configured."
+            print_warning "Install jq and run: npx ralph hooks"
+            return 1
+        }
+    fi
+
+    # Run the hooks installer
+    if [ -f "$SCRIPT_DIR/ralph/hooks/install.sh" ]; then
+        "$SCRIPT_DIR/ralph/hooks/install.sh" --force
+    else
+        print_warning "Hooks installer not found. Run: npx ralph hooks"
+        return 1
+    fi
 }
 
 setup_precommit() {
@@ -310,6 +372,9 @@ else
     if [ "$NO_MCP" = false ]; then
         setup_mcp
     fi
+
+    # Always set up Claude Code hooks (real-time warnings)
+    setup_claude_hooks "$PROJECT_PATH"
 fi
 
 if [ "$QUICK" = true ]; then

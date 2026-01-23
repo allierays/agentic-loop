@@ -124,15 +124,37 @@ configure_mcp() {
   }' "$claude_json" > "$tmp" && mv "$tmp" "$claude_json"
 }
 
-install_claude_hooks() {
-  # Skip if jq not available
-  command -v jq &>/dev/null || return 0
+install_jq_if_missing() {
+  # Try to install jq automatically
+  if [[ "$OSTYPE" == "darwin"* ]] && command -v brew &>/dev/null; then
+    # macOS with Homebrew - doesn't need sudo
+    echo "  Installing jq via Homebrew..."
+    brew install jq >/dev/null 2>&1 && return 0
+  fi
 
+  # For other systems, warn instead of using sudo during npm install
+  echo "  ⚠️  jq not installed - Claude Code hooks not configured"
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    echo "     Run: brew install jq && npx ralph hooks"
+  elif command -v apt-get &>/dev/null; then
+    echo "     Run: sudo apt install jq && npx ralph hooks"
+  else
+    echo "     Install jq and run: npx ralph hooks"
+  fi
+  return 1
+}
+
+install_claude_hooks() {
   local settings_file=".claude/settings.json"
   local hooks_dir="$PKG_ROOT/ralph/hooks"
 
   # Skip if hooks directory doesn't exist
   [[ ! -d "$hooks_dir" ]] && return 0
+
+  # Auto-install jq if missing (or warn if can't auto-install)
+  if ! command -v jq &>/dev/null; then
+    install_jq_if_missing || return 0
+  fi
 
   # Ensure .claude directory exists
   mkdir -p ".claude"
@@ -140,8 +162,22 @@ install_claude_hooks() {
   # Create settings file if it doesn't exist
   [[ ! -f "$settings_file" ]] && echo '{}' > "$settings_file"
 
-  # Skip if hooks already configured
-  jq -e '.hooks' "$settings_file" > /dev/null 2>&1 && return 0
+  # Check if hooks are already configured AND valid
+  if jq -e '.hooks' "$settings_file" > /dev/null 2>&1; then
+    # Get the first hook command path to check if it's valid
+    local existing_hook
+    existing_hook=$(jq -r '.hooks.SessionStart[0].hooks[0].command // empty' "$settings_file" 2>/dev/null)
+
+    if [[ -n "$existing_hook" ]]; then
+      if [[ -x "$existing_hook" ]]; then
+        # Hooks exist and are valid, skip
+        return 0
+      else
+        # Hooks configured but invalid - reinstall
+        echo "  ⚠️  Existing Claude Code hooks are invalid, reinstalling..."
+      fi
+    fi
+  fi
 
   # Build hooks config
   local hooks_config
@@ -312,6 +348,7 @@ ensure_gitignore() {
     ".ralph/screenshots/"
     ".ralph/archive/"
     ".backups/"
+    ".claude/settings.json"
   )
 
   if [[ ! -f ".gitignore" ]]; then

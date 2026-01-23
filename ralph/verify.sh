@@ -415,12 +415,7 @@ verify_lint() {
 run_configured_checks() {
   local config="$RALPH_DIR/config.json"
 
-  if [[ ! -f "$config" ]]; then
-    echo "    (no config.json, skipping)"
-    return 0
-  fi
-
-  # Auto-fix lint issues before checking
+  # ALWAYS run auto-fix and lint verification, even without config.json
   run_auto_fix
 
   # Verify lint passes after auto-fix (catch unfixable errors)
@@ -428,12 +423,18 @@ run_configured_checks() {
     return 1
   fi
 
+  # Config-based checks are optional
+  if [[ ! -f "$config" ]]; then
+    echo "    (no config.json for additional checks)"
+    return 0
+  fi
+
   # Get list of check names (excluding 'test' which we run separately)
   local check_names
   check_names=$(jq -r '.checks | keys[] | select(. != "test")' "$config" 2>/dev/null)
 
   if [[ -z "$check_names" ]]; then
-    echo "    (no checks configured)"
+    echo "    (no additional checks configured)"
     return 0
   fi
 
