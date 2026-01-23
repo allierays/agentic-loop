@@ -225,8 +225,8 @@ EOF
   echo "    Reviewing changes..."
 
   local result
-  # 2 minute timeout for code review
-  result=$(echo "$prompt" | run_with_timeout 120 claude -p --dangerously-skip-permissions 2>/dev/null) || {
+  # Timeout for code review (defined in utils.sh)
+  result=$(echo "$prompt" | run_with_timeout "$CODE_REVIEW_TIMEOUT_SECONDS" claude -p --dangerously-skip-permissions 2>/dev/null) || {
     print_warning "    Code review skipped (Claude unavailable or timed out)"
     return 0
   }
@@ -345,13 +345,13 @@ run_auto_fix() {
     fi
   fi
 
-  # Check frontend directory too (monorepo support)
-  local fe_dir=""
-  [[ -d "frontend" ]] && fe_dir="frontend"
-  [[ -d "client" ]] && fe_dir="client"
-  [[ -d "web" ]] && fe_dir="web"
+  # Check frontend directories (monorepo support)
+  local fe_dirs
+  fe_dirs=$(get_frontend_dirs)
 
-  if [[ -n "$fe_dir" && -f "$fe_dir/package.json" ]]; then
+  while IFS= read -r fe_dir; do
+    [[ -z "$fe_dir" ]] && continue
+    [[ ! -f "$fe_dir/package.json" ]] && continue
     # ESLint fix
     if grep -q '"eslint"' "$fe_dir/package.json" 2>/dev/null; then
       (cd "$fe_dir" && npx eslint --fix . 2>/dev/null) || true
@@ -366,7 +366,7 @@ run_auto_fix() {
     if grep -q '"prettier"' "$fe_dir/package.json" 2>/dev/null; then
       (cd "$fe_dir" && npx prettier --write . 2>/dev/null) || true
     fi
-  fi
+  done <<< "$fe_dirs"
 
   # Prettier fix (root - for non-monorepo)
   if [[ -f "package.json" ]] && grep -q '"prettier"' package.json 2>/dev/null; then
@@ -387,14 +387,18 @@ verify_lint() {
       print_error "failed"
       echo ""
       echo "    Unfixable lint errors:"
-      ruff check . 2>/dev/null | head -20 | sed 's/^/      /'
+      ruff check . 2>/dev/null | head -"$MAX_LINT_ERROR_LINES" | sed 's/^/      /'
       failed=1
     fi
   fi
 
   # Check for monorepo backend directories
-  for api_dir in "apps/api" "backend" "api"; do
-    if [[ -d "$api_dir" ]] && [[ -f "$api_dir/pyproject.toml" || -f "$api_dir/ruff.toml" ]]; then
+  local api_dirs
+  api_dirs=$(get_backend_dirs)
+
+  while IFS= read -r api_dir; do
+    [[ -z "$api_dir" ]] && continue
+    if [[ -f "$api_dir/pyproject.toml" || -f "$api_dir/ruff.toml" ]]; then
       echo -n "    Ruff lint check ($api_dir)... "
       if (cd "$api_dir" && ruff check . --quiet 2>/dev/null); then
         print_success "passed"
@@ -402,11 +406,11 @@ verify_lint() {
         print_error "failed"
         echo ""
         echo "    Unfixable lint errors in $api_dir:"
-        (cd "$api_dir" && ruff check . 2>/dev/null) | head -20 | sed 's/^/      /'
+        (cd "$api_dir" && ruff check . 2>/dev/null) | head -"$MAX_LINT_ERROR_LINES" | sed 's/^/      /'
         failed=1
       fi
     fi
-  done
+  done <<< "$api_dirs"
 
   return $failed
 }
@@ -418,15 +422,16 @@ run_fastapi_response_check() {
   # Skip if check script doesn't exist
   [[ ! -f "$check_script" ]] && return 0
 
-  # Find FastAPI directories
+  # Find FastAPI directories (check root + backend dirs)
   local fastapi_dirs=()
-  for dir in "." "apps/api" "api" "backend" "server"; do
-    if [[ -d "$dir" ]]; then
-      # Check for FastAPI imports
-      if grep -rq "from fastapi" "$dir"/*.py 2>/dev/null || \
-         grep -rq "from fastapi" "$dir"/**/*.py 2>/dev/null; then
-        fastapi_dirs+=("$dir")
-      fi
+  local all_dirs=("." $(get_backend_dirs))
+
+  for dir in "${all_dirs[@]}"; do
+    [[ ! -d "$dir" ]] && continue
+    # Check for FastAPI imports
+    if grep -rq "from fastapi" "$dir"/*.py 2>/dev/null || \
+       grep -rq "from fastapi" "$dir"/**/*.py 2>/dev/null; then
+      fastapi_dirs+=("$dir")
     fi
   done
 
@@ -445,7 +450,7 @@ run_fastapi_response_check() {
     else
       print_error "failed"
       echo ""
-      echo "$output" | head -40 | sed 's/^/      /'
+      echo "$output" | head -"$MAX_ERROR_PREVIEW_LINES" | sed 's/^/      /'
       # Save for failure context so Claude can fix
       echo "$output" > "$log_file"
       failed=1
@@ -493,7 +498,7 @@ run_configured_checks() {
         print_error "failed"
         echo ""
         echo "    Pre-commit hook errors (after auto-fix):"
-        grep -A 20 "Failed\|error\|Error" "$precommit_log" | head -40 | sed 's/^/      /'
+        grep -A 20 "Failed\|error\|Error" "$precommit_log" | head -"$MAX_ERROR_PREVIEW_LINES" | sed 's/^/      /'
         return 1
       fi
     else
@@ -501,7 +506,7 @@ run_configured_checks() {
       print_error "failed"
       echo ""
       echo "    Pre-commit hook errors:"
-      grep -A 20 "Failed\|error\|Error" "$precommit_log" | head -40 | sed 's/^/      /'
+      grep -A 20 "Failed\|error\|Error" "$precommit_log" | head -"$MAX_ERROR_PREVIEW_LINES" | sed 's/^/      /'
       return 1
     fi
   fi

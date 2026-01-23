@@ -6,9 +6,17 @@ readonly MAX_LOG_LINES=30
 readonly MAX_PROGRESS_LINES=10
 readonly MAX_GIT_STATUS_LINES=10
 readonly MAX_OUTPUT_PREVIEW_LINES=20
+readonly MAX_ERROR_PREVIEW_LINES=40
+readonly MAX_LINT_ERROR_LINES=20
 readonly ITERATION_DELAY_SECONDS=2
 readonly DEFAULT_TIMEOUT_SECONDS=600
 readonly DEFAULT_MAX_ITERATIONS=20
+readonly CODE_REVIEW_TIMEOUT_SECONDS=120
+readonly MAX_PROGRESS_FILE_LINES=1000
+
+# Common project directories (avoid duplication across files)
+readonly FRONTEND_DIRS=("apps/web" "frontend" "client" "web")
+readonly BACKEND_DIRS=("apps/api" "api" "backend" "server")
 
 # Track temp files for safe cleanup
 RALPH_TEMP_FILES=()
@@ -19,6 +27,24 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
+
+# Get existing frontend directories in this project
+get_frontend_dirs() {
+  local dirs=()
+  for d in "${FRONTEND_DIRS[@]}"; do
+    [[ -d "$d" ]] && dirs+=("$d")
+  done
+  printf '%s\n' "${dirs[@]}"
+}
+
+# Get existing backend directories in this project
+get_backend_dirs() {
+  local dirs=()
+  for d in "${BACKEND_DIRS[@]}"; do
+    [[ -d "$d" ]] && dirs+=("$d")
+  done
+  printf '%s\n' "${dirs[@]}"
+}
 
 # Progress bar for story display
 progress_bar() {
@@ -95,14 +121,26 @@ check_dependencies() {
   fi
 }
 
-# Log progress to progress.txt
+# Log progress to progress.txt (with rotation to prevent unbounded growth)
 log_progress() {
   local story="$1"
   local status="$2"
   local msg="${3:-}"
   local timestamp
+  local progress_file="$RALPH_DIR/progress.txt"
+
   timestamp=$(date -Iseconds 2>/dev/null || date +%Y-%m-%dT%H:%M:%S)
-  echo "[$timestamp] $status $story $msg" >> "$RALPH_DIR/progress.txt"
+  echo "[$timestamp] $status $story $msg" >> "$progress_file"
+
+  # Rotate if file exceeds max lines (keep last half)
+  if [[ -f "$progress_file" ]]; then
+    local line_count
+    line_count=$(wc -l < "$progress_file" 2>/dev/null || echo "0")
+    if [[ "$line_count" -gt "$MAX_PROGRESS_FILE_LINES" ]]; then
+      local keep_lines=$((MAX_PROGRESS_FILE_LINES / 2))
+      tail -"$keep_lines" "$progress_file" > "$progress_file.tmp" && mv "$progress_file.tmp" "$progress_file"
+    fi
+  fi
 }
 
 # Get a value from config.json with a default

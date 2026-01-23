@@ -251,55 +251,59 @@ startup_checklist() {
   fi
 }
 
-# Build the prompt with story context injected
-build_prompt() {
-  local story="$1"
-  local failure_context="${2:-}"
-
-  # Read base PROMPT.md
-  cat "$PROMPT_FILE"
+# Helper: Inject story details into prompt
+_inject_story_context() {
+  local story_json="$1"
 
   echo ""
   echo "---"
   echo ""
   echo "## Current Story"
   echo ""
-
-  # Inject story details
-  local story_json
-  story_json=$(jq --arg id "$story" '.stories[] | select(.id==$id)' "$RALPH_DIR/prd.json")
   echo '```json'
   echo "$story_json"
   echo '```'
+}
 
-  # Extract file guidance if present
+# Helper: Inject file guidance into prompt
+_inject_file_guidance() {
+  local story_json="$1"
+
   local has_files
   has_files=$(echo "$story_json" | jq -r '.files // empty' 2>/dev/null)
-  if [[ -n "$has_files" ]]; then
-    echo ""
-    echo "### File Guidance for This Story"
-    echo ""
-    echo "**Create these files:**"
-    echo "$story_json" | jq -r '.files.create[]? // empty' | sed 's/^/- /'
-    echo ""
-    echo "**Modify these files:**"
-    echo "$story_json" | jq -r '.files.modify[]? // empty' | sed 's/^/- /'
-    echo ""
-    echo "**Reuse/import from:**"
-    echo "$story_json" | jq -r '.files.reuse[]? // empty' | sed 's/^/- /'
-  fi
+  [[ -z "$has_files" ]] && return
 
-  # Extract scalability guidance if present (for backend stories)
+  echo ""
+  echo "### File Guidance for This Story"
+  echo ""
+  echo "**Create these files:**"
+  echo "$story_json" | jq -r '.files.create[]? // empty' | sed 's/^/- /'
+  echo ""
+  echo "**Modify these files:**"
+  echo "$story_json" | jq -r '.files.modify[]? // empty' | sed 's/^/- /'
+  echo ""
+  echo "**Reuse/import from:**"
+  echo "$story_json" | jq -r '.files.reuse[]? // empty' | sed 's/^/- /'
+}
+
+# Helper: Inject scalability guidance for story
+_inject_story_scale() {
+  local story_json="$1"
+
   local has_scale
   has_scale=$(echo "$story_json" | jq -r '.scale // empty' 2>/dev/null)
-  if [[ -n "$has_scale" ]]; then
-    echo ""
-    echo "### Scalability Requirements for This Story"
-    echo ""
-    echo "$story_json" | jq -r '.scale | to_entries[] | "- **\(.key):** \(.value)"' 2>/dev/null
-  fi
+  [[ -z "$has_scale" ]] && return
 
-  # For frontend stories, instruct Claude to read the styleguide first
+  echo ""
+  echo "### Scalability Requirements for This Story"
+  echo ""
+  echo "$story_json" | jq -r '.scale | to_entries[] | "- **\(.key):** \(.value)"' 2>/dev/null
+}
+
+# Helper: Inject styleguide reference for frontend stories
+_inject_styleguide() {
+  local story_json="$1"
+
   local story_type
   story_type=$(echo "$story_json" | jq -r '.type // "frontend"' 2>/dev/null)
   local styleguide_path
@@ -312,74 +316,87 @@ build_prompt() {
     echo "**FIRST:** Read the project styleguide at \`$styleguide_path\` before implementing."
     echo "Use existing components, colors, and patterns from the styleguide."
   fi
+}
 
+# Helper: Inject feature-level context
+_inject_feature_context() {
   echo ""
   echo "## Feature Context"
   echo ""
   echo '```json'
   jq '{feature: .feature, metadata: .metadata}' "$RALPH_DIR/prd.json"
   echo '```'
+}
 
-  # Include scalability if defined
+# Helper: Inject scalability requirements
+_inject_scalability() {
   local has_scalability
   has_scalability=$(jq -r '.scalability // empty' "$RALPH_DIR/prd.json" 2>/dev/null)
-  if [[ -n "$has_scalability" ]]; then
-    echo ""
-    echo "## Scalability Requirements"
-    echo ""
-    echo "**IMPORTANT:** Follow these scalability rules."
-    echo ""
-    echo '```json'
-    jq '.scalability' "$RALPH_DIR/prd.json"
-    echo '```'
-    echo ""
-    echo "### Key Rules:"
-    echo "- Always paginate list endpoints (never return unbounded arrays)"
-    echo "- Avoid N+1 queries - eager load relationships"
-    echo "- Add database indexes for frequently queried fields"
-    echo "- Implement caching strategy as specified"
-    echo "- Add rate limiting to public endpoints"
-  fi
+  [[ -z "$has_scalability" ]] && return
 
-  # Include architecture if defined
+  echo ""
+  echo "## Scalability Requirements"
+  echo ""
+  echo "**IMPORTANT:** Follow these scalability rules."
+  echo ""
+  echo '```json'
+  jq '.scalability' "$RALPH_DIR/prd.json"
+  echo '```'
+  echo ""
+  echo "### Key Rules:"
+  echo "- Always paginate list endpoints (never return unbounded arrays)"
+  echo "- Avoid N+1 queries - eager load relationships"
+  echo "- Add database indexes for frequently queried fields"
+  echo "- Implement caching strategy as specified"
+  echo "- Add rate limiting to public endpoints"
+}
+
+# Helper: Inject architecture guidelines
+_inject_architecture() {
   local has_architecture
   has_architecture=$(jq -r '.architecture // empty' "$RALPH_DIR/prd.json" 2>/dev/null)
-  if [[ -n "$has_architecture" ]]; then
-    echo ""
-    echo "## Architecture Guidelines"
-    echo ""
-    echo "**IMPORTANT:** Follow these architecture rules strictly."
-    echo ""
-    echo '```json'
-    jq '.architecture' "$RALPH_DIR/prd.json"
-    echo '```'
-    echo ""
-    echo "### Key Rules:"
-    echo "- Put files in the specified directories"
-    echo "- Reuse existing components listed in 'patterns.reuse'"
-    echo "- Do NOT create anything in 'doNotCreate'"
-    echo "- Keep files under $(jq -r '.architecture.principles.maxFileLines // 300' "$RALPH_DIR/prd.json") lines"
-    echo "- Scripts go in scripts/, docs go in docs/"
-  fi
+  [[ -z "$has_architecture" ]] && return
 
-  # Include failure context from previous iteration if available
-  if [[ -n "$failure_context" ]]; then
-    echo ""
-    echo "## Previous Iteration Failed"
-    echo ""
-    echo "**IMPORTANT:** The previous attempt at this story failed verification. Review the errors below and fix them."
-    echo ""
-    echo '```'
-    echo "$failure_context"
-    echo '```'
-    echo ""
-    echo "### What to do:"
-    echo "1. Read the error messages carefully"
-    echo "2. Identify the root cause"
-    echo "3. Fix the issue (do not just retry the same approach)"
-    echo "4. Run verification again"
-  fi
+  echo ""
+  echo "## Architecture Guidelines"
+  echo ""
+  echo "**IMPORTANT:** Follow these architecture rules strictly."
+  echo ""
+  echo '```json'
+  jq '.architecture' "$RALPH_DIR/prd.json"
+  echo '```'
+  echo ""
+  echo "### Key Rules:"
+  echo "- Put files in the specified directories"
+  echo "- Reuse existing components listed in 'patterns.reuse'"
+  echo "- Do NOT create anything in 'doNotCreate'"
+  echo "- Keep files under $(jq -r '.architecture.principles.maxFileLines // 300' "$RALPH_DIR/prd.json") lines"
+  echo "- Scripts go in scripts/, docs go in docs/"
+}
 
+# Helper: Inject failure context from previous iteration
+_inject_failure_context() {
+  local failure_context="$1"
+  [[ -z "$failure_context" ]] && return
+
+  echo ""
+  echo "## Previous Iteration Failed"
+  echo ""
+  echo "**IMPORTANT:** The previous attempt at this story failed verification. Review the errors below and fix them."
+  echo ""
+  echo '```'
+  echo "$failure_context"
+  echo '```'
+  echo ""
+  echo "### What to do:"
+  echo "1. Read the error messages carefully"
+  echo "2. Identify the root cause"
+  echo "3. Fix the issue (do not just retry the same approach)"
+  echo "4. Run verification again"
+}
+
+# Helper: Inject signs (learned patterns)
+_inject_signs() {
   echo ""
   echo "## Signs (Learned Patterns)"
   echo ""
@@ -390,16 +407,43 @@ build_prompt() {
   else
     echo "(none yet)"
   fi
+}
 
-  # Include user's DNA (personal preferences) if it exists
-  if [[ -f "$HOME/.claude/DNA.md" ]]; then
-    echo ""
-    echo "## Developer DNA"
-    echo ""
-    echo "The developer has these working preferences:"
-    echo ""
-    cat "$HOME/.claude/DNA.md"
-  fi
+# Helper: Inject developer DNA
+_inject_developer_dna() {
+  [[ ! -f "$HOME/.claude/DNA.md" ]] && return
+
+  echo ""
+  echo "## Developer DNA"
+  echo ""
+  echo "The developer has these working preferences:"
+  echo ""
+  cat "$HOME/.claude/DNA.md"
+}
+
+# Build the prompt with story context injected
+build_prompt() {
+  local story="$1"
+  local failure_context="${2:-}"
+
+  # Read base PROMPT.md
+  cat "$PROMPT_FILE"
+
+  # Get story JSON once
+  local story_json
+  story_json=$(jq --arg id "$story" '.stories[] | select(.id==$id)' "$RALPH_DIR/prd.json")
+
+  # Inject all sections
+  _inject_story_context "$story_json"
+  _inject_file_guidance "$story_json"
+  _inject_story_scale "$story_json"
+  _inject_styleguide "$story_json"
+  _inject_feature_context
+  _inject_scalability
+  _inject_architecture
+  _inject_failure_context "$failure_context"
+  _inject_signs
+  _inject_developer_dna
 }
 
 # Mark feature as complete (keep PRD for appending new stories)
@@ -418,7 +462,14 @@ archive_feature() {
     if ! git commit -m "feat: complete $feature_name" 2>/dev/null; then
       # Retry after pre-commit auto-fixes
       git add -A
-      git commit -m "feat: complete $feature_name" 2>/dev/null || true
+      if ! git commit -m "feat: complete $feature_name" 2>/dev/null; then
+        # Check if it's "nothing to commit" vs real error
+        if git diff --cached --quiet 2>/dev/null; then
+          echo "    (no changes to commit)"
+        else
+          print_warning "Final commit failed - check git status"
+        fi
+      fi
     fi
   fi
 
