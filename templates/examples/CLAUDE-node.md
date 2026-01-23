@@ -1,5 +1,13 @@
 # Project Instructions for AI Coding Agents
 
+## Naming Conventions
+- **Files**: `kebab-case.ts` — e.g., `user-service.ts`, `auth-middleware.ts`
+- **Functions/Variables**: `camelCase` — e.g., `getUserById`, `isValid`
+- **Classes/Interfaces/Types**: `PascalCase` — e.g., `UserService`, `CreateUserInput`
+- **Constants**: `SCREAMING_SNAKE` — e.g., `MAX_RETRIES`, `DEFAULT_PORT`
+- **Database tables**: `snake_case` — e.g., `user_sessions` (Prisma converts to camelCase)
+- **API endpoints**: `kebab-case` — e.g., `/api/user-profile`, `/api/auth/sign-in`
+
 ## Tech Stack
 - **Runtime**: Node.js 20+
 - **Framework**: Express.js / Fastify

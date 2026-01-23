@@ -1,5 +1,14 @@
 # Project Instructions for AI Coding Agents
 
+## Naming Conventions
+- **Files**: `snake_case.py` — e.g., `user_views.py`, `auth_serializers.py`
+- **Functions/Variables**: `snake_case` — e.g., `get_user_by_id`, `is_authenticated`
+- **Classes**: `PascalCase` — e.g., `UserViewSet`, `AuthSerializer`
+- **Models**: `PascalCase` singular — e.g., `User`, `BlogPost` (Django pluralizes table names)
+- **Constants**: `SCREAMING_SNAKE` — e.g., `MAX_UPLOAD_SIZE`, `DEFAULT_PAGE_SIZE`
+- **URL patterns**: `kebab-case` — e.g., `/api/user-profile/`, `/api/blog-posts/`
+- **Template files**: `snake_case.html` — e.g., `user_detail.html`
+
 ## Tech Stack
 - **Backend**: Django 5, Django REST Framework
 - **Database**: PostgreSQL

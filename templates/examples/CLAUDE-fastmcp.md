@@ -1,5 +1,13 @@
 # CLAUDE.md - FastMCP Server
 
+## Naming Conventions
+- **Files**: `snake_case.py` — e.g., `search_tool.py`, `db_resource.py`
+- **Functions/Variables**: `snake_case` — e.g., `search_files`, `is_valid`
+- **Classes**: `PascalCase` — e.g., `SearchResult`, `FileResource`
+- **Tool names**: `snake_case` — e.g., `search_files`, `read_database`
+- **Resource URIs**: `kebab-case` — e.g., `file://project-files`, `db://user-data`
+- **Constants**: `SCREAMING_SNAKE` — e.g., `MAX_RESULTS`, `DEFAULT_TIMEOUT`
+
 ## Project Overview
 
 This is an MCP (Model Context Protocol) server built with FastMCP. It exposes tools, resources, and prompts to LLM clients.

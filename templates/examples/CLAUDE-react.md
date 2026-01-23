@@ -1,5 +1,14 @@
 # Project Instructions for AI Coding Agents
 
+## Naming Conventions
+- **Files**: `PascalCase.tsx` for components, `camelCase.ts` for utilities — e.g., `UserProfile.tsx`, `useAuth.ts`
+- **Components**: `PascalCase` — e.g., `UserProfile`, `AuthProvider`
+- **Hooks**: `useCamelCase` — e.g., `useAuth`, `useUserData`
+- **Functions/Variables**: `camelCase` — e.g., `handleSubmit`, `isLoading`
+- **Types/Interfaces**: `PascalCase` — e.g., `UserProps`, `AuthState`
+- **Constants**: `SCREAMING_SNAKE` — e.g., `API_BASE_URL`, `MAX_RETRIES`
+- **CSS classes**: `kebab-case` (TailwindCSS utility classes are standard)
+
 ## Tech Stack
 - **Frontend**: React 18, TypeScript, Vite
 - **Styling**: TailwindCSS

@@ -1,5 +1,23 @@
 # Project Instructions for AI Coding Agents
 
+## Naming Conventions
+
+### Frontend (React/TypeScript)
+- **Files**: `PascalCase.tsx` for components, `camelCase.ts` for utilities
+- **Components**: `PascalCase` — e.g., `UserProfile`, `AuthProvider`
+- **Hooks**: `useCamelCase` — e.g., `useAuth`, `useUserData`
+- **Functions/Variables**: `camelCase` — e.g., `handleSubmit`, `isLoading`
+
+### Backend (Django/Python)
+- **Files**: `snake_case.py` — e.g., `user_views.py`
+- **Functions/Variables**: `snake_case` — e.g., `get_user_by_id`
+- **Classes**: `PascalCase` — e.g., `UserViewSet`, `UserSerializer`
+
+### Shared
+- **API endpoints**: `kebab-case` — e.g., `/api/user-profile/`
+- **Database tables**: `snake_case` — e.g., `user_sessions`
+- **Constants**: `SCREAMING_SNAKE` — e.g., `MAX_RETRIES`
+
 ## Tech Stack
 - **Frontend**: React 18, TypeScript, Vite, TailwindCSS
 - **Backend**: Django 5, Django REST Framework

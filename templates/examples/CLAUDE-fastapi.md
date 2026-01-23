@@ -1,5 +1,14 @@
 # CLAUDE.md - FastAPI Project
 
+## Naming Conventions
+- **Files**: `snake_case.py` — e.g., `user_service.py`, `auth_router.py`
+- **Functions/Variables**: `snake_case` — e.g., `get_user_by_id`, `is_valid`
+- **Classes**: `PascalCase` — e.g., `UserService`, `AuthRouter`
+- **Pydantic Models**: `PascalCase` — e.g., `UserCreate`, `UserResponse`
+- **Constants**: `SCREAMING_SNAKE` — e.g., `MAX_RETRIES`, `DEFAULT_LIMIT`
+- **Database tables**: `snake_case` — e.g., `user_sessions`, `api_keys`
+- **API endpoints**: `kebab-case` — e.g., `/api/user-profile`, `/api/v1/auth`
+
 ## Project Overview
 
 This is a FastAPI backend application with async SQLAlchemy and Pydantic.

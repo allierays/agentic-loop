@@ -102,6 +102,27 @@ install_ralph() {
   if [[ ! -f "PROMPT.md" ]] && [[ -f "$PKG_ROOT/templates/PROMPT.md" ]]; then
     cp "$PKG_ROOT/templates/PROMPT.md" "PROMPT.md"
   fi
+
+  # Install CLAUDE.md if missing (project-specific AI instructions)
+  if [[ ! -f "CLAUDE.md" ]]; then
+    local claude_template=""
+    # Select template based on project type
+    if [[ -f "manage.py" ]]; then
+      claude_template="$PKG_ROOT/templates/examples/CLAUDE-django.md"
+    elif [[ -f "pyproject.toml" ]] && grep -q "fastapi" pyproject.toml 2>/dev/null; then
+      claude_template="$PKG_ROOT/templates/examples/CLAUDE-fastapi.md"
+    elif [[ -d "frontend" ]] && [[ -d "backend" || -d "api" ]]; then
+      claude_template="$PKG_ROOT/templates/examples/CLAUDE-fullstack.md"
+    elif [[ -f "package.json" ]] && grep -q '"react"' package.json 2>/dev/null; then
+      claude_template="$PKG_ROOT/templates/examples/CLAUDE-react.md"
+    elif [[ -f "package.json" ]]; then
+      claude_template="$PKG_ROOT/templates/examples/CLAUDE-node.md"
+    fi
+
+    if [[ -n "$claude_template" ]] && [[ -f "$claude_template" ]]; then
+      cp "$claude_template" "CLAUDE.md"
+    fi
+  fi
 }
 
 configure_mcp() {
