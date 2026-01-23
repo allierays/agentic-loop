@@ -2,6 +2,38 @@
 # shellcheck shell=bash
 # api.sh - API validation for backend stories
 
+# Parse an endpoint string into method and path
+# Usage: parse_endpoint "POST /api/users" "http://localhost:3000"
+# Sets: ENDPOINT_METHOD, ENDPOINT_PATH, ENDPOINT_URL
+parse_endpoint() {
+  local endpoint="$1"
+  local base_url="${2:-}"
+
+  # Defaults
+  ENDPOINT_METHOD="GET"
+  ENDPOINT_PATH="$endpoint"
+  ENDPOINT_URL=""
+
+  # Parse method if present (e.g., "POST /api/contact")
+  if [[ "$endpoint" =~ ^(GET|POST|PUT|PATCH|DELETE)[[:space:]]+(.*) ]]; then
+    ENDPOINT_METHOD="${BASH_REMATCH[1]}"
+    ENDPOINT_PATH="${BASH_REMATCH[2]}"
+  fi
+
+  # Build full URL
+  if [[ "$ENDPOINT_PATH" =~ ^https?:// ]]; then
+    ENDPOINT_URL="$ENDPOINT_PATH"
+  elif [[ -n "$base_url" ]]; then
+    ENDPOINT_URL="${base_url}${ENDPOINT_PATH}"
+  fi
+}
+
+# Check if endpoint is a WebSocket (can't be tested with HTTP)
+is_websocket_endpoint() {
+  local endpoint="$1"
+  [[ "$endpoint" =~ ^wss?:// ]] || [[ "$endpoint" =~ ^(GET|POST|PUT|PATCH|DELETE)[[:space:]]+wss?:// ]]
+}
+
 # Validate API endpoints for a backend story
 run_api_validation() {
   local story="$1"
@@ -27,33 +59,19 @@ run_api_validation() {
     [[ -z "$endpoint" ]] && continue
 
     # Skip WebSocket endpoints - they can't be tested with HTTP curl
-    if [[ "$endpoint" =~ ^wss?:// ]] || [[ "$endpoint" =~ ^(GET|POST|PUT|PATCH|DELETE)[[:space:]]+wss?:// ]]; then
+    if is_websocket_endpoint "$endpoint"; then
       echo "    Skipping WebSocket endpoint: $endpoint (use integration tests)"
       continue
     fi
 
-    # Parse method and path (e.g., "POST /api/contact" or just "/api/contact")
-    local method="GET"
-    local path="$endpoint"
+    # Parse endpoint into method, path, and full URL
+    parse_endpoint "$endpoint" "$base_url"
 
-    if [[ "$endpoint" =~ ^(GET|POST|PUT|PATCH|DELETE)[[:space:]]+(.*) ]]; then
-      method="${BASH_REMATCH[1]}"
-      path="${BASH_REMATCH[2]}"
-    fi
+    echo -n "    $ENDPOINT_METHOD $ENDPOINT_PATH... "
 
-    # Handle full URLs vs relative paths
-    local full_url
-    if [[ "$path" =~ ^https?:// ]]; then
-      full_url="$path"
-    else
-      full_url="${base_url}${path}"
-    fi
-
-    echo -n "    $method $path... "
-
-    # Make the request (10 second timeout)
+    # Make the request
     local response_code
-    response_code=$(curl -sf -m 10 -o /dev/null -w "%{http_code}" -X "$method" "$full_url" 2>/dev/null)
+    response_code=$(curl -sf -m "$CURL_TIMEOUT_SECONDS" -o /dev/null -w "%{http_code}" -X "$ENDPOINT_METHOD" "$ENDPOINT_URL" 2>/dev/null)
 
     if [[ "$response_code" =~ ^2[0-9][0-9]$ ]]; then
       print_success "$response_code"
@@ -134,26 +152,15 @@ run_api_error_tests() {
   fi
 
   # Skip WebSocket endpoints
-  if [[ "$endpoints" =~ ^wss?:// ]] || [[ "$endpoints" =~ ^(GET|POST|PUT|PATCH|DELETE)[[:space:]]+wss?:// ]]; then
+  if is_websocket_endpoint "$endpoints"; then
     echo "  Skipping error tests for WebSocket endpoint"
     return 0
   fi
 
-  # Parse endpoint
-  local method="POST"
-  local path="$endpoints"
-  if [[ "$endpoints" =~ ^(GET|POST|PUT|PATCH|DELETE)[[:space:]]+(.*) ]]; then
-    method="${BASH_REMATCH[1]}"
-    path="${BASH_REMATCH[2]}"
-  fi
+  # Parse endpoint (default to POST for error tests)
+  parse_endpoint "$endpoints" "$base_url"
+  [[ "$ENDPOINT_METHOD" == "GET" ]] && ENDPOINT_METHOD="POST"
 
-  # Handle full URLs vs relative paths
-  local full_url
-  if [[ "$path" =~ ^https?:// ]]; then
-    full_url="$path"
-  else
-    full_url="${base_url}${path}"
-  fi
   local failed=0
 
   echo "  Testing API error handling..."
@@ -167,16 +174,17 @@ run_api_error_tests() {
       echo -n "    Testing 400 (bad request)... "
 
       local response_code
-      response_code=$(curl -sf -m 10 -o /dev/null -w "%{http_code}" \
-        -X "$method" \
+      response_code=$(curl -sf -m "$CURL_TIMEOUT_SECONDS" -o /dev/null -w "%{http_code}" \
+        -X "$ENDPOINT_METHOD" \
         -H "Content-Type: application/json" \
         -d '{}' \
-        "$full_url" 2>/dev/null)
+        "$ENDPOINT_URL" 2>/dev/null)
 
       if [[ "$response_code" == "400" ]]; then
         print_success "correctly returns 400"
       else
         print_warning "got $response_code (expected 400)"
+        failed=1
       fi
     fi
 
@@ -185,14 +193,15 @@ run_api_error_tests() {
       echo -n "    Testing 401 (unauthorized)... "
 
       local response_code
-      response_code=$(curl -sf -m 10 -o /dev/null -w "%{http_code}" \
-        -X "$method" \
-        "$full_url" 2>/dev/null)
+      response_code=$(curl -sf -m "$CURL_TIMEOUT_SECONDS" -o /dev/null -w "%{http_code}" \
+        -X "$ENDPOINT_METHOD" \
+        "$ENDPOINT_URL" 2>/dev/null)
 
       if [[ "$response_code" == "401" ]]; then
         print_success "correctly returns 401"
       else
         print_warning "got $response_code (expected 401)"
+        failed=1
       fi
     fi
   done <<< "$error_handling"

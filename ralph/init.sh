@@ -97,7 +97,10 @@ configure_test_auth() {
   echo ""
 
   if [[ -z "$test_user" || -z "$test_password" ]]; then
-    print_warning "Credentials not provided. Edit .ralph/config.json to add them later."
+    print_warning "Credentials not provided."
+    echo "  Options to add them later:"
+    echo "    1. Edit .ralph/config.json (stored in plain text)"
+    echo "    2. Set RALPH_TEST_USER and RALPH_TEST_PASSWORD env vars (recommended)"
     return 0
   fi
 
@@ -111,6 +114,9 @@ configure_test_auth() {
        "$config" > "$tmpfile" 2>/dev/null; then
       mv "$tmpfile" "$config"
       print_success "Test credentials saved to .ralph/config.json"
+      print_warning "Note: Credentials stored in plain text. Consider using env vars instead:"
+      echo "    export RALPH_TEST_USER='$test_user'"
+      echo "    export RALPH_TEST_PASSWORD='****'"
     else
       rm -f "$tmpfile"
       print_warning "Failed to update config. Edit .ralph/config.json manually."

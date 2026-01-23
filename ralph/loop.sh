@@ -114,6 +114,7 @@ run_loop() {
     if [[ $build_status -ne 0 ]]; then
       print_error "Failed to build prompt (see $prompt_file for errors)"
       cat "$prompt_file" | head -20
+      rm -f "$prompt_file"
       return 1
     fi
 

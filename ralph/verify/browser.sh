@@ -124,14 +124,14 @@ run_browser_validation() {
     return run_curl_check "$url"
   fi
 
-  # Check for auth config
+  # Check for auth config (env vars take precedence over config file)
   local auth_login=""
   local login_url
   local test_user
   local test_password
   login_url=$(get_config '.auth.loginUrl' "")
-  test_user=$(get_config '.auth.testUser' "")
-  test_password=$(get_config '.auth.testPassword' "")
+  test_user="${RALPH_TEST_USER:-$(get_config '.auth.testUser' "")}"
+  test_password="${RALPH_TEST_PASSWORD:-$(get_config '.auth.testPassword' "")}"
 
   if [[ -n "$login_url" && -n "$test_user" && -n "$test_password" ]]; then
     # Build auth login JSON
