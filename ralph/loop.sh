@@ -162,7 +162,14 @@ run_loop() {
 
     rm -f "$prompt_file"
 
-    # 5. Run verification pipeline
+    # 5. Run migrations BEFORE verification (tests need DB schema)
+    if ! run_migrations_if_needed "$pre_story_sha"; then
+      log_progress "$story" "FAILED" "Migration failed"
+      print_error "Migration failed for $story, will retry..."
+      continue
+    fi
+
+    # 6. Run verification pipeline
     echo ""
     if run_verification "$story"; then
       # Mark story as complete
@@ -175,13 +182,7 @@ run_loop() {
       rm -f "$RALPH_DIR/last_test_failure.log"
       rm -f "$RALPH_DIR/last_playwright_failure.log"
       rm -f "$RALPH_DIR/last_browser_failure.json"
-
-      # Run migrations if new migration files were created
-      if ! run_migrations_if_needed "$pre_story_sha"; then
-        log_progress "$story" "FAILED" "Migration failed"
-        print_error "Migration failed for $story, will retry..."
-        continue
-      fi
+      rm -f "$RALPH_DIR/last_precommit_failure.log"
 
       # Auto-commit if git is available
       if command -v git &>/dev/null && [[ -d ".git" ]]; then
