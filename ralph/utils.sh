@@ -187,17 +187,34 @@ run_with_timeout() {
 update_json() {
   local file="$1"
   shift
-  local tmpfile
+  local tmpfile lockdir
   tmpfile=$(mktemp)
+  lockdir="${file}.lock"
+
+  # Acquire lock (mkdir is atomic)
+  local attempts=0
+  while ! mkdir "$lockdir" 2>/dev/null; do
+    ((attempts++))
+    if [[ $attempts -gt 50 ]]; then
+      print_error "Could not acquire lock on $file"
+      rm -f "$tmpfile"
+      return 1
+    fi
+    sleep 0.1
+  done
 
   # All remaining args go to jq (supports --arg, --argjson, etc.)
+  local result=0
   if jq "$@" "$file" > "$tmpfile" 2>/dev/null; then
     mv "$tmpfile" "$file"
-    return 0
   else
     rm -f "$tmpfile"
-    return 1
+    result=1
   fi
+
+  # Release lock
+  rmdir "$lockdir" 2>/dev/null
+  return $result
 }
 
 # Create a temp file and track it for cleanup
@@ -419,6 +436,18 @@ validate_prd() {
     return 1
   fi
 
+  # Check feature.name is set
+  local feature_name
+  feature_name=$(jq -r '.feature.name // empty' "$prd_file" 2>/dev/null)
+  if [[ -z "$feature_name" || "$feature_name" == "null" ]]; then
+    print_error "prd.json is missing .feature.name"
+    echo ""
+    echo "Add a feature name to your PRD or regenerate with:"
+    echo "  /idea 'your feature'"
+    echo ""
+    return 1
+  fi
+
   # Check for stories array
   if ! jq -e '.stories' "$prd_file" >/dev/null 2>&1; then
     print_error "prd.json is missing 'stories' array."
@@ -577,6 +606,12 @@ run_migrations_if_needed() {
         print_error "failed"
         echo "    Command: $tool_cmd"
         tail -10 "$log_file" | sed 's/^/      /'
+        # Save failure context for Claude
+        {
+          echo "Migration command: $tool_cmd"
+          echo ""
+          cat "$log_file"
+        } > "$RALPH_DIR/last_migration_failure.log"
         failed=1
       fi
       rm -f "$log_file"
@@ -606,6 +641,12 @@ run_migrations_if_needed() {
     echo ""
     echo "    Migration error:"
     tail -20 "$log_file" | sed 's/^/      /'
+    # Save failure context for Claude
+    {
+      echo "Migration command: $migrate_cmd"
+      echo ""
+      cat "$log_file"
+    } > "$RALPH_DIR/last_migration_failure.log"
     rm -f "$log_file"
     return 1
   fi

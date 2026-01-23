@@ -27,13 +27,34 @@ run_loop() {
   check_dependencies
 
   if [[ ! -f "$RALPH_DIR/prd.json" ]]; then
-    print_error "No PRD found."
-    echo ""
-    echo "Create one with:"
-    echo "  /idea 'your feature description'   # thorough (recommended)"
-    echo "  ralph prd 'your feature'           # quick"
-    echo ""
-    exit 1
+    # Check for misplaced PRD in subdirectories
+    local found_prd
+    found_prd=$(find . -path "./.ralph" -prune -o -name "prd.json" -path "*/.ralph/prd.json" -print 2>/dev/null | head -1)
+
+    if [[ -n "$found_prd" ]]; then
+      print_warning "PRD found in wrong location: $found_prd"
+      echo ""
+      echo "PRD should be at root: .ralph/prd.json"
+      echo ""
+      read -r -p "Move it to root? [Y/n] " response
+      if [[ "$response" =~ ^[Nn] ]]; then
+        echo "Aborted. Move it manually:"
+        echo "  mv $found_prd .ralph/prd.json"
+        exit 1
+      fi
+      mkdir -p "$RALPH_DIR"
+      mv "$found_prd" "$RALPH_DIR/prd.json"
+      print_success "Moved PRD to .ralph/prd.json"
+      echo ""
+    else
+      print_error "No PRD found."
+      echo ""
+      echo "Create one with:"
+      echo "  /idea 'your feature description'   # thorough (recommended)"
+      echo "  ralph prd 'your feature'           # quick"
+      echo ""
+      exit 1
+    fi
   fi
 
   if [[ ! -f "$PROMPT_FILE" ]]; then
@@ -50,6 +71,9 @@ run_loop() {
   fi
 
   local iteration=0
+  local last_story=""
+  local consecutive_failures=0
+  local max_story_retries=3
 
   while [[ $iteration -lt $max_iterations ]]; do
     # Check for stop signal
@@ -87,6 +111,19 @@ run_loop() {
       send_notification "✅ Ralph finished: All stories passed!"
       archive_feature
       return 0
+    fi
+
+    # Track repeated failures on same story
+    if [[ "$story" == "$last_story" ]]; then
+      ((consecutive_failures++))
+      if [[ $consecutive_failures -ge $max_story_retries ]]; then
+        print_warning "$story failed $consecutive_failures times - check failure context above"
+      else
+        print_warning "Retry $consecutive_failures/$max_story_retries for $story (failure context included)"
+      fi
+    else
+      consecutive_failures=1
+      last_story="$story"
     fi
 
     # 2. Session startup checklist (Anthropic best practice)
@@ -167,7 +204,8 @@ run_loop() {
     # 5. Run migrations BEFORE verification (tests need DB schema)
     if ! run_migrations_if_needed "$pre_story_sha"; then
       log_progress "$story" "FAILED" "Migration failed"
-      print_error "Migration failed for $story, will retry..."
+      save_failure_context "$story"  # Include migration error in next prompt
+      print_error "Migration failed for $story, will retry with error context..."
       continue
     fi
 
@@ -180,6 +218,7 @@ run_loop() {
 
       # Clear failure context on success
       rm -f "$RALPH_DIR/last_failure.txt"
+      rm -f "$RALPH_DIR/last_migration_failure.log"
       rm -f "$RALPH_DIR/last_review_failure.json"
       rm -f "$RALPH_DIR/last_test_failure.log"
       rm -f "$RALPH_DIR/last_playwright_failure.log"
@@ -188,20 +227,26 @@ run_loop() {
 
       # Auto-commit if git is available
       if command -v git &>/dev/null && [[ -d ".git" ]]; then
-        local title
+        local title commit_log
         title=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .title' "$RALPH_DIR/prd.json")
+        commit_log=$(mktemp)
         git add -A
         # First commit attempt - pre-commit hooks may auto-fix files
-        if ! git commit -m "feat($story): $title" 2>/dev/null; then
+        if ! git commit -m "feat($story): $title" > "$commit_log" 2>&1; then
           # If failed, stage the auto-fixed files and retry once
           git add -A
-          if ! git commit -m "feat($story): $title" 2>/dev/null; then
+          if ! git commit -m "feat($story): $title" > "$commit_log" 2>&1; then
             # Second attempt also failed - lint errors need fixing
             print_warning "Pre-commit hooks failed, needs fixes..."
+            # Save the commit output for Claude to see
+            cp "$commit_log" "$RALPH_DIR/last_precommit_failure.log"
+            rm -f "$commit_log"
+            save_failure_context "$story"
             log_progress "$story" "FAILED" "Pre-commit hooks failed"
             continue
           fi
         fi
+        rm -f "$commit_log"
       fi
 
       log_progress "$story" "COMPLETED"

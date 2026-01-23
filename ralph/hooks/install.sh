@@ -89,12 +89,19 @@ fi
 
 # Check if hooks already configured and valid
 if [[ "$FORCE" != "true" ]] && jq -e '.hooks' "$SETTINGS_FILE" > /dev/null 2>&1; then
-  existing_hook=$(jq -r '.hooks.SessionStart[0].hooks[0].command // empty' "$SETTINGS_FILE" 2>/dev/null)
+  session_hook=$(jq -r '.hooks.SessionStart[0].hooks[0].command // empty' "$SETTINGS_FILE" 2>/dev/null)
+  stop_hook=$(jq -r '.hooks.Stop[0].hooks[0].command // empty' "$SETTINGS_FILE" 2>/dev/null)
 
-  if [[ -n "$existing_hook" && -x "$existing_hook" ]]; then
-    echo -e "${YELLOW}Hooks already configured and valid.${NC}"
-    echo "Use --force to reinstall."
-    exit 0
+  # All hooks must exist AND point to current script directory
+  if [[ -n "$session_hook" && -x "$session_hook" && -n "$stop_hook" && -x "$stop_hook" ]]; then
+    if [[ "$session_hook" == "$SCRIPT_DIR/"* && "$stop_hook" == "$SCRIPT_DIR/"* ]]; then
+      echo -e "${YELLOW}Hooks already configured and valid.${NC}"
+      echo "Use --force to reinstall."
+      exit 0
+    else
+      echo -e "${YELLOW}Hooks point to different location, updating...${NC}"
+      echo ""
+    fi
   else
     echo -e "${YELLOW}Existing hooks are invalid, reinstalling...${NC}"
     echo ""

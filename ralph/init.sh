@@ -180,7 +180,18 @@ ralph_status() {
     echo ""
     echo "Progress: $passed/$total passed ($failed remaining)"
   else
-    echo "No active PRD. Generate one with: ralph prd 'your feature notes...'"
+    # Check for misplaced PRD in subdirectories
+    local found_prd
+    found_prd=$(find . -path "./.ralph" -prune -o -name "prd.json" -path "*/.ralph/prd.json" -print 2>/dev/null | head -1)
+
+    if [[ -n "$found_prd" ]]; then
+      print_warning "PRD found in wrong location: $found_prd"
+      echo ""
+      echo "Move it to root with:"
+      echo "  mv $found_prd .ralph/prd.json"
+    else
+      echo "No active PRD. Generate one with: ralph prd 'your feature notes...'"
+    fi
   fi
 
   echo ""

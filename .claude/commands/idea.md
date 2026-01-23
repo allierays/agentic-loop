@@ -8,6 +8,20 @@ You are helping the user go from a rough idea to executable PRDs for Ralph.
 
 **CRITICAL: This command does NOT write code. It produces documentation files only.**
 
+## When to Use
+
+| Workflow | Best For |
+|----------|----------|
+| **`/idea`** | Structured brainstorming with guided questions - Claude leads |
+| **Plan mode → save to `docs/ideas/`** | Free-form exploration - you lead the thinking |
+| **`/prd "description"`** | Quick PRD, no docs artifact needed |
+
+**Both `/idea` and plan mode can produce `docs/ideas/*.md` files.** The difference is who drives the conversation:
+- `/idea` asks you structured questions (scope, UX, edge cases, etc.)
+- Plan mode lets you explore freely with Claude's help
+
+Use `/idea` when you want the structured checklist. Use plan mode when you prefer to think through it your way.
+
 ## User Input
 
 ```text
@@ -125,9 +139,9 @@ Break the idea into small, executable PRDs following the JSON structure below.
 
 ### Step 6: Write PRD
 
-1. Ensure .ralph directory exists:
+1. Ensure .ralph directory exists and allow PRD edit:
    ```bash
-   mkdir -p .ralph
+   mkdir -p .ralph && touch .ralph/.prd-edit-allowed
    ```
 
 2. Write to `.ralph/prd.json` ensuring:
@@ -353,4 +367,5 @@ If **'append'**:
 
 If **'overwrite'**:
 - Archive first: `mkdir -p .ralph/archive && mv .ralph/prd.json .ralph/archive/prd-$(date +%Y%m%d-%H%M%S).json`
+- Allow edit: `touch .ralph/.prd-edit-allowed`
 - Write new PRD

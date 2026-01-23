@@ -1,10 +1,10 @@
 ---
-description: Convert an idea file from docs/ideas into an executable PRD for Ralph.
+description: Generate an executable PRD for Ralph from an idea file or description.
 ---
 
-# /prd - Idea to PRD
+# /prd - Generate PRD for Ralph
 
-Convert an existing idea file into executable stories for Ralph.
+Generate executable stories for Ralph's autonomous development loop.
 
 **CRITICAL: This command does NOT write code. It produces `.ralph/prd.json` only.**
 
@@ -16,20 +16,28 @@ $ARGUMENTS
 
 ## Workflow
 
-### Step 1: Find the Idea File
+### Step 1: Determine Input Type
 
-If `$ARGUMENTS` is empty:
-1. List available ideas:
+**If `$ARGUMENTS` is empty:**
+1. Check for idea files:
    ```bash
    ls docs/ideas/*.md 2>/dev/null || echo "No ideas found"
    ```
-2. Ask: "Which idea would you like to convert to a PRD? (e.g., `content-engine` or full path)"
+2. Ask: "Would you like to:
+   - Convert an idea file (e.g., `/prd auth` for `docs/ideas/auth.md`)
+   - Describe a feature directly (e.g., `/prd 'Add user logout button'`)"
 
-If `$ARGUMENTS` is provided:
+**If `$ARGUMENTS` looks like a file reference** (no spaces, matches `docs/ideas/*.md`):
 - If it's a full path, use it directly
 - If it's just a name like `content-engine`, look for `docs/ideas/content-engine.md`
+- Proceed to "Read and Understand the Idea"
 
-### Step 2: Read and Understand the Idea
+**If `$ARGUMENTS` is a description** (has spaces, is a sentence):
+- This is the **quick PRD flow** - no `docs/ideas/` file created
+- Good for small features that don't need documentation
+- Skip to "Confirm Understanding" below
+
+### Step 2a: Read and Understand the Idea (from file)
 
 Read the idea file and summarize:
 
@@ -43,6 +51,24 @@ Say: "I've read `{path}`. Here's my understanding:
 I'll now split this into {N} stories for Ralph. Continue?"
 
 **STOP and wait for user confirmation.**
+
+### Step 2b: Confirm Understanding (from description)
+
+If working from a direct description, first explore the codebase briefly:
+```bash
+ls -la src/ app/ 2>/dev/null | head -20
+```
+
+Then say: "I'll create a PRD for: **{description}**
+
+Before I generate stories, quick questions:
+1. **Type:** Frontend, backend, or fullstack?
+2. **Scale:** Any specific limits (users, items, rate limits)?
+3. **Anything else** I should know?
+
+(Or say 'go' to proceed with defaults)"
+
+**STOP and wait for user input** (can be brief or 'go').
 
 ### Step 3: Check for Existing PRD
 
@@ -77,9 +103,9 @@ Break the idea into small, executable stories:
 
 ### Step 5: Write PRD
 
-1. Ensure .ralph directory exists:
+1. Ensure .ralph directory exists and allow PRD edit:
    ```bash
-   mkdir -p .ralph
+   mkdir -p .ralph && touch .ralph/.prd-edit-allowed
    ```
 
 2. Write to `.ralph/prd.json`:

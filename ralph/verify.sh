@@ -161,6 +161,13 @@ save_failure_context() {
     echo "Timestamp: $(date -Iseconds 2>/dev/null || date)"
     echo ""
 
+    if [[ -f "$RALPH_DIR/last_migration_failure.log" ]]; then
+      echo "--- Migration Failure ---"
+      echo "Database migrations failed. Fix the migration or the code causing it:"
+      tail -50 "$RALPH_DIR/last_migration_failure.log"
+      echo ""
+    fi
+
     if [[ -f "$RALPH_DIR/last_review_failure.json" ]]; then
       echo "--- Code Review Failure ---"
       echo "Issues found by code review:"

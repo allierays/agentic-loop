@@ -185,18 +185,23 @@ install_claude_hooks() {
 
   # Check if hooks are already configured AND valid
   if jq -e '.hooks' "$settings_file" > /dev/null 2>&1; then
-    # Get the first hook command path to check if it's valid
-    local existing_hook
-    existing_hook=$(jq -r '.hooks.SessionStart[0].hooks[0].command // empty' "$settings_file" 2>/dev/null)
+    # Get hook paths to validate - check multiple hooks since one might be stale
+    local session_hook stop_hook
+    session_hook=$(jq -r '.hooks.SessionStart[0].hooks[0].command // empty' "$settings_file" 2>/dev/null)
+    stop_hook=$(jq -r '.hooks.Stop[0].hooks[0].command // empty' "$settings_file" 2>/dev/null)
 
-    if [[ -n "$existing_hook" ]]; then
-      if [[ -x "$existing_hook" ]]; then
-        # Hooks exist and are valid, skip
+    # All hooks must exist AND point to current package location
+    if [[ -n "$session_hook" && -x "$session_hook" && -n "$stop_hook" && -x "$stop_hook" ]]; then
+      # Also verify hooks point to this package (not stale path from dev install)
+      if [[ "$session_hook" == "$hooks_dir/"* && "$stop_hook" == "$hooks_dir/"* ]]; then
+        # Hooks exist, valid, and point to current package - skip
         return 0
       else
-        # Hooks configured but invalid - reinstall
-        echo "  ⚠️  Existing Claude Code hooks are invalid, reinstalling..."
+        echo "  ⚠️  Hooks point to different location, updating..."
       fi
+    else
+      # Hooks configured but some are invalid - reinstall
+      echo "  ⚠️  Existing Claude Code hooks are invalid, reinstalling..."
     fi
   fi
 
