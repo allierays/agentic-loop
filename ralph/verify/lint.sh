@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # lint.sh - Lint and auto-fix verification module for ralph
 
 # Auto-fix lint issues before running checks
@@ -97,7 +98,10 @@ run_fastapi_response_check() {
 
   # Find FastAPI directories (check root + backend dirs)
   local fastapi_dirs=()
-  local all_dirs=("." $(get_backend_dirs))
+  local all_dirs=(".")
+  while IFS= read -r dir; do
+    [[ -n "$dir" ]] && all_dirs+=("$dir")
+  done < <(get_backend_dirs)
 
   for dir in "${all_dirs[@]}"; do
     [[ ! -d "$dir" ]] && continue

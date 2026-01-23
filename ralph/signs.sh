@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # signs.sh - Learned patterns management
 
 # Add a new sign (learned pattern)

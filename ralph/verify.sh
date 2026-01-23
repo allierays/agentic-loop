@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # verify.sh - Full UAT verification pipeline for ralph
 #
 # This file orchestrates the verification pipeline by sourcing modular components:

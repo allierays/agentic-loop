@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # ralph.sh - Autonomous AI Development Loop
 #
 # A CLI tool that orchestrates Claude CLI for autonomous development loops.

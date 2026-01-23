@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # prd.sh - PRD generation functions
 
 ralph_prd() {

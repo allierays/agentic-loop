@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # init.sh - Initialize ralph in a project
 
 ralph_init() {

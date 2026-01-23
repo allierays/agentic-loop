@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # backup.sh - Database backup management for ralph
 
 # Constants
@@ -8,6 +9,35 @@ readonly LARGE_DB_THRESHOLD_MB=100
 
 # Quiet mode flag (set via --quiet)
 BACKUP_QUIET=false
+
+# Parse MySQL URL into components
+# Usage: parse_mysql_url "mysql://user:pass@host:port/dbname"
+# Sets: MYSQL_USER, MYSQL_PASSWORD, MYSQL_HOST, MYSQL_PORT, MYSQL_DB
+parse_mysql_url() {
+  local url="$1"
+
+  # Reset variables
+  MYSQL_USER="" MYSQL_PASSWORD="" MYSQL_HOST="" MYSQL_PORT="" MYSQL_DB=""
+
+  # Parse URL: mysql://user:pass@host:port/dbname
+  if [[ "$url" =~ mysql://([^:]+):([^@]+)@([^:]+):([0-9]+)/([^?]+) ]]; then
+    MYSQL_USER="${BASH_REMATCH[1]}"
+    MYSQL_PASSWORD="${BASH_REMATCH[2]}"
+    MYSQL_HOST="${BASH_REMATCH[3]}"
+    MYSQL_PORT="${BASH_REMATCH[4]}"
+    MYSQL_DB="${BASH_REMATCH[5]}"
+    return 0
+  elif [[ "$url" =~ mysql://([^:]+):([^@]+)@([^/]+)/([^?]+) ]]; then
+    MYSQL_USER="${BASH_REMATCH[1]}"
+    MYSQL_PASSWORD="${BASH_REMATCH[2]}"
+    MYSQL_HOST="${BASH_REMATCH[3]}"
+    MYSQL_PORT="3306"
+    MYSQL_DB="${BASH_REMATCH[4]}"
+    return 0
+  fi
+
+  return 1
+}
 
 # Cross-platform file size in MB
 get_file_size_mb() {
@@ -326,43 +356,30 @@ backup_mysql() {
     return 1
   fi
 
-  # Parse URL: mysql://user:pass@host:port/dbname
-  local user host port db_name password
-  if [[ "$url" =~ mysql://([^:]+):([^@]+)@([^:]+):([0-9]+)/([^?]+) ]]; then
-    user="${BASH_REMATCH[1]}"
-    password="${BASH_REMATCH[2]}"
-    host="${BASH_REMATCH[3]}"
-    port="${BASH_REMATCH[4]}"
-    db_name="${BASH_REMATCH[5]}"
-  elif [[ "$url" =~ mysql://([^:]+):([^@]+)@([^/]+)/([^?]+) ]]; then
-    user="${BASH_REMATCH[1]}"
-    password="${BASH_REMATCH[2]}"
-    host="${BASH_REMATCH[3]}"
-    port="3306"
-    db_name="${BASH_REMATCH[4]}"
-  else
+  # Parse URL using shared helper
+  if ! parse_mysql_url "$url"; then
     backup_warning "Cannot parse MySQL URL format"
     return 1
   fi
 
-  local backup_file="$backup_dir/mysql/${db_name}-${timestamp}.sql.gz"
+  local backup_file="$backup_dir/mysql/${MYSQL_DB}-${timestamp}.sql.gz"
   mkdir -p "$backup_dir/mysql"
 
   # Run mysqldump with single-transaction for consistency
   if mysqldump \
-      --host="$host" \
-      --port="$port" \
-      --user="$user" \
-      --password="$password" \
+      --host="$MYSQL_HOST" \
+      --port="$MYSQL_PORT" \
+      --user="$MYSQL_USER" \
+      --password="$MYSQL_PASSWORD" \
       --single-transaction \
       --quick \
       --lock-tables=false \
       --connect-timeout=10 \
-      "$db_name" 2>/dev/null | gzip > "$backup_file"; then
+      "$MYSQL_DB" 2>/dev/null | gzip > "$backup_file"; then
     if [[ -s "$backup_file" ]]; then
       # Verify backup integrity
       if verify_mysql_backup "$backup_file"; then
-        backup_success "MySQL: $db_name -> $backup_file"
+        backup_success "MySQL: $MYSQL_DB -> $backup_file"
         return 0
       else
         rm -f "$backup_file"
@@ -540,21 +557,8 @@ restore_mysql() {
     return 1
   fi
 
-  # Parse URL
-  local user host port db_name password
-  if [[ "$url" =~ mysql://([^:]+):([^@]+)@([^:]+):([0-9]+)/([^?]+) ]]; then
-    user="${BASH_REMATCH[1]}"
-    password="${BASH_REMATCH[2]}"
-    host="${BASH_REMATCH[3]}"
-    port="${BASH_REMATCH[4]}"
-    db_name="${BASH_REMATCH[5]}"
-  elif [[ "$url" =~ mysql://([^:]+):([^@]+)@([^/]+)/([^?]+) ]]; then
-    user="${BASH_REMATCH[1]}"
-    password="${BASH_REMATCH[2]}"
-    host="${BASH_REMATCH[3]}"
-    port="3306"
-    db_name="${BASH_REMATCH[4]}"
-  else
+  # Parse URL using shared helper
+  if ! parse_mysql_url "$url"; then
     print_error "Cannot parse MySQL URL"
     return 1
   fi
@@ -562,11 +566,11 @@ restore_mysql() {
   print_info "Restoring MySQL from $backup_path..."
 
   if gunzip -c "$backup_path" | mysql \
-      --host="$host" \
-      --port="$port" \
-      --user="$user" \
-      --password="$password" \
-      "$db_name" 2>/dev/null; then
+      --host="$MYSQL_HOST" \
+      --port="$MYSQL_PORT" \
+      --user="$MYSQL_USER" \
+      --password="$MYSQL_PASSWORD" \
+      "$MYSQL_DB" 2>/dev/null; then
     print_success "MySQL restored successfully"
     return 0
   fi

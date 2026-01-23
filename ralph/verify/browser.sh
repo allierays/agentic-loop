@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # browser.sh - Browser validation module for ralph
 
 # Browser validation for frontend stories using Playwright
@@ -172,19 +173,19 @@ run_browser_validation() {
     npx tsx "$verify_script" "$url"
     --selectors "$selectors"
     --screenshot "$screenshot_path"
-    --timeout 30000
+    --timeout "$BROWSER_PAGE_TIMEOUT_MS"
   )
 
   if [[ -n "$auth_login" ]]; then
     cmd_args+=(--auth-login "$auth_login")
   fi
 
-  # Run browser verification with 60s wrapper timeout (in case Playwright hangs)
-  result=$(run_with_timeout 60 "${cmd_args[@]}" 2>&1) || exit_code=$?
+  # Run browser verification with wrapper timeout (in case Playwright hangs)
+  result=$(run_with_timeout "$BROWSER_TIMEOUT_SECONDS" "${cmd_args[@]}" 2>&1) || exit_code=$?
 
   # Check for timeout
   if [[ $exit_code -eq 124 ]]; then
-    print_error "failed (timed out after 60s)"
+    print_error "failed (timed out after ${BROWSER_TIMEOUT_SECONDS}s)"
     echo "    The page may be stuck loading or the dev server isn't responding."
     echo "    Check: curl -I $url"
     return run_curl_check "$url"
@@ -227,7 +228,7 @@ run_browser_validation() {
     if [[ -n "$check_mobile" ]]; then
       echo -n "    Mobile viewport... "
       local mobile_result
-      mobile_result=$(run_with_timeout 60 npx tsx "$verify_script" "$url" \
+      mobile_result=$(run_with_timeout "$BROWSER_TIMEOUT_SECONDS" npx tsx "$verify_script" "$url" \
         --selectors "$selectors" \
         --screenshot "$RALPH_DIR/screenshots/${story}-mobile.png" \
         --mobile \
@@ -283,7 +284,7 @@ run_curl_check() {
   local url="$1"
 
   local http_response
-  http_response=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$url" 2>/dev/null) || http_response="000"
+  http_response=$(curl -s -o /dev/null -w "%{http_code}" --max-time "$CURL_TIMEOUT_SECONDS" "$url" 2>/dev/null) || http_response="000"
 
   if [[ "$http_response" == "000" ]]; then
     print_error "Cannot reach $url - server not responding"
@@ -298,7 +299,7 @@ run_curl_check() {
 
   # Check for error messages in response
   local page_content
-  page_content=$(curl -s --max-time 10 "$url" 2>/dev/null)
+  page_content=$(curl -s --max-time "$CURL_TIMEOUT_SECONDS" "$url" 2>/dev/null)
 
   if echo "$page_content" | grep -qi "something went wrong\|error.*occurred\|500 internal\|503 service\|oops\!" 2>/dev/null; then
     print_error "Page contains error message"

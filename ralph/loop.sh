@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # loop.sh - The autonomous development loop
 
 run_loop() {

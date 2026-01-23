@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # playwright.sh - Playwright test integration for ralph
 
 # Ensure Playwright is installed and configured

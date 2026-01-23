@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # review.sh - Code review verification module for ralph
 
 # Run code review on changes

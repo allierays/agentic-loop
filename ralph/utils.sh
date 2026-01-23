@@ -1,18 +1,24 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # utils.sh - Shared utility functions for ralph
 
-# Constants
+# Constants - Output limits
 readonly MAX_LOG_LINES=30
 readonly MAX_PROGRESS_LINES=10
 readonly MAX_GIT_STATUS_LINES=10
 readonly MAX_OUTPUT_PREVIEW_LINES=20
 readonly MAX_ERROR_PREVIEW_LINES=40
 readonly MAX_LINT_ERROR_LINES=20
+readonly MAX_PROGRESS_FILE_LINES=1000
+
+# Constants - Timeouts (centralized to avoid magic numbers)
 readonly ITERATION_DELAY_SECONDS=2
 readonly DEFAULT_TIMEOUT_SECONDS=600
 readonly DEFAULT_MAX_ITERATIONS=20
 readonly CODE_REVIEW_TIMEOUT_SECONDS=120
-readonly MAX_PROGRESS_FILE_LINES=1000
+readonly BROWSER_TIMEOUT_SECONDS=60
+readonly BROWSER_PAGE_TIMEOUT_MS=30000
+readonly CURL_TIMEOUT_SECONDS=10
 
 # Common project directories (avoid duplication across files)
 readonly FRONTEND_DIRS=("apps/web" "frontend" "client" "web")
@@ -359,7 +365,10 @@ send_notification() {
 
   # macOS only - use iMessage
   if [[ "$(uname)" == "Darwin" ]]; then
-    osascript -e "tell application \"Messages\" to send \"$message\" to buddy \"$phone\"" 2>/dev/null || {
+    # Escape message for AppleScript (replace backslashes and quotes)
+    local escaped_message="${message//\\/\\\\}"
+    escaped_message="${escaped_message//\"/\\\"}"
+    osascript -e "tell application \"Messages\" to send \"$escaped_message\" to buddy \"$phone\"" 2>/dev/null || {
       print_warning "Failed to send iMessage notification (is Messages app signed in?)"
       return 1
     }

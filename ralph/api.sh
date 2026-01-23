@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck shell=bash
 # api.sh - API validation for backend stories
 
 # Validate API endpoints for a backend story
