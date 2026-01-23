@@ -428,16 +428,33 @@ run_configured_checks() {
     echo -n "    pre-commit hooks... "
     local precommit_log="$RALPH_DIR/last_precommit_failure.log"
 
+    # First run - let hooks auto-fix files
     if pre-commit run --all-files > "$precommit_log" 2>&1; then
       print_success "passed"
-      rm -f "$precommit_log"  # Clean up on success
+      rm -f "$precommit_log"
+    elif grep -q "files were modified by this hook" "$precommit_log"; then
+      # Hooks auto-fixed files - stage them and run again
+      echo "auto-fixing..."
+      git add -A 2>/dev/null || true
+
+      # Second run - should pass now unless there are real errors
+      if pre-commit run --all-files > "$precommit_log" 2>&1; then
+        print_success "passed (after auto-fix)"
+        rm -f "$precommit_log"
+      else
+        # Still failing - these are real errors
+        print_error "failed"
+        echo ""
+        echo "    Pre-commit hook errors (after auto-fix):"
+        grep -A 20 "Failed\|error\|Error" "$precommit_log" | head -40 | sed 's/^/      /'
+        return 1
+      fi
     else
+      # First run failed with real errors (not just auto-fix)
       print_error "failed"
       echo ""
       echo "    Pre-commit hook errors:"
-      # Show the failing hooks and their output
       grep -A 20 "Failed\|error\|Error" "$precommit_log" | head -40 | sed 's/^/      /'
-      # Keep the log file for save_failure_context
       return 1
     fi
   fi
