@@ -333,7 +333,7 @@ run_unit_tests() {
 run_auto_fix() {
   echo "    Auto-fixing lint issues..."
 
-  # Python: ruff fix
+  # Python: ruff fix (auto-fix what we can)
   if command -v ruff &>/dev/null; then
     ruff check --fix . 2>/dev/null || true
   fi
@@ -374,6 +374,43 @@ run_auto_fix() {
   fi
 }
 
+# Verify lint passes after auto-fix (catch unfixable errors)
+verify_lint() {
+  local failed=0
+
+  # Python: ruff lint check
+  if command -v ruff &>/dev/null && [[ -f "pyproject.toml" || -f "ruff.toml" ]]; then
+    echo -n "    Ruff lint check... "
+    if ruff check . --quiet 2>/dev/null; then
+      print_success "passed"
+    else
+      print_error "failed"
+      echo ""
+      echo "    Unfixable lint errors:"
+      ruff check . 2>/dev/null | head -20 | sed 's/^/      /'
+      failed=1
+    fi
+  fi
+
+  # Check for monorepo backend directories
+  for api_dir in "apps/api" "backend" "api"; do
+    if [[ -d "$api_dir" ]] && [[ -f "$api_dir/pyproject.toml" || -f "$api_dir/ruff.toml" ]]; then
+      echo -n "    Ruff lint check ($api_dir)... "
+      if (cd "$api_dir" && ruff check . --quiet 2>/dev/null); then
+        print_success "passed"
+      else
+        print_error "failed"
+        echo ""
+        echo "    Unfixable lint errors in $api_dir:"
+        (cd "$api_dir" && ruff check . 2>/dev/null) | head -20 | sed 's/^/      /'
+        failed=1
+      fi
+    fi
+  done
+
+  return $failed
+}
+
 # Run all checks defined in config.json
 run_configured_checks() {
   local config="$RALPH_DIR/config.json"
@@ -385,6 +422,11 @@ run_configured_checks() {
 
   # Auto-fix lint issues before checking
   run_auto_fix
+
+  # Verify lint passes after auto-fix (catch unfixable errors)
+  if ! verify_lint; then
+    return 1
+  fi
 
   # Get list of check names (excluding 'test' which we run separately)
   local check_names
