@@ -411,6 +411,45 @@ verify_lint() {
   return $failed
 }
 
+# Check FastAPI endpoints have Pydantic response models (for Swagger docs)
+run_fastapi_response_check() {
+  local check_script="$SCRIPT_DIR/checks/check-fastapi-responses.py"
+
+  # Skip if check script doesn't exist
+  [[ ! -f "$check_script" ]] && return 0
+
+  # Find FastAPI directories
+  local fastapi_dirs=()
+  for dir in "." "apps/api" "api" "backend" "server"; do
+    if [[ -d "$dir" ]]; then
+      # Check for FastAPI imports
+      if grep -rq "from fastapi" "$dir"/*.py 2>/dev/null || \
+         grep -rq "from fastapi" "$dir"/**/*.py 2>/dev/null; then
+        fastapi_dirs+=("$dir")
+      fi
+    fi
+  done
+
+  [[ ${#fastapi_dirs[@]} -eq 0 ]] && return 0
+
+  for dir in "${fastapi_dirs[@]}"; do
+    echo -n "    FastAPI response models ($dir)... "
+
+    local output
+    if output=$(python3 "$check_script" "$dir" 2>&1); then
+      print_success "passed"
+    else
+      print_warning "issues found"
+      echo ""
+      echo "$output" | head -30 | sed 's/^/      /'
+      # Don't fail verification - just warn for now
+      # return 1
+    fi
+  done
+
+  return 0
+}
+
 # Run all checks defined in config.json
 run_configured_checks() {
   local config="$RALPH_DIR/config.json"
@@ -422,6 +461,9 @@ run_configured_checks() {
   if ! verify_lint; then
     return 1
   fi
+
+  # Auto-detect and run FastAPI response model check
+  run_fastapi_response_check
 
   # Run pre-commit hooks if available (catches errors before commit attempt)
   if command -v pre-commit &>/dev/null && [[ -f ".pre-commit-config.yaml" ]]; then
