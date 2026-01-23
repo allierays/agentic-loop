@@ -432,22 +432,27 @@ run_fastapi_response_check() {
 
   [[ ${#fastapi_dirs[@]} -eq 0 ]] && return 0
 
+  local failed=0
   for dir in "${fastapi_dirs[@]}"; do
     echo -n "    FastAPI response models ($dir)... "
 
     local output
+    local log_file="$RALPH_DIR/last_fastapi_response_check.log"
+
     if output=$(python3 "$check_script" "$dir" 2>&1); then
       print_success "passed"
+      rm -f "$log_file"
     else
-      print_warning "issues found"
+      print_error "failed"
       echo ""
-      echo "$output" | head -30 | sed 's/^/      /'
-      # Don't fail verification - just warn for now
-      # return 1
+      echo "$output" | head -40 | sed 's/^/      /'
+      # Save for failure context so Claude can fix
+      echo "$output" > "$log_file"
+      failed=1
     fi
   done
 
-  return 0
+  return $failed
 }
 
 # Run all checks defined in config.json
@@ -985,6 +990,18 @@ save_failure_context() {
       echo ""
       # Extract just the error lines (skip the hook names and status lines)
       grep -E "^\s*(error|warning|Error|ARG|F841|B007|SIM|-->)" "$RALPH_DIR/last_precommit_failure.log" | head -50
+      echo ""
+    fi
+
+    if [[ -f "$RALPH_DIR/last_fastapi_response_check.log" ]]; then
+      echo "--- FastAPI Response Model Failure ---"
+      echo "Add Pydantic response_model to these endpoints for proper Swagger docs:"
+      echo ""
+      cat "$RALPH_DIR/last_fastapi_response_check.log"
+      echo ""
+      echo "Fix by adding response_model parameter or return type annotation:"
+      echo '  @router.get("/items", response_model=list[ItemSchema])'
+      echo "  async def get_items() -> list[ItemSchema]:"
       echo ""
     fi
   } > "$context_file"
