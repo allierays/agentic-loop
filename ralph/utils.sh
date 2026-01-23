@@ -404,9 +404,10 @@ validate_prd() {
   return 0
 }
 
-# Run migrations if new migration files were created during story
+# Ensure database migrations are applied before verification
+# Migration commands are idempotent - they no-op if nothing pending
 run_migrations_if_needed() {
-  local pre_sha="$1"
+  local pre_sha="$1"  # unused now, kept for API compatibility
   local config="$RALPH_DIR/config.json"
 
   if [[ ! -f "$config" ]]; then return 0; fi
@@ -415,44 +416,28 @@ run_migrations_if_needed() {
   migrate_cmd=$(jq -r '.migrations.command // empty' "$config" 2>/dev/null)
   if [[ -z "$migrate_cmd" ]]; then return 0; fi
 
-  local pattern
-  pattern=$(jq -r '.migrations.pattern // empty' "$config" 2>/dev/null)
-  if [[ -z "$pattern" ]]; then
-    print_warning "migrations.pattern not configured, skipping migration check"
-    return 0
-  fi
+  # Always run migrations - commands are idempotent (no-op if nothing pending)
+  # This ensures DB schema is always in sync before tests run
+  echo -n "  Ensuring migrations applied... "
 
-  # Check for new migration files since story started
-  local new_migrations=""
+  local log_file
+  log_file=$(mktemp)
 
-  if [[ -n "$pre_sha" ]]; then
-    # Compare against pre-story commit
-    new_migrations=$(git diff --name-only "$pre_sha" 2>/dev/null | grep -E "$pattern" || true)
-  fi
-
-  # Also check uncommitted changes (staged and unstaged)
-  local uncommitted
-  uncommitted=$(git diff --name-only HEAD 2>/dev/null | grep -E "$pattern" || true)
-  uncommitted+=$(git diff --name-only --cached 2>/dev/null | grep -E "$pattern" || true)
-
-  if [[ -n "$uncommitted" ]]; then
-    new_migrations="$new_migrations $uncommitted"
-  fi
-
-  # Trim whitespace and check if any migrations found
-  new_migrations=$(echo "$new_migrations" | xargs)
-
-  if [[ -n "$new_migrations" ]]; then
-    print_info "New migrations detected, running: $migrate_cmd"
-    echo "  Files: $new_migrations"
-
-    if ! safe_exec "$migrate_cmd" "/dev/null"; then
-      print_error "Migration command failed: $migrate_cmd"
-      return 1
+  if safe_exec "$migrate_cmd" "$log_file"; then
+    # Check if any migrations were actually applied
+    if grep -qiE "applying|migrating|running|upgrade" "$log_file" 2>/dev/null; then
+      print_success "applied"
+    else
+      echo "up to date"
     fi
-
-    print_success "Migrations applied"
+    rm -f "$log_file"
+    return 0
+  else
+    print_error "failed"
+    echo ""
+    echo "    Migration error:"
+    tail -20 "$log_file" | sed 's/^/      /'
+    rm -f "$log_file"
+    return 1
   fi
-
-  return 0
 }
