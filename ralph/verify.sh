@@ -423,6 +423,26 @@ run_configured_checks() {
     return 1
   fi
 
+  # Run pre-commit hooks if available (catches errors before commit attempt)
+  if command -v pre-commit &>/dev/null && [[ -f ".pre-commit-config.yaml" ]]; then
+    echo -n "    pre-commit hooks... "
+    local precommit_log
+    precommit_log=$(create_temp_file ".log") || return 1
+
+    if pre-commit run --all-files > "$precommit_log" 2>&1; then
+      print_success "passed"
+    else
+      print_error "failed"
+      echo ""
+      echo "    Pre-commit hook errors:"
+      # Show the failing hooks and their output
+      grep -A 20 "Failed\|error\|Error" "$precommit_log" | head -40 | sed 's/^/      /'
+      rm -f "$precommit_log"
+      return 1
+    fi
+    rm -f "$precommit_log"
+  fi
+
   # Config-based checks are optional
   if [[ ! -f "$config" ]]; then
     echo "    (no config.json for additional checks)"

@@ -192,7 +192,12 @@ run_loop() {
         if ! git commit -m "feat($story): $title" 2>/dev/null; then
           # If failed, stage the auto-fixed files and retry once
           git add -A
-          git commit -m "feat($story): $title" 2>/dev/null || true
+          if ! git commit -m "feat($story): $title" 2>/dev/null; then
+            # Second attempt also failed - lint errors need fixing
+            print_warning "Pre-commit hooks failed, needs fixes..."
+            log_progress "$story" "FAILED" "Pre-commit hooks failed"
+            continue
+          fi
         fi
       fi
 
