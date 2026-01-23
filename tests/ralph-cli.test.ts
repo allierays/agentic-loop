@@ -122,9 +122,10 @@ describe('ralph CLI', () => {
       rmSync(testDir, { recursive: true, force: true })
     })
 
-    it('runs without error when no checks configured', () => {
+    it('runs auto-fix and checks successfully', () => {
       const output = ralph('check', testDir)
-      expect(output).toContain('no checks configured')
+      expect(output).toContain('Auto-fixing lint issues')
+      expect(output).toContain('All checks passed')
     })
   })
 })

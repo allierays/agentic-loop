@@ -2,6 +2,13 @@
 # init.sh - Initialize ralph in a project
 
 ralph_init() {
+  # Check if already initialized (progress.txt is created by full init)
+  if [[ -f "$RALPH_DIR/progress.txt" ]]; then
+    echo "Ralph already initialized in this directory."
+    echo "Use 'ralph run' to start the loop or 'ralph status' to check status."
+    return 0
+  fi
+
   echo "Initializing ralph..."
 
   # Create directory structure

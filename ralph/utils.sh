@@ -34,7 +34,7 @@ get_frontend_dirs() {
   for d in "${FRONTEND_DIRS[@]}"; do
     [[ -d "$d" ]] && dirs+=("$d")
   done
-  printf '%s\n' "${dirs[@]}"
+  [[ ${#dirs[@]} -gt 0 ]] && printf '%s\n' "${dirs[@]}"
 }
 
 # Get existing backend directories in this project
@@ -43,7 +43,7 @@ get_backend_dirs() {
   for d in "${BACKEND_DIRS[@]}"; do
     [[ -d "$d" ]] && dirs+=("$d")
   done
-  printf '%s\n' "${dirs[@]}"
+  [[ ${#dirs[@]} -gt 0 ]] && printf '%s\n' "${dirs[@]}"
 }
 
 # Progress bar for story display
