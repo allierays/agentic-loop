@@ -4,7 +4,7 @@
 
 A toolkit for implementing [RALPH](https://ghuntley.com/ralph/) with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that helps you go from idea to shipped code.
 
-> **Optimized for:** Python, TypeScript, React, and Docker projects. Auto-detects ports from `docker-compose.yml`, Vite, Next.js, and FastAPI.
+> **Optimized for:** Python, TypeScript, React, Go/Hugo, and Docker projects. Auto-detects ports from `docker-compose.yml`, Vite, Next.js, Hugo, FastAPI, and more.
 
 > You focus on what matters: your ideas. Brainstorm with `/idea`, then let Ralph handle the rest - coding, testing, and committing in an iterative loop until everything passes.
 

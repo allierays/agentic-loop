@@ -257,6 +257,15 @@ setup_claude_md() {
   fi
   [[ -f "manage.py" ]] && framework="${framework:+$framework + }Django"
 
+  # Detect Hugo (Go static site generator)
+  for hugo_config in "hugo.toml" "hugo.yaml" "hugo.json" "config.toml"; do
+    if [[ -f "$hugo_config" ]] && [[ -d "content" || -d "layouts" || -d "themes" ]]; then
+      framework="${framework:+$framework + }Hugo"
+      [[ -z "$runtime" ]] && runtime="Go"
+      break
+    fi
+  done
+
   # Detect TypeScript
   [[ -f "tsconfig.json" || -f "${fe_dir}/tsconfig.json" ]] && language="TypeScript"
 

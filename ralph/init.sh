@@ -188,64 +188,66 @@ auto_configure_project() {
 
   # 2. Detect testUrlBase from common patterns
   local base_url=""
+  local detected_framework=""
 
-  # Check docker-compose.yml for frontend/web service port mappings
+  # Check docker-compose.yml for frontend/web service port mappings (highest priority)
   for compose_file in "docker-compose.yml" "docker-compose.yaml" "compose.yml" "compose.yaml"; do
     if [[ -f "$compose_file" && -z "$base_url" ]]; then
-      # Look for web/frontend service port mapping
       local web_port
       web_port=$(grep -A 20 -E '^\s*(web|frontend|client|ui):' "$compose_file" 2>/dev/null | \
                  grep -E '^\s*-\s*"?[0-9]+:[0-9]+"?' | head -1 | \
                  grep -oE '[0-9]+:' | head -1 | tr -d ':')
       if [[ -n "$web_port" ]]; then
         base_url="http://localhost:$web_port"
+        detected_framework="docker"
       fi
     fi
   done
 
-  # Check for Vite config (uses port 5173 by default)
+  # Detect framework and use default port from constants
   if [[ -z "$base_url" ]]; then
+    # Vite
     for vite_config in "vite.config.ts" "vite.config.js" "apps/web/vite.config.ts" "apps/web/vite.config.js" \
                        "apps/frontend/vite.config.ts" "frontend/vite.config.ts"; do
       if [[ -f "$vite_config" ]]; then
-        base_url="http://localhost:5173"
+        detected_framework="vite"
+        base_url="http://localhost:${DEFAULT_PORTS[vite]}"
         break
       fi
     done
   fi
 
-  # Check for Next.js (uses port 3000 by default)
   if [[ -z "$base_url" ]]; then
+    # Next.js
     for next_config in "next.config.js" "next.config.ts" "next.config.mjs" \
                        "apps/web/next.config.js" "apps/web/next.config.mjs"; do
       if [[ -f "$next_config" ]]; then
-        base_url="http://localhost:3000"
+        detected_framework="nextjs"
+        base_url="http://localhost:${DEFAULT_PORTS[nextjs]}"
         break
       fi
     done
   fi
 
-  # Fallback: Check package.json scripts for dev server port
-  if [[ -z "$base_url" && -f "package.json" ]]; then
-    if grep -q '"dev".*:3000' package.json 2>/dev/null; then
-      base_url="http://localhost:3000"
-    elif grep -q '"dev".*:5173' package.json 2>/dev/null; then
-      base_url="http://localhost:5173"
-    elif grep -q '"dev".*:8080' package.json 2>/dev/null; then
-      base_url="http://localhost:8080"
-    fi
+  if [[ -z "$base_url" ]]; then
+    # Hugo
+    for hugo_config in "hugo.toml" "hugo.yaml" "hugo.json" "config.toml"; do
+      if [[ -f "$hugo_config" ]] && [[ -d "content" || -d "layouts" || -d "themes" ]]; then
+        detected_framework="hugo"
+        base_url="http://localhost:${DEFAULT_PORTS[hugo]}"
+        break
+      fi
+    done
   fi
 
-  # Check for monorepo frontend
-  for fe_pkg in "apps/web/package.json" "apps/frontend/package.json" "frontend/package.json"; do
-    if [[ -f "$fe_pkg" && -z "$base_url" ]]; then
-      if grep -q ':3000' "$fe_pkg" 2>/dev/null; then
-        base_url="http://localhost:3000"
-      elif grep -q ':5173' "$fe_pkg" 2>/dev/null; then
-        base_url="http://localhost:5173"
-      fi
+  # Fallback: Check package.json for port hints
+  if [[ -z "$base_url" && -f "package.json" ]]; then
+    local pkg_port
+    pkg_port=$(grep -oE ':[0-9]{4}' package.json 2>/dev/null | head -1 | tr -d ':')
+    if [[ -n "$pkg_port" ]]; then
+      base_url="http://localhost:$pkg_port"
     fi
-  done
+  fi
 
   if [[ -n "$base_url" ]]; then
     if jq -e '.testUrlBase' "$tmpfile" >/dev/null 2>&1 && [[ "$(jq -r '.testUrlBase' "$tmpfile")" != "" ]]; then
@@ -294,17 +296,18 @@ auto_configure_project() {
 
   # 4. Detect API baseUrl based on backend type
   local api_url=""
+  local api_framework=""
 
-  # Check docker-compose.yml for API service port mappings (most common)
+  # Check docker-compose.yml for API service port mappings (highest priority)
   for compose_file in "docker-compose.yml" "docker-compose.yaml" "compose.yml" "compose.yaml"; do
     if [[ -f "$compose_file" && -z "$api_url" ]]; then
-      # Look for api/backend service port mapping like "8000:8000" or "3001:3000"
       local api_port
       api_port=$(grep -A 20 -E '^\s*(api|backend|server|app):' "$compose_file" 2>/dev/null | \
                  grep -E '^\s*-\s*"?[0-9]+:[0-9]+"?' | head -1 | \
                  grep -oE '[0-9]+:' | head -1 | tr -d ':')
       if [[ -n "$api_port" ]]; then
         api_url="http://localhost:$api_port"
+        api_framework="docker"
       fi
     fi
   done
@@ -316,20 +319,27 @@ auto_configure_project() {
       docker_port=$(grep -i "^EXPOSE" "$backend_dir/Dockerfile" 2>/dev/null | head -1 | grep -oE '[0-9]+' | head -1)
       if [[ -n "$docker_port" ]]; then
         api_url="http://localhost:$docker_port"
+        api_framework="docker"
       fi
     fi
-    # Python backends (FastAPI/Django) typically use port 8000
+    # Python backends - detect framework and use default port
     if [[ -z "$api_url" ]] && { [[ -f "$backend_dir/pyproject.toml" ]] || [[ -f "$backend_dir/requirements.txt" ]] || [[ -f "$backend_dir/main.py" ]]; }; then
-      api_url="http://localhost:8000"
-    # Node backends - check for port in package.json or default to 3001
-    elif [[ -z "$api_url" && -f "$backend_dir/package.json" ]]; then
-      if grep -q ':3001' "$backend_dir/package.json" 2>/dev/null; then
-        api_url="http://localhost:3001"
-      elif grep -q ':4000' "$backend_dir/package.json" 2>/dev/null; then
-        api_url="http://localhost:4000"
+      if grep -q "fastapi\|FastAPI" "$backend_dir"/*.py "$backend_dir/pyproject.toml" 2>/dev/null; then
+        api_framework="fastapi"
+      elif grep -q "django\|Django" "$backend_dir"/*.py "$backend_dir/pyproject.toml" 2>/dev/null; then
+        api_framework="django"
+      elif grep -q "flask\|Flask" "$backend_dir"/*.py "$backend_dir/pyproject.toml" 2>/dev/null; then
+        api_framework="flask"
       else
-        api_url="http://localhost:3001"
+        api_framework="fastapi"  # Default for Python
       fi
+      api_url="http://localhost:${DEFAULT_PORTS[$api_framework]}"
+    # Node backends - check for port in package.json
+    elif [[ -z "$api_url" && -f "$backend_dir/package.json" ]]; then
+      local node_port
+      node_port=$(grep -oE ':[0-9]{4}' "$backend_dir/package.json" 2>/dev/null | head -1 | tr -d ':')
+      api_url="http://localhost:${node_port:-${DEFAULT_PORTS[express]}}"
+      api_framework="express"
     fi
   fi
 
