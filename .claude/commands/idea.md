@@ -115,17 +115,11 @@ Once the user confirms, write the idea file:
    - Any unresolved decisions
    ```
 
-3. Open the file for review:
-   ```bash
-   open -a TextEdit docs/ideas/{feature-name}.md
-   ```
-
-4. Say: "I've written the idea to `docs/ideas/{feature-name}.md` and opened it in TextEdit.
+3. Say: "I've written the idea to `docs/ideas/{feature-name}.md`.
 
    Review it and let me know:
    - **'approved'** - Ready to split into PRDs
-   - **'edit [changes]'** - Tell me what to change
-   - Or make edits in the file and say **'done'**"
+   - **'edit [changes]'** - Tell me what to change"
 
 **STOP and wait for user response. Do not proceed until they say 'approved' or 'done'.**
 
