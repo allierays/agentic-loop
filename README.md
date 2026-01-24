@@ -6,7 +6,7 @@ A toolkit for implementing [RALPH](https://ghuntley.com/ralph/) with [Claude Cod
 
 > You focus on what matters: your ideas. Brainstorm with `/idea`, then let Ralph handle the rest - coding, testing, and committing in an iterative loop until everything passes.
 
-### This repo includes:
+### This repo helps you customize your code output, run autonomous coding loops, and adds guardrails to ensure good code little and often:
 #### Customize
 - **`/my-dna`** - Add your own voice and values to your claude.md (This helps you personalize your experience and output)
 - **`/styleguide`** - Generate a UI component reference for consistent design (Stop AI from generating everything in purple add your unique style in an html and then reference it)
