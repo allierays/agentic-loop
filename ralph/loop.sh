@@ -99,6 +99,7 @@ preflight_checks() {
 run_loop() {
   local max_iterations="$DEFAULT_MAX_ITERATIONS"
   local specific_story=""
+  local fast_mode=false
 
   # Parse arguments
   while [[ $# -gt 0 ]]; do
@@ -111,11 +112,18 @@ run_loop() {
         specific_story="$2"
         shift 2
         ;;
+      --fast)
+        fast_mode=true
+        shift
+        ;;
       *)
         shift
         ;;
     esac
   done
+
+  # Export for use in verification
+  export RALPH_FAST_MODE="$fast_mode"
 
   # Validate prerequisites
   check_dependencies
@@ -236,10 +244,8 @@ run_loop() {
         continue
       fi
 
-      # Exponential backoff before retry
-      local backoff=$((2 ** (consecutive_failures - 1)))
-      print_warning "Retry $consecutive_failures/$max_story_retries for $story (waiting ${backoff}s...)"
-      sleep "$backoff"
+      # Quick retry - no delay needed (Claude API isn't rate-limited)
+      print_warning "Retry $consecutive_failures/$max_story_retries for $story"
     else
       consecutive_failures=1
       last_story="$story"
