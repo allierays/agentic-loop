@@ -122,6 +122,17 @@ main() {
         echo "No progress log found. Run 'ralph init' first."
       fi
       ;;
+    config)
+      if [[ ! -f "$RALPH_DIR/config.json" ]]; then
+        print_error "Ralph not initialized. Run 'ralph init' first."
+        exit 1
+      fi
+      echo "Auto-detecting project configuration..."
+      auto_configure_project
+      echo ""
+      echo "Current config:"
+      jq '.' "$RALPH_DIR/config.json"
+      ;;
     help|-h|--help)
       ralph_help
       ;;

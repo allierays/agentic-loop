@@ -53,6 +53,11 @@ ralph_init() {
     echo "Created PROMPT.md template"
   fi
 
+  # Auto-detect and configure project-specific settings
+  echo ""
+  echo "Auto-configuring project settings..."
+  auto_configure_project
+
   print_success "Ralph initialized!"
   echo ""
 
@@ -133,6 +138,8 @@ detect_project_type() {
     project_type="fullstack"
   elif [[ -d "frontend" && -d "backend" ]]; then
     project_type="fullstack"
+  elif [[ -d "apps" ]]; then
+    project_type="fullstack"  # Monorepo
   # Then check for single-language projects
   elif [[ -f "Cargo.toml" ]]; then
     project_type="rust"
@@ -145,6 +152,134 @@ detect_project_type() {
   fi
 
   echo "$project_type"
+}
+
+# Auto-detect and configure project-specific settings
+auto_configure_project() {
+  local config="$RALPH_DIR/config.json"
+  [[ ! -f "$config" ]] && return 0
+
+  local updated=false
+  local tmpfile
+  tmpfile=$(mktemp)
+  cp "$config" "$tmpfile"
+
+  # 1. Detect Playwright test directory
+  local playwright_dir=""
+  for dir in "tests/e2e" "e2e" "test/e2e" \
+             "apps/web/tests/e2e" "apps/frontend/tests/e2e" \
+             "frontend/tests/e2e" "frontend/e2e" \
+             "packages/web/tests/e2e"; do
+    if [[ -d "$dir" ]]; then
+      playwright_dir="$dir"
+      break
+    fi
+  done
+
+  if [[ -n "$playwright_dir" ]]; then
+    if jq -e '.playwright.testDir' "$tmpfile" >/dev/null 2>&1; then
+      : # Already set
+    else
+      jq --arg dir "$playwright_dir" '.playwright.testDir = $dir' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+      echo "  Auto-detected playwright.testDir: $playwright_dir"
+      updated=true
+    fi
+  fi
+
+  # 2. Detect testUrlBase from common patterns
+  local base_url=""
+  # Check package.json scripts for dev server port
+  if [[ -f "package.json" ]]; then
+    if grep -q '"dev".*:3000' package.json 2>/dev/null; then
+      base_url="http://localhost:3000"
+    elif grep -q '"dev".*:5173' package.json 2>/dev/null; then
+      base_url="http://localhost:5173"  # Vite default
+    elif grep -q '"dev".*:8080' package.json 2>/dev/null; then
+      base_url="http://localhost:8080"
+    fi
+  fi
+  # Check for monorepo frontend
+  for fe_pkg in "apps/web/package.json" "apps/frontend/package.json" "frontend/package.json"; do
+    if [[ -f "$fe_pkg" && -z "$base_url" ]]; then
+      if grep -q ':3000' "$fe_pkg" 2>/dev/null; then
+        base_url="http://localhost:3000"
+      elif grep -q ':5173' "$fe_pkg" 2>/dev/null; then
+        base_url="http://localhost:5173"
+      fi
+    fi
+  done
+
+  if [[ -n "$base_url" ]]; then
+    if jq -e '.testUrlBase' "$tmpfile" >/dev/null 2>&1 && [[ "$(jq -r '.testUrlBase' "$tmpfile")" != "" ]]; then
+      : # Already set
+    else
+      jq --arg url "$base_url" '.testUrlBase = $url' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+      echo "  Auto-detected testUrlBase: $base_url"
+      updated=true
+    fi
+  fi
+
+  # 3. Detect frontend/backend directories for monorepos
+  local frontend_dir="" backend_dir=""
+  for dir in "apps/web" "apps/frontend" "frontend" "packages/web" "web"; do
+    if [[ -d "$dir" && -f "$dir/package.json" ]]; then
+      frontend_dir="$dir"
+      break
+    fi
+  done
+  for dir in "apps/api" "apps/backend" "backend" "api" "server"; do
+    if [[ -d "$dir" ]] && ([[ -f "$dir/package.json" ]] || [[ -f "$dir/pyproject.toml" ]] || [[ -f "$dir/requirements.txt" ]]); then
+      backend_dir="$dir"
+      break
+    fi
+  done
+
+  if [[ -n "$frontend_dir" ]]; then
+    if jq -e '.directories.frontend' "$tmpfile" >/dev/null 2>&1; then
+      : # Already set
+    else
+      jq --arg dir "$frontend_dir" '.directories.frontend = $dir' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+      echo "  Auto-detected directories.frontend: $frontend_dir"
+      updated=true
+    fi
+  fi
+
+  if [[ -n "$backend_dir" ]]; then
+    if jq -e '.directories.backend' "$tmpfile" >/dev/null 2>&1; then
+      : # Already set
+    else
+      jq --arg dir "$backend_dir" '.directories.backend = $dir' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+      echo "  Auto-detected directories.backend: $backend_dir"
+      updated=true
+    fi
+  fi
+
+  # 4. Detect package manager
+  local pkg_manager="npm"
+  if [[ -f "pnpm-lock.yaml" ]]; then
+    pkg_manager="pnpm"
+  elif [[ -f "yarn.lock" ]]; then
+    pkg_manager="yarn"
+  elif [[ -f "bun.lockb" ]]; then
+    pkg_manager="bun"
+  fi
+
+  if [[ "$pkg_manager" != "npm" ]]; then
+    if jq -e '.packageManager' "$tmpfile" >/dev/null 2>&1; then
+      : # Already set
+    else
+      jq --arg pm "$pkg_manager" '.packageManager = $pm' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+      echo "  Auto-detected packageManager: $pkg_manager"
+      updated=true
+    fi
+  fi
+
+  # Save if updated
+  if [[ "$updated" == "true" ]]; then
+    mv "$tmpfile" "$config"
+  else
+    rm -f "$tmpfile"
+  fi
 }
 
 # Show current ralph status
@@ -215,6 +350,7 @@ Usage:
 
 Commands:
   init                    Initialize ralph in current directory
+  config                  Re-detect and update project config
   prd <notes>             Generate PRD interactively (quick mode)
   prd --file <file>       Generate PRD from file
   run                     Run autonomous loop until all stories pass
