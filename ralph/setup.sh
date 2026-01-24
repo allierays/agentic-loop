@@ -4,14 +4,19 @@
 
 ralph_setup() {
   echo ""
-  echo "Setting up thrivekit..."
+  echo "  ╔════════════════════════════════════════════════════════════╗"
+  echo "  ║                                                            ║"
+  echo "  ║   ▀█▀ █░█ █▀█ █ █░█ █▀▀ █▄▀ █ ▀█▀                         ║"
+  echo "  ║   ░█░ █▀█ █▀▄ █ ▀▄▀ ██▄ █░█ █ ░█░                         ║"
+  echo "  ║                                                            ║"
+  echo "  ║   Tools to thrive with agentic coding                      ║"
+  echo "  ║                                                            ║"
+  echo "  ╚════════════════════════════════════════════════════════════╝"
   echo ""
 
   # Package root is relative to this script (works with npx and local installs)
   local pkg_root
   pkg_root="$(cd "$RALPH_LIB/.." && pwd)"
-  echo "Found package at: $pkg_root"
-  echo ""
 
   # Run all setup steps
   setup_ralph_dir "$pkg_root"
@@ -23,17 +28,26 @@ ralph_setup() {
   setup_precommit_hooks
 
   echo ""
-  print_success "Setup complete!"
+  echo "  ┌────────────────────────────────────────────────────────────┐"
+  echo "  │  ✓ Setup complete!                                         │"
+  echo "  └────────────────────────────────────────────────────────────┘"
   echo ""
-  echo "You'll need two terminals:"
+  echo "  Next steps:"
   echo ""
-  echo "  Terminal 1 - Claude Code:"
-  echo "    claude --dangerously-skip-permissions"
-  echo "    /tour                 # Take a guided walkthrough"
-  echo "    /idea 'your feature'  # Generate a PRD"
+  echo "  ┌─ Terminal 1: Claude Code ──────────────────────────────────┐"
+  echo "  │                                                            │"
+  echo "  │  claude --dangerously-skip-permissions                     │"
+  echo "  │  /tour                 # Take a guided walkthrough         │"
+  echo "  │  /idea 'your feature'  # Generate a PRD                    │"
+  echo "  │                                                            │"
+  echo "  └────────────────────────────────────────────────────────────┘"
   echo ""
-  echo "  Terminal 2 - After creating PRDs with Claude:"
-  echo "    npx thrivekit run     # Execute the Ralph loop"
+  echo "  ┌─ Terminal 2: Ralph Loop ───────────────────────────────────┐"
+  echo "  │                                                            │"
+  echo "  │  npx thrivekit run       # Execute PRDs autonomously       │"
+  echo "  │  npx thrivekit run --fast  # Skip code review (~2x faster) │"
+  echo "  │                                                            │"
+  echo "  └────────────────────────────────────────────────────────────┘"
   echo ""
 }
 
