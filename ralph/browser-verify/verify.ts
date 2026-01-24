@@ -273,17 +273,8 @@ async function verify(options: VerifyOptions): Promise<VerifyResult> {
 
       // Capture actual console.error calls
       if (type === 'error') {
-        // Ignore common noise (favicons, devtools, resource loading 404s, sourcemaps)
-        const ignoredPatterns = [
-          'favicon',
-          'DevTools',
-          'Failed to load resource',  // Browser's generic 404/network error message
-          '.map',                      // Sourcemap 404s
-          'net::ERR_',                 // Network errors
-          'the server responded with a status of 4',  // 4xx errors
-        ];
-        const shouldIgnore = ignoredPatterns.some(pattern => text.includes(pattern));
-        if (!shouldIgnore) {
+        // Only ignore truly benign noise (favicons, devtools)
+        if (!text.includes('favicon') && !text.includes('DevTools')) {
           consoleErrors.push(text);
         }
       }
@@ -392,15 +383,23 @@ async function verify(options: VerifyOptions): Promise<VerifyResult> {
     // Check network errors
     result.networkErrors = networkErrors;
     if (options.checkNetwork && networkErrors.length > 0) {
-      // Only fail on actual errors, not 404s for optional resources
+      // Filter out truly benign 404s (static resources)
       const criticalErrors = networkErrors.filter(e =>
         !e.includes('favicon') &&
         !e.includes('.map') &&
-        !e.includes('hot-update')
+        !e.includes('hot-update') &&
+        !e.includes('.woff') &&
+        !e.includes('.ttf') &&
+        !e.includes('.png') &&
+        !e.includes('.jpg') &&
+        !e.includes('.svg') &&
+        !e.includes('.ico')
       );
       if (criticalErrors.length > 0) {
-        result.warnings.push(`${criticalErrors.length} network error(s) detected`);
-        // Don't fail on network errors by default, just warn
+        // Show actual URLs so Claude knows what to fix
+        result.errors.push(`Network errors (fix these):`);
+        criticalErrors.slice(0, 5).forEach(e => result.errors.push(`  ${e}`));
+        result.pass = false;
       }
     }
 
