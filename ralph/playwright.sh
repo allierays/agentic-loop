@@ -60,6 +60,49 @@ EOF
   return 0
 }
 
+# Find test file for a story - uses explicit config or story-level testFile
+find_story_test_file() {
+  local story="$1"
+  local test_dir="$2"
+
+  # 1. Check story for explicit testFile path (preferred)
+  local explicit_file
+  explicit_file=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .testFile // empty' "$RALPH_DIR/prd.json" 2>/dev/null)
+  if [[ -n "$explicit_file" && -f "$explicit_file" ]]; then
+    echo "$explicit_file"
+    return 0
+  fi
+
+  # 2. Check config.json for e2e test directory pattern
+  local config_test_dir
+  config_test_dir=$(get_config '.playwright.testDir' "")
+  if [[ -n "$config_test_dir" ]]; then
+    test_dir="$config_test_dir"
+  fi
+
+  # 3. Standard naming: {testDir}/{story-id}.spec.ts
+  if [[ -f "${test_dir}/${story}.spec.ts" ]]; then
+    echo "${test_dir}/${story}.spec.ts"
+    return 0
+  fi
+  if [[ -f "${test_dir}/${story}.spec.js" ]]; then
+    echo "${test_dir}/${story}.spec.js"
+    return 0
+  fi
+
+  # 4. Slug-based naming from story title
+  local story_slug
+  story_slug=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .title // ""' "$RALPH_DIR/prd.json" 2>/dev/null | \
+    tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | sed 's/^-//' | sed 's/-$//')
+
+  if [[ -n "$story_slug" && -f "${test_dir}/${story_slug}.spec.ts" ]]; then
+    echo "${test_dir}/${story_slug}.spec.ts"
+    return 0
+  fi
+
+  return 1
+}
+
 # Run Playwright tests for a specific story or all tests
 run_playwright_tests() {
   local story="$1"
@@ -87,25 +130,19 @@ run_playwright_tests() {
   local test_dir
   test_dir=$(get_config '.playwright.testDir' "tests/e2e")
 
-  # Look for story-specific test file
-  local test_file="${test_dir}/${story}.spec.ts"
-  local alt_test_file="${test_dir}/${story}.spec.js"
+  # Find the test file for this story
+  local test_file
+  test_file=$(find_story_test_file "$story" "$test_dir")
 
   local log_file
   log_file=$(create_temp_file ".log") || return 1
 
   echo -n "  Running Playwright tests... "
 
-  if [[ -f "$test_file" ]]; then
+  if [[ -n "$test_file" && -f "$test_file" ]]; then
     # Run story-specific test
+    echo -n "(${test_file##*/}) "
     if npx playwright test "$test_file" --reporter=line > "$log_file" 2>&1; then
-      print_success "passed"
-      rm -f "$log_file"
-      return 0
-    fi
-  elif [[ -f "$alt_test_file" ]]; then
-    # Run story-specific test (JS version)
-    if npx playwright test "$alt_test_file" --reporter=line > "$log_file" 2>&1; then
       print_success "passed"
       rm -f "$log_file"
       return 0
@@ -116,7 +153,15 @@ run_playwright_tests() {
     e2e_required=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .e2e // false' "$RALPH_DIR/prd.json" 2>/dev/null)
 
     if [[ "$e2e_required" == "true" ]]; then
-      print_warning "missing (e2e: true but no test file created)"
+      # Show where we looked and how to fix
+      print_warning "missing (e2e: true but no test file found)"
+      echo ""
+      echo "    Looked for: ${test_dir}/${story}.spec.ts"
+      echo ""
+      echo "    Fix options:"
+      echo "    1. Add 'testFile' to story: \"testFile\": \"apps/web/tests/e2e/my-test.spec.ts\""
+      echo "    2. Set testDir in .ralph/config.json: \"playwright\": {\"testDir\": \"apps/web/tests/e2e\"}"
+      echo "    3. Name test file: ${test_dir}/${story}.spec.ts"
       rm -f "$log_file"
       return 1  # Fail if e2e was expected but not created
     fi

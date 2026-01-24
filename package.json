@@ -1,6 +1,6 @@
 {
   "name": "vibe-and-thrive",
-  "version": "1.8.9",
+  "version": "1.8.10",
   "description": "Ship quality code faster with AI - RALPH autonomous loop, Claude Code hooks, and pre-commit checks",
   "author": "Allie Jones <allie@allthrive.ai>",
   "license": "MIT",
