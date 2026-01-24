@@ -36,9 +36,14 @@ export RALPH_DIR PROMPT_FILE RALPH_LIB RALPH_TEMPLATES
 # Ensure minimal setup exists (in case postinstall was skipped or global install)
 if [[ ! -d ".ralph" ]]; then
   mkdir -p ".ralph/archive" ".ralph/screenshots"
-  [[ ! -f ".ralph/config.json" ]] && echo '{"checks": {"build": true, "lint": true, "test": true}}' > ".ralph/config.json"
-  [[ ! -f ".ralph/signs.json" ]] && echo '{"signs": []}' > ".ralph/signs.json"
 fi
+# Always ensure config.json exists and run auto-detection if newly created
+if [[ ! -f ".ralph/config.json" ]]; then
+  echo '{}' > ".ralph/config.json"
+  # Run auto-detection (function is in init.sh, sourced below)
+  _ralph_needs_autoconfig=true
+fi
+[[ ! -f ".ralph/signs.json" ]] && echo '{"signs": []}' > ".ralph/signs.json"
 if [[ ! -f "PROMPT.md" ]] && [[ -f "$RALPH_TEMPLATES/PROMPT.md" ]]; then
   cp "$RALPH_TEMPLATES/PROMPT.md" "PROMPT.md"
 fi
@@ -50,6 +55,13 @@ source "$RALPH_LIB/loop.sh"
 source "$RALPH_LIB/verify.sh"
 source "$RALPH_LIB/prd.sh"
 source "$RALPH_LIB/signs.sh"
+
+# Run auto-config if config.json was just created
+if [[ "${_ralph_needs_autoconfig:-}" == "true" ]]; then
+  echo "Auto-detecting project configuration..." >&2
+  auto_configure_project
+  unset _ralph_needs_autoconfig
+fi
 
 # Main entry point
 main() {
