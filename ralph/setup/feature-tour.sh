@@ -11,7 +11,7 @@ feature_tour() {
   clear
   show_logo
   echo -e "  ${BOLD}${EMOJI_MOVIE} Feature Tour${NC}\n"
-  echo -e "  ${DIM}Watch what vibe-and-thrive can do for your codebase.${NC}"
+  echo -e "  ${DIM}Watch what thrivekit can do for your codebase.${NC}"
   echo -e "  ${DIM}Press 's' anytime to skip to setup.${NC}\n"
   sleep 1
 
@@ -35,10 +35,10 @@ feature_tour() {
   echo ""
   echo -e "  ${BOLD}That's the tour! Ready to set up your project?${NC}\n"
 
-  if confirm "Install vibe-and-thrive?"; then
+  if confirm "Install thrivekit?"; then
     quick_setup
   else
-    echo -e "\n  ${DIM}No problem! Run 'npx vibe-and-thrive' anytime to set up.${NC}"
+    echo -e "\n  ${DIM}No problem! Run 'npx thrivekit' anytime to set up.${NC}"
   fi
 }
 
@@ -146,7 +146,7 @@ demo_skills() {
   echo ""
 
   echo -e "  ${DIM}These commands guide Claude through${NC}"
-  echo -e "  ${DIM}the vibe-and-thrive workflow.${NC}"
+  echo -e "  ${DIM}the thrivekit workflow.${NC}"
 }
 
 # If run directly, execute feature_tour

@@ -1,10 +1,10 @@
 /**
- * Example ESLint configuration using vibe-and-thrive plugin
+ * Example ESLint configuration using thrivekit plugin
  *
  * Copy this file to your project root and customize as needed.
  */
 
-import vibe from "vibe-and-thrive/eslint-plugin";
+import vibe from "thrivekit/eslint-plugin";
 
 export default [
   // Use the recommended config (balanced defaults)

@@ -1,36 +1,34 @@
 {
-  "name": "vibe-and-thrive",
-  "version": "1.8.15",
-  "description": "Ship quality code faster with AI - RALPH autonomous loop, Claude Code hooks, and pre-commit checks",
+  "name": "thrivekit",
+  "version": "1.8.16",
+  "description": "Tools to thrive with agentic coding - RALPH autonomous loop, Claude Code hooks, PRD-driven development",
   "author": "Allie Jones <allie@allthrive.ai>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/allthriveai/vibe-and-thrive"
+    "url": "https://github.com/allthriveai/thrivekit"
   },
-  "homepage": "https://github.com/allthriveai/vibe-and-thrive#readme",
+  "homepage": "https://github.com/allthriveai/thrivekit#readme",
   "bugs": {
-    "url": "https://github.com/allthriveai/vibe-and-thrive/issues"
+    "url": "https://github.com/allthriveai/thrivekit/issues"
   },
   "keywords": [
     "ai",
-    "vibe-coding",
-    "pre-commit",
-    "code-quality",
+    "agentic",
     "claude",
-    "copilot",
-    "cursor",
-    "ralph"
+    "claude-code",
+    "autonomous",
+    "prd",
+    "ralph",
+    "pre-commit",
+    "code-quality"
   ],
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "vibe": "./bin/vibe.sh",
-    "vibe-check": "./bin/vibe-check.js",
-    "vibe-and-thrive": "./bin/vibe-and-thrive.sh",
-    "ralph": "./bin/ralph.sh",
-    "ralph-setup": "./bin/ralph-setup.sh"
+    "thrivekit": "./bin/thrivekit.sh",
+    "vibe-check": "./bin/vibe-check.js"
   },
   "exports": {
     ".": {

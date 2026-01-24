@@ -1,4 +1,4 @@
-# vibe-and-thrive pre-commit hooks
+# thrivekit pre-commit hooks
 # All hooks use language: node for consistency
 
 # Database backup (non-blocking - creates backup before commit)

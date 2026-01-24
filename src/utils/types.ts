@@ -1,5 +1,5 @@
 /**
- * Shared types for vibe-and-thrive
+ * Shared types for thrivekit
  */
 
 export type Severity = 'error' | 'warning' | 'info';

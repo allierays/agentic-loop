@@ -1,19 +1,19 @@
-# Vibe and Thrive
+# ThriveKit
 
-**Ship quality code faster with AI.**
+**Tools to thrive with agentic coding.**
 
 A toolkit for implementing [RALPH](https://ghuntley.com/ralph/) with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that helps you go from idea to shipped code.
 
 > You focus on what matters: your ideas. Brainstorm with `/idea`, then let Ralph handle the rest - coding, testing, and committing in an iterative loop until everything passes.
 
-### This repo includes: 
+### This repo includes:
 #### Customize
 - **`/my-dna`** - Add your own voice and values to your claude.md (This helps you personalize your experience and output)
 - **`/styleguide`** - Generate a UI component reference for consistent design (Stop AI from generating everything in purple add your unique style in an html and then reference it)
 
-#### Autonmous Code Loops with RALPH principles
+#### Autonomous Code Loops with RALPH principles
 Run this in the terminal not in a claude cli session. It will use your claude subscription not an API key.
-- **`npx ralph run`** - RALPH Autonomous loop: Brainstorm ideas → turn ideas into atomic prds → implement → verify → commit → repeat
+- **`npx thrivekit run`** - RALPH Autonomous loop: Brainstorm ideas → turn ideas into atomic prds → implement → verify → commit → repeat
 
 #### Guardrails
 - **`/vibe-check`** - manually run the same automated tests and guardrail checks at any time
@@ -41,31 +41,32 @@ See More for on how the [RALPH loop](docs/RALPH.md) works in this repo
 
 ```bash
 cd [your-project]
-npm install vibe-and-thrive
+npm install thrivekit
+npx thrivekit setup
 ```
 
-This automatically sets up:
+This sets up:
 - Slash commands (`/idea`, `/review`, etc.)
 - Pre-commit hooks (secrets, URLs, debug statements)
 - Claude Code hooks (real-time warnings)
 - Ralph configuration files
 
-> **Note:** Claude Code hooks require `jq`. On macOS with Homebrew, it's installed automatically. On Linux, if you see a warning, run `sudo apt install jq` (or your package manager) then `npx ralph hooks`.
+> **Note:** Claude Code hooks require `jq`. On macOS with Homebrew, it's installed automatically. On Linux, if you see a warning, run `sudo apt install jq` (or your package manager) then `npx thrivekit setup`.
 
 ## Step 1: Start claude (--dangerously-skip-permissions is optional)
 
 ```bash
-claude --dangerously-skip-permissions 
+claude --dangerously-skip-permissions
 ```
 
-## Step 1b: Optional run tour and customizations 
-Inside of a claude session run 
+## Step 1b: Optional run tour and customizations
+Inside of a claude session run
 ```
  /tour
 ```
 1. The tour auto-detects your project settings and walks you through the workflow.
-2. You can set up your own styleguide for all your frontend work to reference. I highly recommend you do this. 
-3. run /my-dna to add your own writing style, core values, and things you want represented in your application so that your app represents you and what you want.   
+2. You can set up your own styleguide for all your frontend work to reference. I highly recommend you do this.
+3. run /my-dna to add your own writing style, core values, and things you want represented in your application so that your app represents you and what you want.
 
 ### Step 2: Brainstorm Your Idea
 
@@ -86,7 +87,7 @@ Review and approve when prompted.
 Type `/exit` or open a new terminal, then run:
 
 ```bash
-npx ralph run
+npx thrivekit run
 ```
 
 Ralph loops through stories one at a time, writes tests, verifies, and commits.
@@ -130,7 +131,7 @@ Ralph loops through stories one at a time, writes tests, verifies, and commits.
 ## Project Structure
 
 ```
-vibe-and-thrive/
+thrivekit/
 ├── .claude/commands/       # Slash commands (/idea, /review, etc.)
 ├── ralph/                  # Autonomous loop (Bash)
 │   ├── hooks/              # Claude Code hooks (real-time warnings)
@@ -144,7 +145,7 @@ vibe-and-thrive/
 │   ├── optional/           # Extra configs (eslint, vscode, etc.)
 │   └── examples/           # Example CLAUDE.md files by stack
 ├── docs/                   # Documentation
-└── bin/                    # CLI entry points (ralph, vibe-check)
+└── bin/                    # CLI entry points (thrivekit, vibe-check)
 ```
 
 ### Three Layers of Quality Checks
@@ -165,10 +166,7 @@ This means Claude Code hooks are configured but the hook scripts can't be found.
 
 ```bash
 # Reinstall project hooks
-npx ralph hooks --force
-
-# Or reinstall global hooks (if using vibe-and-thrive source repo)
-/path/to/vibe-and-thrive/ralph/hooks/install.sh --global --force
+npx thrivekit setup
 ```
 
 ### Hooks not working after moving project
@@ -176,12 +174,12 @@ npx ralph hooks --force
 Claude Code hooks use absolute paths. After moving a project or cloning on a new machine, reinstall hooks:
 
 ```bash
-npx ralph hooks --force
+npx thrivekit setup
 ```
 
 ### Team members getting hook errors
 
-`.claude/settings.json` contains machine-specific paths and should not be committed to git. The postinstall script automatically adds it to `.gitignore`. Each team member's hooks are configured when they run `npm install`.
+`.claude/settings.json` contains machine-specific paths and should not be committed to git. The setup script automatically adds it to `.gitignore`. Each team member's hooks are configured when they run `npx thrivekit setup`.
 
 If `.claude/settings.json` was accidentally committed:
 ```bash
@@ -192,7 +190,7 @@ git commit -m "Remove machine-specific settings from git"
 
 ### jq not installed
 
-Claude Code hooks require `jq` for JSON manipulation. On macOS with Homebrew, `npx ralph hooks` installs it automatically. On Linux:
+Claude Code hooks require `jq` for JSON manipulation. On macOS with Homebrew, the setup installs it automatically. On Linux:
 
 ```bash
 # Ubuntu/Debian
@@ -201,8 +199,8 @@ sudo apt install jq
 # Fedora/RHEL
 sudo dnf install jq
 
-# Then install hooks
-npx ralph hooks
+# Then run setup
+npx thrivekit setup
 ```
 
 ---

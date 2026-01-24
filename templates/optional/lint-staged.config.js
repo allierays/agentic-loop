@@ -1,5 +1,5 @@
 /**
- * Ready-to-use lint-staged configuration for vibe-and-thrive
+ * Ready-to-use lint-staged configuration for thrivekit
  *
  * Copy this file to your project root, or reference the config:
  *

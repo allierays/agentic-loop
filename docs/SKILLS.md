@@ -1,11 +1,11 @@
 # Claude Code Commands Reference
 
-Slash commands for Claude Code that power the vibe-and-thrive workflow.
+Slash commands for Claude Code that power the thrivekit workflow.
 
 ## Installation
 
 ```bash
-npm install vibe-and-thrive
+npm install thrivekit
 ```
 
 The postinstall automatically copies commands to your project's `.claude/commands/`.
@@ -49,7 +49,7 @@ Shows the workflow, all slash commands, Ralph commands, and setup instructions.
 
 ### `/tour`
 
-Interactive walkthrough of vibe-and-thrive.
+Interactive walkthrough of thrivekit.
 
 ```
 /tour

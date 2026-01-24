@@ -162,7 +162,7 @@ DEBUG = os.getenv('DEBUG', 'False').lower() == 'true'
 ```
 
 ## Pre-commit Hooks
-This project uses vibe-and-thrive hooks. Run `/vibe-check` before committing.
+This project uses thrivekit hooks. Run `/vibe-check` before committing.
 
 ## Common Commands
 ```bash

@@ -1,5 +1,5 @@
 /**
- * vibe-and-thrive
+ * thrivekit
  *
  * Catch common AI-generated code issues before they hit your codebase.
  */

@@ -343,13 +343,14 @@ ralph_status() {
 # Show help
 ralph_help() {
   cat <<'EOF'
-ralph - Autonomous AI Development Loop
+thrivekit - Tools to thrive with agentic coding
 
 Usage:
-  ralph <command> [options] [arguments]
+  npx thrivekit <command> [options]
 
 Commands:
-  init                    Initialize ralph in current directory
+  setup                   Set up project (hooks, config, CLAUDE.md)
+  init                    Initialize Ralph in current directory
   config                  Re-detect and update project config
   prd <notes>             Generate PRD interactively (quick mode)
   prd --file <file>       Generate PRD from file
@@ -360,31 +361,28 @@ Commands:
   verify <story-id>       Verify a specific story
   sign <pattern> [cat]    Add a learned pattern (sign)
   signs                   List all learned patterns
-  notify [phone]          Set up iMessage notifications (macOS)
   backup                  Backup detected databases to .backups/
   backups                 List available database backups
   restore <path>          Restore database from backup
-  hooks                   Install Claude Code hooks (real-time feedback)
-  hooks --global          Install hooks globally (~/.claude/settings.json)
   help                    Show this help message
 
 PRD Generation:
-  /idea <description>     Thorough brainstorm with architecture & scalability
-  ralph prd <description> Quick PRD with basic structure
+  /idea <description>           Thorough brainstorm (in Claude Code)
+  npx thrivekit prd <notes>     Quick PRD generation
 
 Examples:
-  ralph init
-  /idea "Add user authentication with OAuth"   # thorough
-  ralph prd "Add a contact form"               # quick
-  ralph run
-  ralph run --max 10
-  ralph status
-  ralph sign "Always use camelCase in WebSocket responses" frontend
+  npm install thrivekit && npx thrivekit setup
+  /idea "Add user authentication with OAuth"
+  npx thrivekit prd "Add a contact form"
+  npx thrivekit run
+  npx thrivekit run --max 10
+  npx thrivekit status
+  npx thrivekit sign "Always use camelCase" frontend
 
 Environment:
   RALPH_DIR       Override .ralph directory location (default: .ralph)
   PROMPT_FILE     Override PROMPT.md location (default: PROMPT.md)
 
-For more information, see: https://github.com/allthriveai/vibe-and-thrive
+For more information, see: https://github.com/allthriveai/thrivekit
 EOF
 }

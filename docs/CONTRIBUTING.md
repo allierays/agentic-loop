@@ -7,8 +7,8 @@ Found a pattern that AI agents commonly introduce? We'd love to add it!
 ### 1. Fork the repo
 
 ```bash
-git clone https://github.com/allthriveai/vibe-and-thrive.git
-cd vibe-and-thrive
+git clone https://github.com/allthriveai/thrivekit.git
+cd thrivekit
 npm install
 ```
 

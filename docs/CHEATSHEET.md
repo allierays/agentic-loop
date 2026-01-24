@@ -188,7 +188,7 @@ console.log('Initializing...'); // noqa: debug
 ## Quick Setup
 
 ```bash
-npm install vibe-and-thrive
+npm install thrivekit
 ```
 
 That's it. The postinstall sets up everything automatically.
@@ -213,4 +213,4 @@ That's it. The postinstall sets up everything automatically.
 - [Prompting Guide](docs/PROMPTING-GUIDE.md)
 - [Workflow Guide](docs/WORKFLOW.md)
 - [Hooks Reference](docs/HOOKS.md)
-- [GitHub Repo](https://github.com/allthriveai/vibe-and-thrive)
+- [GitHub Repo](https://github.com/allthriveai/thrivekit)

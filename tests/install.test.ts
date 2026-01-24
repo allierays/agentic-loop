@@ -43,24 +43,19 @@ describe('install flow', () => {
       const content = readFileSync(tourPath, 'utf-8')
 
       expect(content).toContain('Ralph')
-      expect(content).toContain('vibe-and-thrive')
+      expect(content).toContain('thrivekit')
     })
   })
 
   describe('bin scripts', () => {
-    it('ralph.sh is executable', () => {
+    it('thrivekit.sh is executable', () => {
+      const thrivekitPath = join(PROJECT_ROOT, 'bin', 'thrivekit.sh')
+      expect(existsSync(thrivekitPath)).toBe(true)
+    })
+
+    it('ralph.sh exists for internal use', () => {
       const ralphPath = join(PROJECT_ROOT, 'bin', 'ralph.sh')
       expect(existsSync(ralphPath)).toBe(true)
-    })
-
-    it('vibe-and-thrive.sh is executable', () => {
-      const vibePath = join(PROJECT_ROOT, 'bin', 'vibe-and-thrive.sh')
-      expect(existsSync(vibePath)).toBe(true)
-    })
-
-    it('ralph-setup.sh is executable', () => {
-      const setupPath = join(PROJECT_ROOT, 'bin', 'ralph-setup.sh')
-      expect(existsSync(setupPath)).toBe(true)
     })
   })
 
@@ -98,9 +93,8 @@ describe('install flow', () => {
       const pkgPath = join(PROJECT_ROOT, 'package.json')
       const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
 
-      expect(pkg.bin).toHaveProperty('ralph')
-      expect(pkg.bin).toHaveProperty('vibe-and-thrive')
-      expect(pkg.bin).toHaveProperty('ralph-setup')
+      expect(pkg.bin).toHaveProperty('thrivekit')
+      expect(pkg.bin).toHaveProperty('vibe-check')
     })
 
     it('includes required files in package', () => {
@@ -167,7 +161,7 @@ describe('simulated install', () => {
 
   it('quick-setup creates .pre-commit-config.yaml', () => {
     const precommitConfig = `repos:
-  - repo: https://github.com/allthriveai/vibe-and-thrive
+  - repo: https://github.com/allthriveai/thrivekit
     rev: v1.0.0
     hooks:
       - id: check-secrets

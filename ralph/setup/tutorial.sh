@@ -28,7 +28,7 @@ tutorial() {
   lesson_mcp
   press_enter || { quick_setup; return; }
 
-  # Lesson 4: vibe-and-thrive integration
+  # Lesson 4: thrivekit integration
   lesson_integration
   press_enter || { quick_setup; return; }
 
@@ -36,7 +36,7 @@ tutorial() {
   echo ""
   echo -e "  ${GREEN}${EMOJI_PARTY} Tutorial complete!${NC}\n"
   echo -e "  You now know the basics of Claude Code."
-  echo -e "  Let's set up vibe-and-thrive for your project.\n"
+  echo -e "  Let's set up thrivekit for your project.\n"
 
   quick_setup
 }
@@ -88,7 +88,7 @@ lesson_slash_commands() {
   echo -e "    ${CYAN}/review${NC}    Code review with security checks"
   echo ""
   echo -e "  Custom commands are markdown files with prompts."
-  echo -e "  vibe-and-thrive installs 7 pre-built commands."
+  echo -e "  thrivekit installs 7 pre-built commands."
   echo ""
   echo -e "  ${DIM}Try it: In Claude Code, type '/vibe-help' for the cheatsheet${NC}"
 }
@@ -125,15 +125,15 @@ lesson_mcp() {
   }
 EOF
   echo ""
-  echo -e "  ${DIM}vibe-and-thrive configures this automatically.${NC}"
+  echo -e "  ${DIM}thrivekit configures this automatically.${NC}"
 }
 
 lesson_integration() {
   clear
   show_logo
-  show_step 4 4 "vibe-and-thrive Integration"
+  show_step 4 4 "thrivekit Integration"
 
-  echo -e "  ${BOLD}vibe-and-thrive${NC} adds superpowers to Claude Code:"
+  echo -e "  ${BOLD}thrivekit${NC} adds superpowers to Claude Code:"
   echo ""
   echo -e "  ${BOLD}1. The Workflow (/idea → Ralph → Ship)${NC}"
   echo -e "     ${DIM}Brainstorm ideas, generate PRDs, execute autonomously${NC}"
@@ -150,7 +150,7 @@ lesson_integration() {
   echo -e "  ${BOLD}5. MCP Configuration${NC}"
   echo -e "     ${DIM}Chrome DevTools for visual verification${NC}"
   echo ""
-  echo -e "  ${DIM}All of this installs with: npm install vibe-and-thrive${NC}"
+  echo -e "  ${DIM}All of this installs with: npm install thrivekit${NC}"
 }
 
 # If run directly, execute tutorial

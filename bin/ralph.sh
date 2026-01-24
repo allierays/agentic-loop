@@ -3,7 +3,7 @@
 # ralph.sh - Autonomous AI Development Loop
 #
 # A CLI tool that orchestrates Claude CLI for autonomous development loops.
-# Part of vibe-and-thrive: https://github.com/allthriveai/vibe-and-thrive
+# Part of thrivekit: https://github.com/allthriveai/thrivekit
 
 set -euo pipefail
 
@@ -51,6 +51,7 @@ fi
 # Source function libraries
 source "$RALPH_LIB/utils.sh"
 source "$RALPH_LIB/init.sh"
+source "$RALPH_LIB/setup.sh"
 source "$RALPH_LIB/loop.sh"
 source "$RALPH_LIB/verify.sh"
 source "$RALPH_LIB/prd.sh"
@@ -69,6 +70,9 @@ main() {
   shift || true
 
   case "$cmd" in
+    setup)
+      ralph_setup "$@"
+      ;;
     init)
       ralph_init "$@"
       ;;
@@ -152,7 +156,7 @@ main() {
       # Read version from package.json
       local version
       version=$(jq -r '.version // "unknown"' "$SCRIPT_DIR/../package.json" 2>/dev/null || echo "unknown")
-      echo "ralph $version (vibe-and-thrive)"
+      echo "ralph $version (thrivekit)"
       ;;
     *)
       print_error "Unknown command: $cmd"

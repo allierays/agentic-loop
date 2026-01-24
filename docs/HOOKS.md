@@ -1,6 +1,6 @@
 # Hooks Reference
 
-vibe-and-thrive provides two types of hooks:
+thrivekit provides two types of hooks:
 
 1. **Pre-commit hooks** - Run at git commit time (catch issues before they're committed)
 2. **Claude Code hooks** - Run during Claude sessions (real-time feedback while coding)
@@ -106,7 +106,7 @@ Claude Code hooks produce:
 
 ## Pre-commit Hooks (Git)
 
-All 16 pre-commit hooks available in vibe-and-thrive.
+All 16 pre-commit hooks available in thrivekit.
 
 ## Hooks That Block Commits
 
@@ -142,7 +142,7 @@ These hooks warn but allow commits to proceed.
 
 ```yaml
 repos:
-  - repo: https://github.com/allthriveai/vibe-and-thrive
+  - repo: https://github.com/allthriveai/thrivekit
     rev: v0.2.0
     hooks:
       # Security (blocks commits)
@@ -212,7 +212,7 @@ Install via npm and use the `vibe-check` CLI:
 
 ```bash
 # Install
-npm install vibe-and-thrive
+npm install thrivekit
 
 # Check all files
 npx vibe-check .
@@ -235,6 +235,6 @@ npx vibe-check . --format compact  # One line per issue
 ## Updating
 
 ```bash
-pre-commit autoupdate --repo https://github.com/allthriveai/vibe-and-thrive
+pre-commit autoupdate --repo https://github.com/allthriveai/thrivekit
 pre-commit install
 ```

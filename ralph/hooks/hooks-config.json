@@ -1,6 +1,6 @@
 {
   "_comment": "Copy this 'hooks' section into your ~/.claude/settings.json or .claude/settings.json",
-  "_instructions": "Replace VIBE_PATH with the path to your vibe-and-thrive installation",
+  "_instructions": "Replace VIBE_PATH with the path to your thrivekit installation",
   "hooks": {
     "PreToolUse": [
       {
