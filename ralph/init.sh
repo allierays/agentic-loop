@@ -346,19 +346,30 @@ ralph_help() {
 thrivekit - Tools to thrive with agentic coding
 
 What is this?
-  Ralph is an autonomous development loop that builds features for you.
-  You describe what you want, Ralph writes the code, tests it, and iterates
-  until it works.
+  thrivekit helps you build features using two terminals working together.
 
-  /idea lets you brainstorm big features with Claude. It saves your ideas
-  to docs/ideas/, then breaks them down into small, executable PRDs that
-  Ralph can build one at a time.
+  Terminal 1 - Claude Code (your AI pair programmer):
+    claude --dangerously-skip-permissions
+
+    The --dangerously-skip-permissions flag lets Claude edit files and run
+    commands without asking permission each time. This enables fluid,
+    uninterrupted collaboration while you brainstorm and refine ideas.
+
+    Use /idea to brainstorm big features. Claude saves your ideas to
+    docs/ideas/, then breaks them into small, executable PRDs.
+
+  Terminal 2 - Ralph (autonomous execution):
+    npx thrivekit run
+
+    Ralph picks up the PRDs you created and builds them autonomously.
+    It writes code, runs tests, and iterates until each feature works.
+    Ralph runs separately so you can keep brainstorming in Claude.
 
 Quick Start:
-  1. npx thrivekit setup              # Set up your project
-  2. claude --dangerously-skip-permissions
-  3. /idea "your feature description" # Generate a PRD (in Claude)
-  4. npx thrivekit run                # Ralph builds it autonomously
+  1. npx thrivekit setup
+  2. Terminal 1: claude --dangerously-skip-permissions
+  3. In Claude: /idea "your feature description"
+  4. Terminal 2: npx thrivekit run
 
 Usage:
   npx thrivekit <command> [options]
