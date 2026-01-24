@@ -44,13 +44,23 @@ preflight_checks() {
     # Check for alembic migrations
     if [[ -d "$backend_dir/alembic" ]] || [[ -d "$backend_dir/migrations" ]]; then
       printf "  Database migrations... "
-      # Try to verify DB connection via alembic or Django
+      # Detect Python runner
+      local py_runner="python"
+      if [[ -f "$backend_dir/uv.lock" ]]; then
+        py_runner="uv run"
+      elif [[ -f "$backend_dir/poetry.lock" ]]; then
+        py_runner="poetry run"
+      fi
+      # Try to verify DB connection via alembic
       if [[ -f "$backend_dir/alembic.ini" ]]; then
-        if (cd "$backend_dir" && alembic current >/dev/null 2>&1); then
+        if (cd "$backend_dir" && $py_runner alembic current >/dev/null 2>&1); then
           print_success "ok"
+        elif docker compose exec -T api alembic current >/dev/null 2>&1; then
+          # Try via Docker if local fails
+          print_success "ok (via docker)"
         else
           print_warning "check DB connection"
-          echo "    Run: cd $backend_dir && alembic current"
+          echo "    Run: cd $backend_dir && $py_runner alembic current"
           ((warnings++))
         fi
       fi
