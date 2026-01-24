@@ -20,6 +20,7 @@ ralph_setup() {
   setup_slash_commands "$pkg_root"
   setup_claude_md
   setup_mcp
+  setup_precommit_hooks
 
   echo ""
   print_success "Setup complete!"
@@ -46,10 +47,22 @@ setup_ralph_dir() {
   # Copy config template based on detected project type
   if [[ ! -f ".ralph/config.json" ]]; then
     local config_template=""
-    if [[ -f "manage.py" ]] || [[ -f "pyproject.toml" ]]; then
+    # Check for Go projects
+    if [[ -f "go.mod" ]]; then
+      config_template="$pkg_root/templates/config/go.json"
+    # Check for Rust projects
+    elif [[ -f "Cargo.toml" ]]; then
+      config_template="$pkg_root/templates/config/rust.json"
+    # Check for Hugo projects
+    elif [[ -f "hugo.toml" || -f "hugo.yaml" || -f "config.toml" ]] && [[ -d "content" || -d "layouts" || -d "themes" ]]; then
+      config_template="$pkg_root/templates/config/go.json"
+    # Check for Python projects
+    elif [[ -f "manage.py" ]] || [[ -f "pyproject.toml" ]]; then
       config_template="$pkg_root/templates/config/python.json"
+    # Check for fullstack projects
     elif [[ -d "frontend" ]] && [[ -d "backend" || -d "core" || -d "apps" ]]; then
       config_template="$pkg_root/templates/config/fullstack.json"
+    # Check for Node projects
     elif [[ -f "package.json" ]]; then
       config_template="$pkg_root/templates/config/node.json"
     fi
@@ -340,4 +353,41 @@ setup_mcp() {
     "args": ["-y", "@anthropic-ai/mcp-server-chrome-devtools@0.0.5"]
   }' "$claude_json" > "$tmp" && mv "$tmp" "$claude_json"
   echo "  Added chrome-devtools MCP server"
+}
+
+# Set up pre-commit hooks
+setup_precommit_hooks() {
+  echo "Setting up pre-commit hooks..."
+
+  # Create .pre-commit-config.yaml if it doesn't exist
+  if [[ ! -f ".pre-commit-config.yaml" ]]; then
+    cat > .pre-commit-config.yaml << 'EOF'
+repos:
+  - repo: https://github.com/allthriveai/thrivekit
+    rev: v2.0.0
+    hooks:
+      - id: check-secrets
+        name: Check for hardcoded secrets
+      - id: check-hardcoded-urls
+        name: Check for hardcoded URLs
+      - id: check-debug
+        name: Check for debug statements
+EOF
+    echo "  Created .pre-commit-config.yaml"
+  else
+    echo "  Skipped: .pre-commit-config.yaml already exists"
+  fi
+
+  # Install hooks if pre-commit is available
+  if command -v pre-commit &>/dev/null; then
+    if [[ -d ".git" ]]; then
+      pre-commit install > /dev/null 2>&1
+      echo "  Hooks installed"
+    else
+      echo "  Not a git repo - run 'pre-commit install' after git init"
+    fi
+  else
+    echo "  pre-commit not found - install with: pip install pre-commit"
+    echo "  Then run: pre-commit install"
+  fi
 }
