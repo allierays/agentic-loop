@@ -350,8 +350,9 @@ What is this?
   You describe what you want, Ralph writes the code, tests it, and iterates
   until it works.
 
-  PRD (Product Requirements Document) is how you tell Ralph what to build.
-  Use /idea in Claude Code to brainstorm and generate PRDs interactively.
+  /idea lets you brainstorm big features with Claude. It saves your ideas
+  to docs/ideas/, then breaks them down into small, executable PRDs that
+  Ralph can build one at a time.
 
 Quick Start:
   1. npx thrivekit setup              # Set up your project
