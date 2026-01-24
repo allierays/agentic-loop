@@ -24,20 +24,6 @@ readonly CURL_TIMEOUT_SECONDS=10
 readonly FRONTEND_DIRS=("apps/web" "frontend" "client" "web")
 readonly BACKEND_DIRS=("apps/api" "api" "backend" "server")
 
-# Default ports by framework (used only during detection, then stored in config)
-declare -A DEFAULT_PORTS=(
-  ["vite"]=5173
-  ["nextjs"]=3000
-  ["hugo"]=1313
-  ["react"]=3000
-  ["vue"]=5173
-  ["express"]=3001
-  ["fastapi"]=8000
-  ["django"]=8000
-  ["flask"]=5000
-  ["rails"]=3000
-)
-
 # Track temp files for safe cleanup
 RALPH_TEMP_FILES=()
 
