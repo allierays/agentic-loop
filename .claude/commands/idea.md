@@ -115,7 +115,12 @@ Once the user confirms, write the idea file:
    - Any unresolved decisions
    ```
 
-3. Say: "I've written the idea to `docs/ideas/{feature-name}.md`.
+3. Open the file for review:
+   ```bash
+   open docs/ideas/{feature-name}.md
+   ```
+
+4. Say: "I've written the idea to `docs/ideas/{feature-name}.md`.
 
    Review it and let me know:
    - **'approved'** - Ready to split into PRDs
