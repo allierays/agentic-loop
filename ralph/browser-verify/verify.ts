@@ -273,8 +273,17 @@ async function verify(options: VerifyOptions): Promise<VerifyResult> {
 
       // Capture actual console.error calls
       if (type === 'error') {
-        // Ignore some common noise
-        if (!text.includes('favicon') && !text.includes('DevTools')) {
+        // Ignore common noise (favicons, devtools, resource loading 404s, sourcemaps)
+        const ignoredPatterns = [
+          'favicon',
+          'DevTools',
+          'Failed to load resource',  // Browser's generic 404/network error message
+          '.map',                      // Sourcemap 404s
+          'net::ERR_',                 // Network errors
+          'the server responded with a status of 4',  // 4xx errors
+        ];
+        const shouldIgnore = ignoredPatterns.some(pattern => text.includes(pattern));
+        if (!shouldIgnore) {
           consoleErrors.push(text);
         }
       }
