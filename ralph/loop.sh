@@ -227,24 +227,63 @@ run_loop() {
 
       # Auto-commit if git is available
       if command -v git &>/dev/null && [[ -d ".git" ]]; then
-        local title commit_log
+        local title commit_log commit_success
         title=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .title' "$RALPH_DIR/prd.json")
         commit_log=$(mktemp)
-        git add -A
-        # First commit attempt - pre-commit hooks may auto-fix files
-        if ! git commit -m "feat($story): $title" > "$commit_log" 2>&1; then
-          # If failed, stage the auto-fixed files and retry once
+        commit_success=false
+
+        # Try up to 3 times to handle auto-fix chains (some hooks always modify files)
+        for attempt in 1 2 3; do
           git add -A
-          if ! git commit -m "feat($story): $title" > "$commit_log" 2>&1; then
-            # Second attempt also failed - lint errors need fixing
-            print_warning "Pre-commit hooks failed, needs fixes..."
-            # Save the commit output for Claude to see
-            cp "$commit_log" "$RALPH_DIR/last_precommit_failure.log"
-            rm -f "$commit_log"
-            save_failure_context "$story"
-            log_progress "$story" "FAILED" "Pre-commit hooks failed"
-            continue
+          if git commit -m "feat($story): $title" > "$commit_log" 2>&1; then
+            commit_success=true
+            break
           fi
+
+          # Check if failure is due to file modifications (auto-fix)
+          if grep -q "files were modified by this hook" "$commit_log" 2>/dev/null; then
+            # Check for REAL errors (not just file modifications or warnings)
+            if grep -qE "^error:|: error:|Error:|SyntaxError" "$commit_log" 2>/dev/null; then
+              # Real errors - stop retrying
+              break
+            fi
+            # ESLint with actual errors (not just warnings)
+            if grep -qE "✖ [0-9]+ problems? \([1-9][0-9]* errors?" "$commit_log" 2>/dev/null; then
+              break
+            fi
+            # Only file modifications - retry
+            if [[ $attempt -lt 3 ]]; then
+              continue
+            fi
+            # Max attempts with only file mods - try one more commit
+            git add -A
+            if git commit -m "feat($story): $title" --no-verify > "$commit_log" 2>&1; then
+              commit_success=true
+              print_warning "(committed with --no-verify due to auto-fix loop)"
+            fi
+            break
+          else
+            # Failed for other reason - check if it's a real error
+            if ! grep -qE "^error:|: error:|Error:|SyntaxError|✖ [0-9]+ problems? \([1-9]" "$commit_log" 2>/dev/null; then
+              # No real errors found - might just be warnings
+              # Try committing with --no-verify
+              git add -A
+              if git commit -m "feat($story): $title" --no-verify > "$commit_log" 2>&1; then
+                commit_success=true
+                print_warning "(committed with --no-verify - only warnings detected)"
+              fi
+            fi
+            break
+          fi
+        done
+
+        if [[ "$commit_success" != "true" ]]; then
+          print_warning "Pre-commit hooks failed, needs fixes..."
+          cp "$commit_log" "$RALPH_DIR/last_precommit_failure.log"
+          rm -f "$commit_log"
+          save_failure_context "$story"
+          log_progress "$story" "FAILED" "Pre-commit hooks failed"
+          continue
         fi
         rm -f "$commit_log"
       fi

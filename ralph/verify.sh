@@ -197,10 +197,15 @@ save_failure_context() {
 
     if [[ -f "$RALPH_DIR/last_precommit_failure.log" ]]; then
       echo "--- Pre-commit / Lint Failure ---"
-      echo "Fix these lint errors before the story can be completed:"
+      echo "Fix these errors before the story can be completed:"
       echo ""
-      # Extract just the error lines (skip the hook names and status lines)
-      grep -E "^\s*(error|warning|Error|ARG|F841|B007|SIM|-->)" "$RALPH_DIR/last_precommit_failure.log" | head -50
+      # Extract actual error lines (not warnings-only or file modification messages)
+      grep -E "^error:|: error:|Error:|SyntaxError|✖ [0-9]+ problems|^[^:]+:[0-9]+:[0-9]+: [EF][0-9]+" "$RALPH_DIR/last_precommit_failure.log" | head -30
+      # If no errors shown, show the full log tail
+      if ! grep -qE "^error:|: error:|Error:|SyntaxError|✖ [0-9]+ problems" "$RALPH_DIR/last_precommit_failure.log"; then
+        echo "(Full output):"
+        tail -40 "$RALPH_DIR/last_precommit_failure.log"
+      fi
       echo ""
     fi
 

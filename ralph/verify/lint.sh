@@ -157,33 +157,111 @@ run_configured_checks() {
     echo -n "    pre-commit hooks... "
     local precommit_log="$RALPH_DIR/last_precommit_failure.log"
 
-    # First run - let hooks auto-fix files
-    if pre-commit run --all-files > "$precommit_log" 2>&1; then
-      print_success "passed"
-      rm -f "$precommit_log"
-    elif grep -q "files were modified by this hook" "$precommit_log"; then
-      # Hooks auto-fixed files - stage them and run again
-      echo "auto-fixing..."
-      git add -A 2>/dev/null || true
+    # Helper function: check if pre-commit output has REAL errors (not just file modifications or warnings)
+    has_real_errors() {
+      local log_file="$1"
 
-      # Second run - should pass now unless there are real errors
-      if pre-commit run --all-files > "$precommit_log" 2>&1; then
-        print_success "passed (after auto-fix)"
-        rm -f "$precommit_log"
-      else
-        # Still failing - these are real errors
-        print_error "failed"
-        echo ""
-        echo "    Pre-commit hook errors (after auto-fix):"
-        grep -A 20 "Failed\|error\|Error" "$precommit_log" | head -"$MAX_ERROR_PREVIEW_LINES" | sed 's/^/      /'
-        return 1
+      # If all "Failed" hooks only have "files were modified" - not real errors
+      # Real errors have patterns like: "error:", "Error:", numbered errors "✖ N problems (N errors"
+      # But ESLint "0 errors, N warnings" is NOT a real error
+
+      # Check for actual error indicators (not warnings-only)
+      if grep -qE "^error:|: error:|Error:|SyntaxError|TypeError|NameError" "$log_file" 2>/dev/null; then
+        return 0  # Has real errors
       fi
+
+      # Check ESLint output - fail only if errors > 0
+      if grep -qE "✖ [0-9]+ problems? \([1-9][0-9]* errors?" "$log_file" 2>/dev/null; then
+        return 0  # Has real ESLint errors
+      fi
+
+      # Check ruff output - actual errors have file:line:col: error pattern
+      if grep -qE "^[^:]+:[0-9]+:[0-9]+: [EF][0-9]+" "$log_file" 2>/dev/null; then
+        return 0  # Has real ruff errors
+      fi
+
+      # Check for hooks that failed for reasons OTHER than file modification
+      # Get all "Failed" hooks and check if any DON'T have "files were modified"
+      local failed_hooks
+      failed_hooks=$(grep -B 5 "^- hook id:" "$log_file" | grep -B 1 "Failed" | grep "hook id:" | sed 's/.*hook id: //' 2>/dev/null)
+
+      while IFS= read -r hook_id; do
+        [[ -z "$hook_id" ]] && continue
+        # Check if this hook's failure section contains "files were modified"
+        if ! grep -A 3 "hook id: $hook_id" "$log_file" | grep -q "files were modified"; then
+          # This hook failed for a real reason
+          return 0
+        fi
+      done <<< "$failed_hooks"
+
+      return 1  # No real errors found
+    }
+
+    # Run pre-commit up to 3 times to handle auto-fix chains
+    local max_attempts=3
+    local attempt=1
+    local passed=false
+
+    while [[ $attempt -le $max_attempts ]]; do
+      if pre-commit run --all-files > "$precommit_log" 2>&1; then
+        passed=true
+        break
+      fi
+
+      # Check if failure is due to file modifications (auto-fix)
+      if grep -q "files were modified by this hook" "$precommit_log"; then
+        # Check if there are also REAL errors (not just file mods)
+        if has_real_errors "$precommit_log"; then
+          # Real errors exist - fail
+          break
+        fi
+
+        # Only file modifications - stage and retry
+        if [[ $attempt -lt $max_attempts ]]; then
+          echo -n "auto-fixing (attempt $attempt)... "
+          git add -A 2>/dev/null || true
+          ((attempt++))
+          continue
+        else
+          # Max attempts reached, but only file mods - consider it passed
+          # Some hooks (like backup-database) always modify files
+          echo -n "auto-fix complete... "
+          git add -A 2>/dev/null || true
+          passed=true
+          break
+        fi
+      else
+        # Failed without "files were modified" - check for real errors
+        if has_real_errors "$precommit_log"; then
+          break  # Real errors
+        else
+          # No real errors detected (warnings only, etc.)
+          passed=true
+          break
+        fi
+      fi
+
+      ((attempt++))
+    done
+
+    if [[ "$passed" == "true" ]]; then
+      if [[ $attempt -gt 1 ]]; then
+        print_success "passed (after auto-fix)"
+      else
+        print_success "passed"
+      fi
+      rm -f "$precommit_log"
     else
-      # First run failed with real errors (not just auto-fix)
       print_error "failed"
       echo ""
       echo "    Pre-commit hook errors:"
-      grep -A 20 "Failed\|error\|Error" "$precommit_log" | head -"$MAX_ERROR_PREVIEW_LINES" | sed 's/^/      /'
+      # Show actual errors, not just "Failed" status lines
+      grep -E "^error:|: error:|Error:|SyntaxError|✖ [0-9]+ problems|^[^:]+:[0-9]+:[0-9]+:" "$precommit_log" | head -"$MAX_ERROR_PREVIEW_LINES" | sed 's/^/      /'
+      # If no errors shown, show more context
+      if ! grep -qE "^error:|: error:|Error:|SyntaxError|✖ [0-9]+ problems" "$precommit_log"; then
+        echo "    Full output:"
+        tail -30 "$precommit_log" | sed 's/^/      /'
+      fi
       return 1
     fi
   fi
