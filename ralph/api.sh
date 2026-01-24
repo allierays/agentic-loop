@@ -78,6 +78,12 @@ run_api_validation() {
     elif [[ "$response_code" == "000" ]]; then
       print_error "connection failed"
       failed=1
+    elif [[ "$response_code" == "422" || "$response_code" == "400" ]]; then
+      # 422/400 = endpoint exists but needs params - don't fail verification
+      print_warning "$response_code (needs params)"
+    elif [[ "$response_code" == "401" || "$response_code" == "403" ]]; then
+      # Auth required - endpoint exists
+      print_warning "$response_code (auth required)"
     else
       print_error "$response_code"
       failed=1
