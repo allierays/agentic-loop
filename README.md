@@ -16,6 +16,7 @@ A toolkit for implementing [RALPH](https://ghuntley.com/ralph/) with [Claude Cod
 #### Autonomous Code Loops with RALPH principles
 Run this in the terminal not in a claude cli session. It will use your claude subscription not an API key.
 - **`npx thrivekit run`** - RALPH Autonomous loop: Brainstorm ideas → turn ideas into atomic prds → implement → verify → commit → repeat
+- **`npx thrivekit run --fast`** - Fast mode: skips code review for quicker iterations (~2-3 min/story vs 5-8 min)
 
 #### Guardrails
 - **`/vibe-check`** - manually run the same automated tests and guardrail checks at any time
@@ -89,12 +90,21 @@ Review and approve when prompted.
 Type `/exit` or open a new terminal, then run:
 
 ```bash
+# Standard mode (with code review)
 npx thrivekit run
+
+# Fast mode (skip code review, ~2x faster)
+npx thrivekit run --fast
+
+# Limit iterations
+npx thrivekit run --max 10
 ```
 
 Ralph loops through stories one at a time, writes tests, verifies, and commits.
 
 > **Pro tip:** Use two terminals - plan with Claude in one, run Ralph in another.
+>
+> **Performance:** Fast mode skips the AI code review step, running lint and tests in parallel. Use it when iterating quickly on known-good patterns.
 
 ## Ralph Details
 
@@ -106,13 +116,25 @@ Ralph loops through stories one at a time, writes tests, verifies, and commits.
 │  1. Read prd.json → find next story where passes=false      │
 │  2. Build prompt (story + context + failures + signs)       │
 │  3. Spawn Claude with prompt                                │
-│  4. Run verification (build, tests, browser, code review)   │
+│  4. Run verification:                                       │
+│     - Code review (skipped in --fast mode)                  │
+│     - Lint + tests (run in parallel)                        │
+│     - Playwright/API tests                                  │
+│     - Browser validation                                    │
 │  5. Pass? → commit, next story                              │
 │     Fail? → save error, retry with failure context          │
 │  6. Repeat until all stories pass                           │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### Performance Options
+
+| Flag | Effect | Best For |
+|------|--------|----------|
+| `--fast` | Skip code review, parallel lint+tests | Rapid iteration, trusted patterns |
+| `--max N` | Limit to N iterations | Preventing runaway loops |
+| (default) | Full verification with code review | Production-quality code |
 
 ---
 

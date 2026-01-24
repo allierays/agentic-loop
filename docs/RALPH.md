@@ -199,24 +199,24 @@ After Claude finishes, Ralph runs verification:
 │                   VERIFICATION PIPELINE                      │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
-│  1. Build Check                                              │
-│     └─ npm run build (or configured command)                 │
-│                                                              │
-│  2. Code Review                                              │
+│  1. Code Review (skipped in --fast mode)                     │
 │     └─ Claude reviews diff for security/patterns             │
+│     └─ Auto-skipped if last failure was lint/test            │
 │                                                              │
-│  3. Unit Tests                                               │
-│     └─ Runs testSteps from story                             │
+│  2. Lint + Unit Tests (run in PARALLEL)                      │
+│     └─ Build/lint checks run simultaneously with tests       │
+│     └─ Saves 10-30s per iteration                            │
 │                                                              │
-│  4. Playwright E2E (if e2e: true)                            │
-│     └─ Runs tests/e2e/{story-id}.spec.ts                     │
+│  3. Playwright E2E / API Tests                               │
+│     └─ Frontend: tests/e2e/{story-id}.spec.ts                │
+│     └─ Backend: API endpoint validation                      │
 │                                                              │
-│  5. Browser Validation (if testUrl set)                      │
-│     └─ Loads page, checks for console errors,                │
-│        network failures, missing elements                    │
+│  4. Browser / API Validation                                 │
+│     └─ Frontend: console errors, missing elements            │
+│     └─ Backend: response validation                          │
 │                                                              │
-│  6. Custom Test Steps                                        │
-│     └─ Any additional commands from testSteps                │
+│  5. PRD Test Steps                                           │
+│     └─ Custom commands from testSteps                        │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -257,17 +257,18 @@ Now every future story will see this pattern.
 
 | Command | What it does |
 |---------|--------------|
-| `npx ralph run` | Start the loop |
-| `npx ralph run --story TASK-001` | Run specific story only |
-| `npx ralph run --max 5` | Limit to 5 iterations |
-| `npx ralph stop` | Stop after current story |
-| `npx ralph status` | Show story progress |
-| `npx ralph check` | Run verification without Claude |
-| `npx ralph verify TASK-001` | Verify specific story |
-| `npx ralph signs` | List learned patterns |
-| `npx ralph sign "pattern" category` | Add a pattern |
-| `npx ralph unsign "pattern"` | Remove a pattern |
-| `npx ralph progress` | Show recent log entries |
+| `npx thrivekit run` | Start the loop |
+| `npx thrivekit run --fast` | Fast mode: skip code review (~2x faster) |
+| `npx thrivekit run --story TASK-001` | Run specific story only |
+| `npx thrivekit run --max 5` | Limit to 5 iterations |
+| `npx thrivekit stop` | Stop after current story |
+| `npx thrivekit status` | Show story progress |
+| `npx thrivekit check` | Run verification without Claude |
+| `npx thrivekit verify TASK-001` | Verify specific story |
+| `npx thrivekit signs` | List learned patterns |
+| `npx thrivekit sign "pattern" category` | Add a pattern |
+| `npx thrivekit unsign "pattern"` | Remove a pattern |
+| `npx thrivekit progress` | Show recent log entries |
 
 ## Configuration Reference
 
@@ -378,7 +379,30 @@ npx ralph check
 
 ### Performance Tips
 
-1. **Good PROMPT.md** - Clear instructions reduce iterations
-2. **Signs** - Teach patterns early to avoid repeated failures
-3. **Styleguide** - Consistent UI reduces review failures
-4. **Atomic stories** - Smaller scope = faster verification
+1. **Use `--fast` mode** - Skip code review for ~2x faster iterations
+2. **Good PROMPT.md** - Clear instructions reduce iterations
+3. **Signs** - Teach patterns early to avoid repeated failures
+4. **Styleguide** - Consistent UI reduces review failures
+5. **Atomic stories** - Smaller scope = faster verification
+
+### Performance Modes
+
+| Mode | Time per Story | Best For |
+|------|----------------|----------|
+| Default | ~5-8 min | Production-quality code, full review |
+| `--fast` | ~2-3 min | Rapid iteration, known patterns |
+
+**What `--fast` mode does:**
+- Skips AI code review step (saves 30-120s)
+- Runs lint and tests in parallel (saves 10-30s)
+- Auto-skips review if last failure was lint/test
+
+**When to use `--fast`:**
+- Iterating on a story that keeps failing lint/tests
+- Working with well-established patterns
+- Time-sensitive development
+
+**When NOT to use `--fast`:**
+- First implementation of a new feature
+- Security-sensitive code
+- Before final merge to main
