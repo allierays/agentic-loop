@@ -27,6 +27,11 @@ run_browser_validation() {
     local url
     url=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .testUrl // empty' "$RALPH_DIR/prd.json" 2>/dev/null)
     if [[ -n "$url" ]]; then
+      # Check for unsubstituted template variables
+      if [[ "$url" =~ \{[a-zA-Z_][a-zA-Z0-9_]*\} ]]; then
+        print_warning "    testUrl has unsubstituted variable: $url"
+        return 0
+      fi
       # Handle relative URLs
       if [[ "$url" =~ ^/ ]]; then
         if [[ -z "$base_url" ]]; then
@@ -45,6 +50,14 @@ run_browser_validation() {
 
   if [[ -z "$url" ]]; then
     echo "    skipped (no testUrl - infrastructure or backend story)"
+    return 0
+  fi
+
+  # Check for unsubstituted template variables like {collectionId}
+  if [[ "$url" =~ \{[a-zA-Z_][a-zA-Z0-9_]*\} ]]; then
+    print_warning "    testUrl has unsubstituted variable: $url"
+    echo "    Add concrete ID to testUrl in PRD, or set in .ralph/config.json testUrlVars"
+    echo "    skipped"
     return 0
   fi
 
