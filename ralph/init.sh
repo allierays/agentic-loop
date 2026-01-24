@@ -188,16 +188,38 @@ auto_configure_project() {
 
   # 2. Detect testUrlBase from common patterns
   local base_url=""
-  # Check package.json scripts for dev server port
-  if [[ -f "package.json" ]]; then
+
+  # Check for Vite config (uses port 5173 by default)
+  for vite_config in "vite.config.ts" "vite.config.js" "apps/web/vite.config.ts" "apps/web/vite.config.js" \
+                     "apps/frontend/vite.config.ts" "frontend/vite.config.ts"; do
+    if [[ -f "$vite_config" ]]; then
+      base_url="http://localhost:5173"
+      break
+    fi
+  done
+
+  # Check for Next.js (uses port 3000 by default)
+  if [[ -z "$base_url" ]]; then
+    for next_config in "next.config.js" "next.config.ts" "next.config.mjs" \
+                       "apps/web/next.config.js" "apps/web/next.config.mjs"; do
+      if [[ -f "$next_config" ]]; then
+        base_url="http://localhost:3000"
+        break
+      fi
+    done
+  fi
+
+  # Fallback: Check package.json scripts for dev server port
+  if [[ -z "$base_url" && -f "package.json" ]]; then
     if grep -q '"dev".*:3000' package.json 2>/dev/null; then
       base_url="http://localhost:3000"
     elif grep -q '"dev".*:5173' package.json 2>/dev/null; then
-      base_url="http://localhost:5173"  # Vite default
+      base_url="http://localhost:5173"
     elif grep -q '"dev".*:8080' package.json 2>/dev/null; then
       base_url="http://localhost:8080"
     fi
   fi
+
   # Check for monorepo frontend
   for fe_pkg in "apps/web/package.json" "apps/frontend/package.json" "frontend/package.json"; do
     if [[ -f "$fe_pkg" && -z "$base_url" ]]; then
@@ -254,7 +276,43 @@ auto_configure_project() {
     fi
   fi
 
-  # 4. Detect package manager
+  # 4. Detect API baseUrl based on backend type
+  local api_url=""
+  if [[ -n "$backend_dir" ]]; then
+    # Check Dockerfile for EXPOSE directive
+    if [[ -f "$backend_dir/Dockerfile" ]]; then
+      local docker_port
+      docker_port=$(grep -i "^EXPOSE" "$backend_dir/Dockerfile" 2>/dev/null | head -1 | grep -oE '[0-9]+' | head -1)
+      if [[ -n "$docker_port" ]]; then
+        api_url="http://localhost:$docker_port"
+      fi
+    fi
+    # Python backends (FastAPI/Django) typically use port 8000
+    if [[ -z "$api_url" ]] && { [[ -f "$backend_dir/pyproject.toml" ]] || [[ -f "$backend_dir/requirements.txt" ]] || [[ -f "$backend_dir/main.py" ]]; }; then
+      api_url="http://localhost:8000"
+    # Node backends - check for port in package.json or default to 3001
+    elif [[ -z "$api_url" && -f "$backend_dir/package.json" ]]; then
+      if grep -q ':3001' "$backend_dir/package.json" 2>/dev/null; then
+        api_url="http://localhost:3001"
+      elif grep -q ':4000' "$backend_dir/package.json" 2>/dev/null; then
+        api_url="http://localhost:4000"
+      else
+        api_url="http://localhost:3001"
+      fi
+    fi
+  fi
+
+  if [[ -n "$api_url" ]]; then
+    if jq -e '.api.baseUrl' "$tmpfile" >/dev/null 2>&1 && [[ "$(jq -r '.api.baseUrl' "$tmpfile")" != "" ]]; then
+      : # Already set
+    else
+      jq --arg url "$api_url" '.api.baseUrl = $url' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+      echo "  Auto-detected api.baseUrl: $api_url"
+      updated=true
+    fi
+  fi
+
+  # 5. Detect package manager
   local pkg_manager="npm"
   if [[ -f "pnpm-lock.yaml" ]]; then
     pkg_manager="pnpm"
