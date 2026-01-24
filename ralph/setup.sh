@@ -31,8 +31,8 @@ ralph_setup() {
   echo "    /tour                 # Take a guided walkthrough"
   echo "    /idea 'your feature'  # Generate a PRD"
   echo ""
-  echo "  Terminal 2 - Run autonomously:"
-  echo "    npx thrivekit run     # Executes the PRD"
+  echo "  Terminal 2 - After creating PRDs with Claude:"
+  echo "    npx thrivekit run     # Execute the Ralph loop"
   echo ""
 }
 
