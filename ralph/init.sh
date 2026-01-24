@@ -189,14 +189,30 @@ auto_configure_project() {
   # 2. Detect testUrlBase from common patterns
   local base_url=""
 
-  # Check for Vite config (uses port 5173 by default)
-  for vite_config in "vite.config.ts" "vite.config.js" "apps/web/vite.config.ts" "apps/web/vite.config.js" \
-                     "apps/frontend/vite.config.ts" "frontend/vite.config.ts"; do
-    if [[ -f "$vite_config" ]]; then
-      base_url="http://localhost:5173"
-      break
+  # Check docker-compose.yml for frontend/web service port mappings
+  for compose_file in "docker-compose.yml" "docker-compose.yaml" "compose.yml" "compose.yaml"; do
+    if [[ -f "$compose_file" && -z "$base_url" ]]; then
+      # Look for web/frontend service port mapping
+      local web_port
+      web_port=$(grep -A 20 -E '^\s*(web|frontend|client|ui):' "$compose_file" 2>/dev/null | \
+                 grep -E '^\s*-\s*"?[0-9]+:[0-9]+"?' | head -1 | \
+                 grep -oE '[0-9]+:' | head -1 | tr -d ':')
+      if [[ -n "$web_port" ]]; then
+        base_url="http://localhost:$web_port"
+      fi
     fi
   done
+
+  # Check for Vite config (uses port 5173 by default)
+  if [[ -z "$base_url" ]]; then
+    for vite_config in "vite.config.ts" "vite.config.js" "apps/web/vite.config.ts" "apps/web/vite.config.js" \
+                       "apps/frontend/vite.config.ts" "frontend/vite.config.ts"; do
+      if [[ -f "$vite_config" ]]; then
+        base_url="http://localhost:5173"
+        break
+      fi
+    done
+  fi
 
   # Check for Next.js (uses port 3000 by default)
   if [[ -z "$base_url" ]]; then
@@ -278,7 +294,22 @@ auto_configure_project() {
 
   # 4. Detect API baseUrl based on backend type
   local api_url=""
-  if [[ -n "$backend_dir" ]]; then
+
+  # Check docker-compose.yml for API service port mappings (most common)
+  for compose_file in "docker-compose.yml" "docker-compose.yaml" "compose.yml" "compose.yaml"; do
+    if [[ -f "$compose_file" && -z "$api_url" ]]; then
+      # Look for api/backend service port mapping like "8000:8000" or "3001:3000"
+      local api_port
+      api_port=$(grep -A 20 -E '^\s*(api|backend|server|app):' "$compose_file" 2>/dev/null | \
+                 grep -E '^\s*-\s*"?[0-9]+:[0-9]+"?' | head -1 | \
+                 grep -oE '[0-9]+:' | head -1 | tr -d ':')
+      if [[ -n "$api_port" ]]; then
+        api_url="http://localhost:$api_port"
+      fi
+    fi
+  done
+
+  if [[ -n "$backend_dir" && -z "$api_url" ]]; then
     # Check Dockerfile for EXPOSE directive
     if [[ -f "$backend_dir/Dockerfile" ]]; then
       local docker_port
