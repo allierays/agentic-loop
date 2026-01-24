@@ -112,12 +112,7 @@ Break the idea into small, executable stories:
    - If **overwriting** or no existing PRD: Create new file with full structure
    - If **appending**: Read existing JSON, add new stories to the `stories` array, update `metadata.estimatedStories` count, write back
 
-3. Open for review:
-   ```bash
-   open -a TextEdit .ralph/prd.json
-   ```
-
-4. Say: "I've {created|updated} the PRD with {N} stories ({X} new).
+3. Say: "I've {created|updated} the PRD with {N} stories ({X} new).
 
    Review `.ralph/prd.json` and let me know:
    - **'approved'** - Ready for `ralph run`
