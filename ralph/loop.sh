@@ -73,7 +73,11 @@ run_loop() {
   local iteration=0
   local last_story=""
   local consecutive_failures=0
-  local max_story_retries=3
+  local max_story_retries=5
+  local total_attempts=0
+  local skipped_stories=()
+  local start_time
+  start_time=$(date +%s)
 
   while [[ $iteration -lt $max_iterations ]]; do
     # Check for stop signal
@@ -108,19 +112,37 @@ run_loop() {
     fi
 
     if [[ -z "$story" ]]; then
+      print_progress_summary "$start_time" "$total_attempts" "${#skipped_stories[@]}"
       send_notification "✅ Ralph finished: All stories passed!"
       archive_feature
       return 0
     fi
 
+    ((total_attempts++))
+
     # Track repeated failures on same story
     if [[ "$story" == "$last_story" ]]; then
       ((consecutive_failures++))
-      if [[ $consecutive_failures -ge $max_story_retries ]]; then
-        print_warning "$story failed $consecutive_failures times - check failure context above"
-      else
-        print_warning "Retry $consecutive_failures/$max_story_retries for $story (failure context included)"
+
+      # Circuit breaker: skip to next story after max retries
+      if [[ $consecutive_failures -gt $max_story_retries ]]; then
+        print_error "Circuit breaker: $story failed $max_story_retries times, skipping to next story"
+        echo ""
+        echo "  Saved failure context to: $RALPH_DIR/failures/$story.txt"
+        mkdir -p "$RALPH_DIR/failures"
+        cp "$RALPH_DIR/last_failure.txt" "$RALPH_DIR/failures/$story.txt" 2>/dev/null || true
+        skipped_stories+=("$story")
+        # Mark as skipped (not passed, but move on)
+        jq --arg id "$story" '(.stories[] | select(.id==$id)) |= . + {skipped: true}' "$RALPH_DIR/prd.json" > "$RALPH_DIR/prd.json.tmp" && mv "$RALPH_DIR/prd.json.tmp" "$RALPH_DIR/prd.json"
+        last_story=""
+        consecutive_failures=0
+        continue
       fi
+
+      # Exponential backoff before retry
+      local backoff=$((2 ** (consecutive_failures - 1)))
+      print_warning "Retry $consecutive_failures/$max_story_retries for $story (waiting ${backoff}s...)"
+      sleep "$backoff"
     else
       consecutive_failures=1
       last_story="$story"
@@ -305,9 +327,10 @@ run_loop() {
   done
 
   print_warning "Max iterations ($max_iterations) reached"
+  print_progress_summary "$start_time" "$total_attempts" "${#skipped_stories[@]}"
   local passed failed
   passed=$(jq '[.stories[] | select(.passes==true)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
-  failed=$(jq '[.stories[] | select(.passes==false)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+  failed=$(jq '[.stories[] | select(.passes==false and .skipped!=true)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
   send_notification "⚠️ Ralph stopped: $passed passed, $failed remaining (max iterations reached)"
   return 1
 }
@@ -530,6 +553,39 @@ build_prompt() {
   _inject_failure_context "$failure_context"
   _inject_signs
   _inject_developer_dna
+}
+
+# Print progress summary at end of run
+print_progress_summary() {
+  local start_time="$1"
+  local total_attempts="$2"
+  local skipped_count="$3"
+
+  local end_time
+  end_time=$(date +%s)
+  local duration=$((end_time - start_time))
+  local hours=$((duration / 3600))
+  local minutes=$(((duration % 3600) / 60))
+
+  local passed failed total
+  passed=$(jq '[.stories[] | select(.passes==true)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+  failed=$(jq '[.stories[] | select(.passes==false and .skipped!=true)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+  total=$(jq '.stories | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  print_success "COMPLETE"
+  echo ""
+  echo "  Stories:    $passed/$total passed"
+  [[ "$skipped_count" -gt 0 ]] && echo "  Skipped:    $skipped_count (hit circuit breaker)"
+  echo "  Attempts:   $total_attempts total iterations"
+  if [[ $hours -gt 0 ]]; then
+    echo "  Duration:   ${hours}h ${minutes}m"
+  else
+    echo "  Duration:   ${minutes}m"
+  fi
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 }
 
 # Mark feature as complete (keep PRD for appending new stories)
