@@ -2,6 +2,7 @@
  * CLI entry point for vibe-check
  */
 
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { resolveFiles, readFile, getExtension } from './utils/file-reader.js';
 import { formatResults } from './utils/reporters.js';
@@ -54,7 +55,8 @@ function parseArgs(args: string[]): { files: string[]; options: CheckOptions } {
       printHelp();
       process.exit(0);
     } else if (arg === '--version' || arg === '-v') {
-      console.log('vibe-check 1.0.0');
+      const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf-8'));
+      console.log(`vibe-check ${pkg.version}`);
       process.exit(0);
     } else if (!arg.startsWith('-')) {
       files.push(arg);

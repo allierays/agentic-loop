@@ -152,9 +152,16 @@ export function resolveFiles(inputs: string[]): string[] {
   return [...new Set(files)]; // Deduplicate
 }
 
+// Max file size to read (10MB) - prevents OOM on huge files
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
 /**
- * Read file content
+ * Read file content (with size limit to prevent OOM)
  */
 export function readFile(filePath: string): string {
+  const stats = fs.statSync(filePath);
+  if (stats.size > MAX_FILE_SIZE) {
+    throw new Error(`File too large (${Math.round(stats.size / 1024 / 1024)}MB > 10MB limit): ${filePath}`);
+  }
   return fs.readFileSync(filePath, 'utf-8');
 }

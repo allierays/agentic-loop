@@ -271,11 +271,12 @@ run_loop() {
     fi
 
     # 4. Spawn Claude (fresh context, with timeout)
-    # Get story details for banner
-    local story_title story_desc story_type story_emoji
-    story_title=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .title // "Untitled"' "$RALPH_DIR/prd.json")
-    story_desc=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .description // ""' "$RALPH_DIR/prd.json" | head -c 50)
-    story_type=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .type // "general"' "$RALPH_DIR/prd.json")
+    # Get story details for banner (single jq call for performance)
+    local story_json story_title story_desc story_type story_emoji
+    story_json=$(jq --arg id "$story" '.stories[] | select(.id==$id)' "$RALPH_DIR/prd.json")
+    story_title=$(echo "$story_json" | jq -r '.title // "Untitled"')
+    story_desc=$(echo "$story_json" | jq -r '.description // ""' | head -c 50)
+    story_type=$(echo "$story_json" | jq -r '.type // "general"')
     story_emoji=$(type_emoji "$story_type")
 
     # Get progress
