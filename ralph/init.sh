@@ -434,6 +434,9 @@ ralph_help() {
   cat <<'EOF'
 thrivekit - Tools to thrive with agentic coding
 
+Optimized for Python, TypeScript, React, and Docker projects.
+Auto-detects ports from docker-compose.yml, Vite, Next.js, and FastAPI.
+
 What is this?
   thrivekit helps you build features using two terminals working together.
 
