@@ -498,13 +498,42 @@ validate_prd() {
   return 0
 }
 
+# Detect Python runner (uv, poetry, pipenv, or plain python)
+detect_python_runner() {
+  local search_dir="${1:-.}"
+
+  # Check for uv (uv.lock or pyproject.toml with uv)
+  if [[ -f "$search_dir/uv.lock" ]]; then
+    echo "uv run"
+    return 0
+  fi
+
+  # Check for poetry
+  if [[ -f "$search_dir/poetry.lock" ]]; then
+    echo "poetry run"
+    return 0
+  fi
+
+  # Check for pipenv
+  if [[ -f "$search_dir/Pipfile.lock" ]]; then
+    echo "pipenv run"
+    return 0
+  fi
+
+  # Default to plain command (assumes activated venv or global)
+  echo ""
+  return 0
+}
+
 # Auto-detect migration tool and return the command
 detect_migration_tool() {
   local search_dir="${1:-.}"
+  local py_runner
+  py_runner=$(detect_python_runner "$search_dir")
 
   # Alembic (Python/FastAPI/SQLAlchemy)
   if [[ -f "$search_dir/alembic.ini" ]] || [[ -d "$search_dir/alembic" ]]; then
-    echo "cd $search_dir && alembic upgrade head"
+    echo "cd $search_dir && ${py_runner}${py_runner:+ }alembic upgrade head"
     return 0
   fi
 
@@ -516,7 +545,7 @@ detect_migration_tool() {
 
   # Django
   if [[ -f "$search_dir/manage.py" ]] && [[ -d "$search_dir" ]] && find "$search_dir" -type d -name "migrations" -print -quit | grep -q .; then
-    echo "cd $search_dir && python manage.py migrate"
+    echo "cd $search_dir && ${py_runner}${py_runner:+ }python manage.py migrate"
     return 0
   fi
 
