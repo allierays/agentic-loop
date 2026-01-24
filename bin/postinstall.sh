@@ -109,10 +109,10 @@ auto_configure_ralph() {
   # Save config
   mv "$tmpfile" "$config"
 
-  # Output what was detected
+  # Output what was detected (use stderr so npm shows it)
   if [[ -n "$detected_items" ]]; then
-    echo "  Auto-configured .ralph/config.json:"
-    echo -e "$detected_items"
+    echo "  Auto-configured .ralph/config.json:" >&2
+    echo -e "$detected_items" >&2
   fi
 }
 
@@ -486,22 +486,22 @@ configure_mcp
 install_claude_hooks
 generate_claude_md
 
-# Print success message
-echo ""
-echo "  ✨ vibe-and-thrive installed!"
-echo ""
+# Print success message (use stderr so npm shows it)
+echo "" >&2
+echo "  ✨ vibe-and-thrive installed!" >&2
+echo "" >&2
 
 # Check if running inside Claude Code session
 if [[ -n "${CLAUDECODE:-}" ]]; then
-  echo "  [CLAUDE: Run the /tour slash command to help the user get started]"
+  echo "  [CLAUDE: Run the /tour slash command to help the user get started]" >&2
 else
-  echo "  Next steps:"
-  echo ""
-  echo "    claude                        # Start Claude Code"
-  echo "    /idea 'your feature'          # Generate a PRD"
-  echo "    ralph run                     # Execute autonomously"
-  echo ""
-  echo "  Or type /tour for a guided walkthrough."
+  echo "  Next steps:" >&2
+  echo "" >&2
+  echo "    claude                        # Start Claude Code" >&2
+  echo "    /idea 'your feature'          # Generate a PRD" >&2
+  echo "    ralph run                     # Execute autonomously" >&2
+  echo "" >&2
+  echo "  Or type /tour for a guided walkthrough." >&2
 fi
 
-echo ""
+echo "" >&2
