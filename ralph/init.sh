@@ -370,6 +370,8 @@ Quick Start:
   2. Terminal 1: claude --dangerously-skip-permissions
   3. In Claude: /idea "your feature description"
   4. Terminal 2: npx thrivekit run
+  5. Monitor Terminal 2 - it should be autonomous. If issues come up,
+     stop the loop (Ctrl+C) and paste the errors into Terminal 1.
 
 Usage:
   npx thrivekit <command> [options]
