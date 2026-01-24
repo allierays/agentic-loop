@@ -7,31 +7,9 @@ ralph_setup() {
   echo "Setting up thrivekit..."
   echo ""
 
-  # Find the package root (where thrivekit is installed)
-  local pkg_root=""
-
-  # Check common locations
-  if [[ -d "node_modules/thrivekit" ]]; then
-    pkg_root="node_modules/thrivekit"
-  elif [[ -d "apps/web/node_modules/thrivekit" ]]; then
-    pkg_root="apps/web/node_modules/thrivekit"
-  elif [[ -d "apps/frontend/node_modules/thrivekit" ]]; then
-    pkg_root="apps/frontend/node_modules/thrivekit"
-  elif [[ -d "frontend/node_modules/thrivekit" ]]; then
-    pkg_root="frontend/node_modules/thrivekit"
-  else
-    # Search for it
-    pkg_root=$(find . -path "*/node_modules/thrivekit" -type d 2>/dev/null | head -1)
-  fi
-
-  if [[ -z "$pkg_root" || ! -d "$pkg_root" ]]; then
-    print_error "thrivekit not found in node_modules."
-    echo "Run: npm install thrivekit"
-    return 1
-  fi
-
-  # Convert to absolute path
-  pkg_root="$(cd "$pkg_root" && pwd)"
+  # Package root is relative to this script (works with npx and local installs)
+  local pkg_root
+  pkg_root="$(cd "$RALPH_LIB/.." && pwd)"
   echo "Found package at: $pkg_root"
   echo ""
 
