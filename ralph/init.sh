@@ -345,6 +345,20 @@ ralph_help() {
   cat <<'EOF'
 thrivekit - Tools to thrive with agentic coding
 
+What is this?
+  Ralph is an autonomous development loop that builds features for you.
+  You describe what you want, Ralph writes the code, tests it, and iterates
+  until it works.
+
+  PRD (Product Requirements Document) is how you tell Ralph what to build.
+  Use /idea in Claude Code to brainstorm and generate PRDs interactively.
+
+Quick Start:
+  1. npx thrivekit setup              # Set up your project
+  2. claude --dangerously-skip-permissions
+  3. /idea "your feature description" # Generate a PRD (in Claude)
+  4. npx thrivekit run                # Ralph builds it autonomously
+
 Usage:
   npx thrivekit <command> [options]
 
