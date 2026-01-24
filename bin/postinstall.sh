@@ -32,6 +32,79 @@ cd "$PROJECT_ROOT" || exit 0
 
 # Silent setup functions (no output unless error)
 
+# Auto-detect and configure project-specific settings in .ralph/config.json
+auto_configure_ralph() {
+  local config=".ralph/config.json"
+  [[ ! -f "$config" ]] && return 0
+  command -v jq &>/dev/null || return 0  # Need jq
+
+  local tmpfile
+  tmpfile=$(mktemp)
+  cp "$config" "$tmpfile"
+
+  # 1. Detect Playwright test directory
+  local playwright_dir=""
+  for dir in "tests/e2e" "e2e" "test/e2e" \
+             "apps/web/tests/e2e" "apps/frontend/tests/e2e" \
+             "frontend/tests/e2e" "frontend/e2e" \
+             "packages/web/tests/e2e"; do
+    if [[ -d "$dir" ]]; then
+      playwright_dir="$dir"
+      break
+    fi
+  done
+  if [[ -n "$playwright_dir" ]] && ! jq -e '.playwright.testDir' "$tmpfile" >/dev/null 2>&1; then
+    jq --arg dir "$playwright_dir" '.playwright.testDir = $dir' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+  fi
+
+  # 2. Detect testUrlBase from package.json scripts
+  local base_url=""
+  if [[ -f "package.json" ]]; then
+    grep -q '"dev".*:3000' package.json 2>/dev/null && base_url="http://localhost:3000"
+    grep -q '"dev".*:5173' package.json 2>/dev/null && base_url="http://localhost:5173"
+    grep -q '"dev".*:8080' package.json 2>/dev/null && base_url="http://localhost:8080"
+  fi
+  for fe_pkg in "apps/web/package.json" "apps/frontend/package.json" "frontend/package.json"; do
+    if [[ -f "$fe_pkg" && -z "$base_url" ]]; then
+      grep -q ':3000' "$fe_pkg" 2>/dev/null && base_url="http://localhost:3000"
+      grep -q ':5173' "$fe_pkg" 2>/dev/null && base_url="http://localhost:5173"
+    fi
+  done
+  if [[ -n "$base_url" ]] && ! jq -e '.testUrlBase // empty | select(. != "")' "$tmpfile" >/dev/null 2>&1; then
+    jq --arg url "$base_url" '.testUrlBase = $url' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+  fi
+
+  # 3. Detect frontend/backend directories for monorepos
+  local frontend_dir="" backend_dir=""
+  for dir in "apps/web" "apps/frontend" "frontend" "packages/web" "web"; do
+    [[ -d "$dir" && -f "$dir/package.json" ]] && frontend_dir="$dir" && break
+  done
+  for dir in "apps/api" "apps/backend" "backend" "api" "server"; do
+    if [[ -d "$dir" ]] && ([[ -f "$dir/package.json" ]] || [[ -f "$dir/pyproject.toml" ]] || [[ -f "$dir/requirements.txt" ]]); then
+      backend_dir="$dir"
+      break
+    fi
+  done
+  if [[ -n "$frontend_dir" ]] && ! jq -e '.directories.frontend' "$tmpfile" >/dev/null 2>&1; then
+    jq --arg dir "$frontend_dir" '.directories.frontend = $dir' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+  fi
+  if [[ -n "$backend_dir" ]] && ! jq -e '.directories.backend' "$tmpfile" >/dev/null 2>&1; then
+    jq --arg dir "$backend_dir" '.directories.backend = $dir' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+  fi
+
+  # 4. Detect package manager
+  local pkg_manager=""
+  [[ -f "pnpm-lock.yaml" ]] && pkg_manager="pnpm"
+  [[ -f "yarn.lock" ]] && pkg_manager="yarn"
+  [[ -f "bun.lockb" ]] && pkg_manager="bun"
+  if [[ -n "$pkg_manager" ]] && ! jq -e '.packageManager' "$tmpfile" >/dev/null 2>&1; then
+    jq --arg pm "$pkg_manager" '.packageManager = $pm' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+  fi
+
+  # Save config
+  mv "$tmpfile" "$config"
+}
+
 install_claude_skills() {
   mkdir -p .claude/commands
   if [[ -d "$PKG_ROOT/.claude/commands" ]]; then
@@ -75,7 +148,7 @@ install_ralph() {
     local config_template=""
     if [[ -f "manage.py" ]] || [[ -f "pyproject.toml" ]]; then
       config_template="$PKG_ROOT/templates/config/python.json"
-    elif [[ -d "frontend" ]] && [[ -d "backend" || -d "core" ]]; then
+    elif [[ -d "frontend" ]] && [[ -d "backend" || -d "core" || -d "apps" ]]; then
       config_template="$PKG_ROOT/templates/config/fullstack.json"
     elif [[ -f "package.json" ]]; then
       config_template="$PKG_ROOT/templates/config/node.json"
@@ -123,6 +196,9 @@ install_ralph() {
       cp "$claude_template" "CLAUDE.md"
     fi
   fi
+
+  # Auto-detect and configure project-specific settings
+  auto_configure_ralph
 }
 
 configure_mcp() {
