@@ -2,6 +2,90 @@
 # shellcheck shell=bash
 # loop.sh - The autonomous development loop
 
+# Pre-flight checks to catch common issues before wasting iterations
+preflight_checks() {
+  echo "--- Pre-flight Checks ---"
+  local warnings=0
+
+  # Check API connectivity if configured
+  local api_url
+  api_url=$(get_config '.api.baseUrl' "")
+  if [[ -n "$api_url" ]]; then
+    printf "  API connectivity ($api_url)... "
+    if curl -sf --connect-timeout 5 "$api_url" >/dev/null 2>&1 || \
+       curl -sf --connect-timeout 5 "${api_url}/health" >/dev/null 2>&1 || \
+       curl -sf --connect-timeout 5 "${api_url}/api/health" >/dev/null 2>&1; then
+      print_success "ok"
+    else
+      print_warning "unreachable"
+      echo "    Is your API server running?"
+      ((warnings++))
+    fi
+  fi
+
+  # Check frontend connectivity if configured
+  local test_url
+  test_url=$(get_config '.testUrlBase' "")
+  if [[ -n "$test_url" ]]; then
+    printf "  Frontend connectivity ($test_url)... "
+    if curl -sf --connect-timeout 5 "$test_url" >/dev/null 2>&1; then
+      print_success "ok"
+    else
+      print_warning "unreachable"
+      echo "    Is your frontend dev server running?"
+      ((warnings++))
+    fi
+  fi
+
+  # Check for common migration issues in Python projects
+  local backend_dir
+  backend_dir=$(get_config '.directories.backend' "")
+  if [[ -n "$backend_dir" && -d "$backend_dir" ]]; then
+    # Check for alembic migrations
+    if [[ -d "$backend_dir/alembic" ]] || [[ -d "$backend_dir/migrations" ]]; then
+      printf "  Database migrations... "
+      # Try to verify DB connection via alembic or Django
+      if [[ -f "$backend_dir/alembic.ini" ]]; then
+        if (cd "$backend_dir" && alembic current >/dev/null 2>&1); then
+          print_success "ok"
+        else
+          print_warning "check DB connection"
+          echo "    Run: cd $backend_dir && alembic current"
+          ((warnings++))
+        fi
+      fi
+    fi
+  fi
+
+  # Check Docker if docker-compose exists
+  for compose_file in "docker-compose.yml" "docker-compose.yaml" "compose.yml"; do
+    if [[ -f "$compose_file" ]]; then
+      printf "  Docker services... "
+      if docker compose ps --quiet 2>/dev/null | grep -q .; then
+        print_success "running"
+      elif docker-compose ps --quiet 2>/dev/null | grep -q .; then
+        print_success "running"
+      else
+        print_warning "not running"
+        echo "    Run: docker compose up -d"
+        ((warnings++))
+      fi
+      break
+    fi
+  done
+
+  echo ""
+  if [[ $warnings -gt 0 ]]; then
+    print_warning "$warnings pre-flight warning(s) - loop may fail on connectivity issues"
+    echo ""
+    read -r -p "Continue anyway? [Y/n] " response
+    if [[ "$response" =~ ^[Nn] ]]; then
+      echo "Aborted. Fix the issues and try again."
+      exit 1
+    fi
+  fi
+}
+
 run_loop() {
   local max_iterations="$DEFAULT_MAX_ITERATIONS"
   local specific_story=""
@@ -25,6 +109,9 @@ run_loop() {
 
   # Validate prerequisites
   check_dependencies
+
+  # Pre-flight checks to catch issues before wasting iterations
+  preflight_checks
 
   if [[ ! -f "$RALPH_DIR/prd.json" ]]; then
     # Check for misplaced PRD in subdirectories

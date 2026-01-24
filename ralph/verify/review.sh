@@ -78,21 +78,9 @@ Check for these issues:
 
 ## Response Format
 
-Respond with ONLY a JSON object:
-{
-  "pass": true/false,
-  "issues": [
-    {
-      "severity": "critical|warning|info",
-      "category": "security|error-handling|edge-case|quality|performance|scalability|a11y|architecture|compliance",
-      "file": "path/to/file",
-      "line": 123,
-      "message": "Description of the issue",
-      "suggestion": "How to fix it"
-    }
-  ],
-  "summary": "Brief overall assessment"
-}
+IMPORTANT: Output ONLY raw JSON, no markdown formatting, no code blocks, no explanation.
+
+{"pass": true/false, "issues": [{"severity": "critical|warning|info", "category": "security|error-handling|edge-case|quality|performance|scalability|a11y|architecture|compliance", "file": "path/to/file", "line": 123, "message": "Description", "suggestion": "Fix"}], "summary": "Brief assessment"}
 
 Only fail (pass: false) for critical or multiple warning-level issues.
 EOF
