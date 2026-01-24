@@ -117,7 +117,7 @@ Once the user confirms, write the idea file:
 
 3. Open the file for review:
    ```bash
-   open docs/ideas/{feature-name}.md
+   open -a TextEdit docs/ideas/{feature-name}.md
    ```
 
 4. Say: "I've written the idea to `docs/ideas/{feature-name}.md`.
