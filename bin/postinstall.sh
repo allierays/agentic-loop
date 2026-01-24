@@ -38,7 +38,7 @@ auto_configure_ralph() {
   [[ ! -f "$config" ]] && return 0
   command -v jq &>/dev/null || return 0  # Need jq
 
-  local tmpfile
+  local tmpfile detected_items=""
   tmpfile=$(mktemp)
   cp "$config" "$tmpfile"
 
@@ -55,6 +55,7 @@ auto_configure_ralph() {
   done
   if [[ -n "$playwright_dir" ]] && ! jq -e '.playwright.testDir' "$tmpfile" >/dev/null 2>&1; then
     jq --arg dir "$playwright_dir" '.playwright.testDir = $dir' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+    detected_items="${detected_items}    e2e tests: $playwright_dir\n"
   fi
 
   # 2. Detect testUrlBase from package.json scripts
@@ -72,6 +73,7 @@ auto_configure_ralph() {
   done
   if [[ -n "$base_url" ]] && ! jq -e '.testUrlBase // empty | select(. != "")' "$tmpfile" >/dev/null 2>&1; then
     jq --arg url "$base_url" '.testUrlBase = $url' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+    detected_items="${detected_items}    dev server: $base_url\n"
   fi
 
   # 3. Detect frontend/backend directories for monorepos
@@ -87,9 +89,11 @@ auto_configure_ralph() {
   done
   if [[ -n "$frontend_dir" ]] && ! jq -e '.directories.frontend' "$tmpfile" >/dev/null 2>&1; then
     jq --arg dir "$frontend_dir" '.directories.frontend = $dir' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+    detected_items="${detected_items}    frontend: $frontend_dir\n"
   fi
   if [[ -n "$backend_dir" ]] && ! jq -e '.directories.backend' "$tmpfile" >/dev/null 2>&1; then
     jq --arg dir "$backend_dir" '.directories.backend = $dir' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+    detected_items="${detected_items}    backend: $backend_dir\n"
   fi
 
   # 4. Detect package manager
@@ -99,10 +103,17 @@ auto_configure_ralph() {
   [[ -f "bun.lockb" ]] && pkg_manager="bun"
   if [[ -n "$pkg_manager" ]] && ! jq -e '.packageManager' "$tmpfile" >/dev/null 2>&1; then
     jq --arg pm "$pkg_manager" '.packageManager = $pm' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+    detected_items="${detected_items}    package manager: $pkg_manager\n"
   fi
 
   # Save config
   mv "$tmpfile" "$config"
+
+  # Output what was detected
+  if [[ -n "$detected_items" ]]; then
+    echo "  Auto-configured .ralph/config.json:"
+    echo -e "$detected_items"
+  fi
 }
 
 install_claude_skills() {
