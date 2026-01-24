@@ -163,7 +163,35 @@ Break the idea into small, executable PRDs following the JSON structure below.
 
 **STOP and wait for user response. Do not proceed until they approve.**
 
-### Step 7: Final Instructions
+### Step 7: Final Review
+
+Before finishing, do a quick sanity check on the PRD:
+
+1. **Read the PRD back:**
+   ```bash
+   cat .ralph/prd.json | jq '.'
+   ```
+
+2. **Review for common issues:**
+   - Are story IDs sequential and unique?
+   - Does each story have testable acceptance criteria?
+   - Are file paths specific (not vague like "src/")?
+   - Are dependencies correctly ordered?
+   - Are testSteps actually executable shell commands?
+   - Is any story too large (>4 acceptance criteria)?
+
+3. **If issues found**, say:
+   "I found some issues with the PRD:
+   - [issue 1]
+   - [issue 2]
+
+   Fixing now..."
+
+   Then fix the issues and rewrite the PRD.
+
+4. **If no issues**, proceed to final instructions.
+
+### Step 8: Final Instructions
 
 Once the user approves the PRD, say:
 
