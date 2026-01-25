@@ -3,6 +3,7 @@
 # Hook: PreToolUse matcher: "Edit|Write"
 #
 # Allows: /prd, /idea commands (they create .prd-edit-allowed marker)
+# Allows: Ralph loop fixing test steps (detected by last_failure.txt)
 # Blocks: Accidental edits during normal coding
 
 set -euo pipefail
@@ -17,6 +18,16 @@ if [[ "$FILE_PATH" == *"prd.json"* ]]; then
     rm -f ".ralph/.prd-edit-allowed"  # One-time use
     echo '{"continue": true}'
     exit 0
+  fi
+
+  # Allow if Ralph is in a retry loop with a RECENT failure (within 10 min)
+  # This lets Ralph fix broken test steps, but not stale failures from old sessions
+  if [[ -f ".ralph/last_failure.txt" ]]; then
+    file_age=$(( $(date +%s) - $(stat -f %m ".ralph/last_failure.txt" 2>/dev/null || echo 0) ))
+    if [[ $file_age -lt 600 ]]; then  # 10 minutes
+      echo '{"continue": true}'
+      exit 0
+    fi
   fi
 
   echo "BLOCKED: prd.json is managed by Ralph. Use /prd or /idea to add stories." >&2
