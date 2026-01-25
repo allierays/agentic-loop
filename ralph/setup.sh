@@ -371,7 +371,7 @@ setup_mcp() {
     tmp=$(mktemp)
     jq '.mcpServers["chrome-devtools"] = {
       "command": "npx",
-      "args": ["-y", "@anthropic-ai/mcp-server-chrome-devtools@0.0.5"]
+      "args": ["chrome-devtools-mcp@latest"]
     }' "$claude_json" > "$tmp" && mv "$tmp" "$claude_json"
     echo "  Added chrome-devtools MCP server (debugging & inspection)"
     added_any=true
