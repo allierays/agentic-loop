@@ -311,13 +311,19 @@ run_loop() {
     passed_stories=$(jq '[.stories[] | select(.passes==true)] | length' "$RALPH_DIR/prd.json")
     current_num=$((passed_stories + 1))
 
-    # Display dynamic banner
+    # Display dynamic banner (truncate long text to fit box)
+    local max_width=53
+    local display_title="$story_title"
+    local display_desc="$story_desc"
+    [[ ${#display_title} -gt $max_width ]] && display_title="${display_title:0:$((max_width-3))}..."
+    [[ ${#display_desc} -gt $max_width ]] && display_desc="${display_desc:0:$((max_width-3))}..."
+
     echo ""
     echo "┌─────────────────────────────────────────────────────────┐"
     printf "│  %s %-14s                     [%d/%d] %s  │\n" "$story_emoji" "$story" "$current_num" "$total_stories" "$(progress_bar $current_num $total_stories)"
-    printf "│  %-55s  │\n" "$story_title"
-    printf "│  %-55s  │\n" "${story_desc}..."
-    printf "│  Type: %-49s  │\n" "$story_type"
+    printf "│  %-55s│\n" "$display_title"
+    printf "│  %-55s│\n" "$display_desc"
+    printf "│  Type: %-49s│\n" "$story_type"
     echo "└─────────────────────────────────────────────────────────┘"
     echo ""
 
