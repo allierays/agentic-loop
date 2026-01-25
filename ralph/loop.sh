@@ -337,25 +337,17 @@ run_loop() {
 
     # 6. Run verification pipeline
     echo ""
-    if run_verification "$story"; then
+    # Capture verification output for failure context
+    local verify_log="$RALPH_DIR/last_verification.log"
+    set -o pipefail
+    if run_verification "$story" 2>&1 | tee "$verify_log"; then
       # Mark story as complete
       update_json "$RALPH_DIR/prd.json" \
         --arg id "$story" '(.stories[] | select(.id==$id) | .passes) = true'
 
       # Clear failure context on success
       rm -f "$RALPH_DIR/last_failure.txt"
-      rm -f "$RALPH_DIR/last_migration_failure.log"
-      rm -f "$RALPH_DIR/last_review_failure.json"
-      rm -f "$RALPH_DIR/last_test_failure.log"
-      rm -f "$RALPH_DIR/last_lint_failure.log"
-      rm -f "$RALPH_DIR/last_typescript_failure.log"
-      rm -f "$RALPH_DIR/last_build_failure.log"
-      rm -f "$RALPH_DIR/last_go_failure.log"
-      rm -f "$RALPH_DIR/last_rust_failure.log"
-      rm -f "$RALPH_DIR/last_playwright_failure.log"
-      rm -f "$RALPH_DIR/last_browser_failure.json"
-      rm -f "$RALPH_DIR/last_precommit_failure.log"
-      rm -f "$RALPH_DIR/last_prd_failure.log"
+      rm -f "$RALPH_DIR/last_verification.log"
 
       # Auto-commit if git is available
       if command -v git &>/dev/null && [[ -d ".git" ]]; then
@@ -601,24 +593,11 @@ _inject_failure_context() {
   echo ""
   echo "## Previous Iteration Failed"
   echo ""
-  echo "**IMPORTANT:** The previous attempt at this story failed verification. Review the errors below and fix them."
+  echo "Fix the errors below. If a PRD test step is broken, you can fix it in .ralph/prd.json."
   echo ""
   echo '```'
   echo "$failure_context"
   echo '```'
-  echo ""
-  echo "### What to do:"
-  echo "1. Read the error messages carefully"
-  echo "2. Identify the root cause - is it your implementation OR a flawed test step?"
-  echo "3. Fix the issue (do not just retry the same approach)"
-  echo "4. Run verification again"
-  echo ""
-  echo "### If the test step itself is broken:"
-  echo "If the error is in the PRD test step (not your implementation), you CAN fix it:"
-  echo "1. Read .ralph/prd.json to find the story index and broken testStep"
-  echo "2. Use jq to update: \`jq '.stories[IDX].testSteps[N] = \"fixed\"' .ralph/prd.json > tmp && mv tmp .ralph/prd.json\`"
-  echo "3. Common test step bugs: missing imports, str() triggering lazy loading, wrong paths"
-  echo "4. ONLY fix the test command - do NOT change acceptance criteria or story scope"
 }
 
 # Helper: Inject signs (learned patterns)
