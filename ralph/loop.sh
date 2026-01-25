@@ -236,6 +236,8 @@ run_loop() {
         echo "  Saved failure context to: $RALPH_DIR/failures/$story.txt"
         mkdir -p "$RALPH_DIR/failures"
         cp "$RALPH_DIR/last_failure.txt" "$RALPH_DIR/failures/$story.txt" 2>/dev/null || true
+        # Clear failure context so it doesn't leak into next story
+        rm -f "$RALPH_DIR/last_failure.txt"
         skipped_stories+=("$story")
         # Mark as skipped (not passed, but move on)
         jq --arg id "$story" '(.stories[] | select(.id==$id)) |= . + {skipped: true}' "$RALPH_DIR/prd.json" > "$RALPH_DIR/prd.json.tmp" && mv "$RALPH_DIR/prd.json.tmp" "$RALPH_DIR/prd.json"
@@ -262,9 +264,16 @@ run_loop() {
       return 1
     }
 
+    # Only load failure context if it's for the CURRENT story (prevents stale context leaks)
     local failure_context=""
     if [[ -f "$RALPH_DIR/last_failure.txt" ]]; then
-      failure_context=$(cat "$RALPH_DIR/last_failure.txt")
+      # Check if failure context is for this story (first line contains story ID)
+      if grep -q "for $story" "$RALPH_DIR/last_failure.txt" 2>/dev/null; then
+        failure_context=$(cat "$RALPH_DIR/last_failure.txt")
+      else
+        # Stale context from different story - clear it
+        rm -f "$RALPH_DIR/last_failure.txt"
+      fi
     fi
 
     # Temporarily disable errexit to capture build_prompt errors
