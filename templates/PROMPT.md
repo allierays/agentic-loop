@@ -31,15 +31,14 @@ For each story, you must:
 **You have browser tools - USE THEM to verify your work:**
 
 **Playwright MCP** (testing & automation):
-- `browser_navigate` - Go to a URL and get page content
-- `browser_screenshot` - Take a screenshot to verify UI
-- `browser_click` - Click elements to test interactions
-- `browser_type` - Fill in forms to test inputs
-- `browser_snapshot` - Get accessibility tree for a11y testing
+- Navigate to URLs and verify page content
+- Take screenshots to verify UI renders correctly
+- Click elements and fill forms to test interactions
+- Get accessibility snapshots for a11y testing
 
 **Chrome DevTools MCP** (debugging & inspection):
-- Inspect DOM, check console for errors
-- Debug network requests
+- Inspect DOM elements and check console for errors
+- Debug network requests and responses
 - Check element styles and computed properties
 
 **Do NOT say you're done until:**

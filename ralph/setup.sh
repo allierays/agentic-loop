@@ -40,8 +40,7 @@ ralph_setup() {
   echo "  /idea 'your feature'    # Generate a PRD"
   echo ""
   echo "  --- Terminal 2: Ralph Loop ---"
-  echo "  npx agentic-loop run       # Execute PRDs autonomously"
-  echo "  npx agentic-loop run --fast  # Skip code review (~2x faster)"
+  echo "  npx agentic-loop run         # Execute PRDs autonomously"
   echo ""
 }
 
@@ -359,7 +358,7 @@ setup_mcp() {
     tmp=$(mktemp)
     jq '.mcpServers["playwright"] = {
       "command": "npx",
-      "args": ["-y", "@anthropic-ai/mcp-server-playwright"]
+      "args": ["-y", "@playwright/mcp@latest"]
     }' "$claude_json" > "$tmp" && mv "$tmp" "$claude_json"
     echo "  Added playwright MCP server (browser automation & testing)"
     added_any=true
@@ -407,20 +406,18 @@ setup_test_credentials() {
     read -r -s -p "  Test user password: " test_password
     echo ""
 
-    # Add to .env (append or update)
+    # Add to .env (remove old entries first, then append)
     if grep -q "^RALPH_TEST_USER=" .env 2>/dev/null; then
-      # Update existing
+      # Remove old entries
       local tmp
       tmp=$(mktemp)
-      sed "s/^RALPH_TEST_USER=.*/RALPH_TEST_USER=$test_email/" .env > "$tmp" && mv "$tmp" .env
-      sed "s/^RALPH_TEST_PASSWORD=.*/RALPH_TEST_PASSWORD=$test_password/" .env > "$tmp" && mv "$tmp" .env
-    else
-      # Append new
-      echo "" >> .env
-      echo "# Test credentials for browser automation (auto-added by agentic-loop)" >> .env
-      echo "RALPH_TEST_USER=$test_email" >> .env
-      echo "RALPH_TEST_PASSWORD=$test_password" >> .env
+      grep -v "^RALPH_TEST_USER=\|^RALPH_TEST_PASSWORD=" .env > "$tmp" && mv "$tmp" .env
     fi
+    # Append new (using printf to handle special characters safely)
+    echo "" >> .env
+    echo "# Test credentials for browser automation (auto-added by agentic-loop)" >> .env
+    printf 'RALPH_TEST_USER=%s\n' "$test_email" >> .env
+    printf 'RALPH_TEST_PASSWORD=%s\n' "$test_password" >> .env
 
     echo "  Saved credentials to .env"
     echo ""
