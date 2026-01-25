@@ -22,9 +22,21 @@ For each story, you must:
 
 ### 2. Write Tests
 
-- Write unit tests for the business logic
-- Write tests that validate acceptance criteria
-- Test error cases and edge cases
+**Every new code file MUST have a corresponding test file.**
+
+For **backend** stories (Python/API):
+- New file `foo.py` → create `tests/test_foo.py`
+- Test each public function/method
+- Test error cases (invalid input, missing data, API failures)
+- Test edge cases (empty lists, None values, boundary conditions)
+- Use pytest fixtures for database/API mocking
+
+For **frontend** stories (TypeScript/React):
+- New component `Foo.tsx` → create `Foo.test.tsx`
+- Test rendering, user interactions, error states
+- Test loading states and empty states
+
+**Do NOT skip tests.** If you create code without tests, verification will fail.
 
 ### 3. Verify It Actually Works
 

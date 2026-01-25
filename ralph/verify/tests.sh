@@ -2,6 +2,106 @@
 # shellcheck shell=bash
 # tests.sh - Test verification module for ralph
 
+# Check that new/modified source files have corresponding test files
+# This catches the case where Claude writes code but forgets tests
+verify_test_files_exist() {
+  local story_type="${RALPH_STORY_TYPE:-general}"
+
+  # Skip for frontend stories (handled differently with .test.tsx pattern)
+  [[ "$story_type" == "frontend" ]] && return 0
+
+  echo -n "    Test files exist for new code... "
+
+  # Get list of modified Python files (excluding tests themselves)
+  local modified_files
+  modified_files=$(git diff --name-only HEAD~1 2>/dev/null | grep '\.py$' | grep -v 'test_' | grep -v '_test\.py' | grep -v '/tests/' || true)
+
+  # If no Python files modified, skip
+  if [[ -z "$modified_files" ]]; then
+    print_success "skipped (no new Python files)"
+    return 0
+  fi
+
+  local missing_tests=()
+  local checked=0
+
+  while IFS= read -r src_file; do
+    [[ -z "$src_file" ]] && continue
+    [[ ! -f "$src_file" ]] && continue
+
+    # Skip __init__.py, migrations, config files
+    [[ "$src_file" == *"__init__.py" ]] && continue
+    [[ "$src_file" == *"/migrations/"* ]] && continue
+    [[ "$src_file" == *"/alembic/"* ]] && continue
+    [[ "$src_file" == *"config"* ]] && continue
+    [[ "$src_file" == *"settings"* ]] && continue
+
+    ((checked++))
+
+    # Determine expected test file location
+    local base_name dir_name test_file
+    base_name=$(basename "$src_file" .py)
+    dir_name=$(dirname "$src_file")
+
+    # Common patterns: tests/test_foo.py or foo_test.py
+    local possible_tests=(
+      "$dir_name/tests/test_${base_name}.py"
+      "$dir_name/test_${base_name}.py"
+      "${dir_name}/tests/${base_name}_test.py"
+      "tests/test_${base_name}.py"
+      "tests/${base_name}_test.py"
+    )
+
+    # Check for backend dir patterns
+    local backend_dir
+    backend_dir=$(get_config '.directories.backend' "")
+    if [[ -n "$backend_dir" ]]; then
+      possible_tests+=(
+        "$backend_dir/tests/test_${base_name}.py"
+        "$backend_dir/tests/${base_name}_test.py"
+      )
+    fi
+
+    local found=false
+    for test_path in "${possible_tests[@]}"; do
+      if [[ -f "$test_path" ]]; then
+        found=true
+        break
+      fi
+    done
+
+    if [[ "$found" == "false" ]]; then
+      missing_tests+=("$src_file")
+    fi
+  done <<< "$modified_files"
+
+  if [[ ${#missing_tests[@]} -eq 0 ]]; then
+    print_success "passed ($checked files checked)"
+    return 0
+  else
+    print_error "missing tests"
+    echo ""
+    echo "    The following files need test files:"
+    for file in "${missing_tests[@]}"; do
+      local base_name
+      base_name=$(basename "$file" .py)
+      echo "      $file → test_${base_name}.py"
+    done
+    echo ""
+    echo "    Create test files for new code before completing the story."
+
+    # Save for failure context
+    {
+      echo "Missing test files for new code:"
+      for file in "${missing_tests[@]}"; do
+        echo "  $file"
+      done
+    } > "$RALPH_DIR/last_test_existence_failure.log"
+
+    return 1
+  fi
+}
+
 # Run unit tests
 run_unit_tests() {
   local log_file

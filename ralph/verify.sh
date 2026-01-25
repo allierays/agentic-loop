@@ -33,12 +33,15 @@ run_verification() {
   fi
 
   # ========================================
-  # STEP 2: Run unit tests
+  # STEP 2: Verify tests exist + run them
   # ========================================
   if [[ $failed -eq 0 ]]; then
     echo ""
     echo "  [2/3] Running tests..."
-    if ! run_unit_tests; then
+    # First check that test files exist for new code
+    if ! verify_test_files_exist; then
+      failed=1
+    elif ! run_unit_tests; then
       failed=1
     fi
   fi
