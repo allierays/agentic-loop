@@ -196,7 +196,7 @@ auto_configure_project() {
       # Extract port from web/frontend service: "5173:5173" -> 5173
       web_port=$(grep -A 20 -E '^\s*(web|frontend|client|ui):' "$compose_file" 2>/dev/null | \
                  grep -E '^\s*-\s*"?[0-9]+:[0-9]+"?' | head -1 | \
-                 grep -oE '[0-9]+:' | head -1 | tr -d ':')
+                 grep -oE '[0-9]+:' | head -1 | tr -d ':' || true)
     fi
   done
 
@@ -206,7 +206,7 @@ auto_configure_project() {
                        "apps/frontend/vite.config.ts" "frontend/vite.config.ts"; do
       if [[ -f "$vite_config" ]]; then
         # Look for port: 3000 or port: '3000'
-        web_port=$(grep -E 'port\s*[=:]\s*[0-9]+' "$vite_config" 2>/dev/null | grep -oE '[0-9]{4}' | head -1)
+        web_port=$(grep -E 'port\s*[=:]\s*[0-9]+' "$vite_config" 2>/dev/null | grep -oE '[0-9]{4}' | head -1 || true)
         [[ -z "$web_port" ]] && web_port="5173"  # Vite's documented default
         break
       fi
@@ -217,7 +217,7 @@ auto_configure_project() {
   if [[ -z "$web_port" ]]; then
     for hugo_config in "hugo.toml" "hugo.yaml" "hugo.json" "config.toml"; do
       if [[ -f "$hugo_config" ]] && [[ -d "content" || -d "layouts" || -d "themes" ]]; then
-        web_port=$(grep -E 'port\s*=' "$hugo_config" 2>/dev/null | grep -oE '[0-9]+' | head -1)
+        web_port=$(grep -E 'port\s*=' "$hugo_config" 2>/dev/null | grep -oE '[0-9]+' | head -1 || true)
         [[ -z "$web_port" ]] && web_port="1313"  # Hugo's documented default
         break
       fi
@@ -233,7 +233,7 @@ auto_configure_project() {
         local pkg_dir
         pkg_dir=$(dirname "$next_config")
         if [[ -f "$pkg_dir/package.json" ]]; then
-          web_port=$(grep -E '"dev".*-p\s*[0-9]+' "$pkg_dir/package.json" 2>/dev/null | grep -oE '\-p\s*[0-9]+' | grep -oE '[0-9]+')
+          web_port=$(grep -E '"dev".*-p\s*[0-9]+' "$pkg_dir/package.json" 2>/dev/null | grep -oE '\-p\s*[0-9]+' | grep -oE '[0-9]+' || true)
         fi
         [[ -z "$web_port" ]] && web_port="3000"  # Next.js documented default
         break
@@ -244,7 +244,7 @@ auto_configure_project() {
   # Priority 5: Generic package.json port detection
   if [[ -z "$web_port" && -f "package.json" ]]; then
     # Look for explicit port in scripts: --port 3000, -p 3000, :3000
-    web_port=$(grep -E '"(dev|start|serve)"' package.json 2>/dev/null | grep -oE '(--port|-p|:)[[:space:]]*[0-9]{4}' | grep -oE '[0-9]{4}' | head -1)
+    web_port=$(grep -E '"(dev|start|serve)"' package.json 2>/dev/null | grep -oE '(--port|-p|:)[[:space:]]*[0-9]{4}' | grep -oE '[0-9]{4}' | head -1 || true)
   fi
 
   if [[ -n "$web_port" ]]; then
@@ -306,14 +306,14 @@ auto_configure_project() {
       # Extract port from api/backend service: "8000:8000" -> 8000
       api_port=$(grep -A 20 -E '^\s*(api|backend|server|app):' "$compose_file" 2>/dev/null | \
                  grep -E '^\s*-\s*"?[0-9]+:[0-9]+"?' | head -1 | \
-                 grep -oE '[0-9]+:' | head -1 | tr -d ':')
+                 grep -oE '[0-9]+:' | head -1 | tr -d ':' || true)
     fi
   done
 
   # Priority 2: Dockerfile EXPOSE directive
   if [[ -n "$backend_dir" && -z "$api_port" ]]; then
     if [[ -f "$backend_dir/Dockerfile" ]]; then
-      api_port=$(grep -i "^EXPOSE" "$backend_dir/Dockerfile" 2>/dev/null | head -1 | grep -oE '[0-9]+' | head -1)
+      api_port=$(grep -i "^EXPOSE" "$backend_dir/Dockerfile" 2>/dev/null | head -1 | grep -oE '[0-9]+' | head -1 || true)
     fi
   fi
 
@@ -322,11 +322,11 @@ auto_configure_project() {
     if [[ -f "$backend_dir/pyproject.toml" ]] || [[ -f "$backend_dir/requirements.txt" ]]; then
       # Check pyproject.toml for port config
       if [[ -f "$backend_dir/pyproject.toml" ]]; then
-        api_port=$(grep -E 'port\s*=' "$backend_dir/pyproject.toml" 2>/dev/null | grep -oE '[0-9]+' | head -1)
+        api_port=$(grep -E 'port\s*=' "$backend_dir/pyproject.toml" 2>/dev/null | grep -oE '[0-9]+' | head -1 || true)
       fi
       # Check for uvicorn command with --port
       if [[ -z "$api_port" && -f "$backend_dir/Makefile" ]]; then
-        api_port=$(grep -E 'uvicorn.*--port' "$backend_dir/Makefile" 2>/dev/null | grep -oE '\-\-port[[:space:]]*[0-9]+' | grep -oE '[0-9]+' | head -1)
+        api_port=$(grep -E 'uvicorn.*--port' "$backend_dir/Makefile" 2>/dev/null | grep -oE '\-\-port[[:space:]]*[0-9]+' | grep -oE '[0-9]+' | head -1 || true)
       fi
       # Uvicorn/FastAPI default
       [[ -z "$api_port" ]] && api_port="8000"
@@ -335,7 +335,7 @@ auto_configure_project() {
 
   # Priority 4: Node backend - check package.json for port
   if [[ -n "$backend_dir" && -z "$api_port" && -f "$backend_dir/package.json" ]]; then
-    api_port=$(grep -E '"(dev|start|serve)"' "$backend_dir/package.json" 2>/dev/null | grep -oE '(--port|-p|:)[[:space:]]*[0-9]{4}' | grep -oE '[0-9]{4}' | head -1)
+    api_port=$(grep -E '"(dev|start|serve)"' "$backend_dir/package.json" 2>/dev/null | grep -oE '(--port|-p|:)[[:space:]]*[0-9]{4}' | grep -oE '[0-9]{4}' | head -1 || true)
   fi
 
   if [[ -n "$api_port" ]]; then
@@ -415,7 +415,7 @@ ralph_status() {
   else
     # Check for misplaced PRD in subdirectories
     local found_prd
-    found_prd=$(find . -path "./.ralph" -prune -o -name "prd.json" -path "*/.ralph/prd.json" -print 2>/dev/null | head -1)
+    found_prd=$(find . -path "./.ralph" -prune -o -name "prd.json" -path "*/.ralph/prd.json" -print 2>/dev/null | head -1 || true)
 
     if [[ -n "$found_prd" ]]; then
       print_warning "PRD found in wrong location: $found_prd"
