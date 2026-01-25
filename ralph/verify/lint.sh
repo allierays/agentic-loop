@@ -114,11 +114,11 @@ verify_lint() {
       if grep -q '"eslint"' package.json 2>/dev/null || [[ -f ".eslintrc.js" ]] || [[ -f "eslint.config.js" ]]; then
         echo -n "    ESLint check... "
         local eslint_output
-        if eslint_output=$(npx eslint . --max-warnings 0 2>&1); then
+        if eslint_output=$(npx eslint . 2>&1); then
           print_success "passed"
         else
           # Check if it's real errors or just warnings
-          if echo "$eslint_output" | grep -qE "✖ [0-9]+ problems? \([1-9]"; then
+          if echo "$eslint_output" | grep -qE "✖ [0-9]+ problems? \([1-9][0-9]* errors?"; then
             print_error "failed"
             echo ""
             echo "    ESLint errors:"
@@ -130,7 +130,10 @@ verify_lint() {
             } >> "$lint_log"
             failed=1
           else
-            print_success "passed (warnings only)"
+            # Warnings only - pass without showing them
+            local warning_count
+            warning_count=$(echo "$eslint_output" | grep -oE "[0-9]+ warnings?" | head -1 | grep -oE "[0-9]+" || echo "0")
+            print_success "passed ($warning_count warnings)"
           fi
         fi
       fi
@@ -147,10 +150,10 @@ verify_lint() {
 
       echo -n "    ESLint check ($fe_dir)... "
       local eslint_output
-      if eslint_output=$(cd "$fe_dir" && npx eslint . --max-warnings 0 2>&1); then
+      if eslint_output=$(cd "$fe_dir" && npx eslint . 2>&1); then
         print_success "passed"
       else
-        if echo "$eslint_output" | grep -qE "✖ [0-9]+ problems? \([1-9]"; then
+        if echo "$eslint_output" | grep -qE "✖ [0-9]+ problems? \([1-9][0-9]* errors?"; then
           print_error "failed"
           echo ""
           echo "    ESLint errors in $fe_dir:"
@@ -162,7 +165,10 @@ verify_lint() {
           } >> "$lint_log"
           failed=1
         else
-          print_success "passed (warnings only)"
+          # Warnings only - pass without showing them
+          local warning_count
+          warning_count=$(echo "$eslint_output" | grep -oE "[0-9]+ warnings?" | head -1 | grep -oE "[0-9]+" || echo "0")
+          print_success "passed ($warning_count warnings)"
         fi
       fi
     done <<< "$fe_dirs"
