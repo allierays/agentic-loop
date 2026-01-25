@@ -89,4 +89,6 @@ Patterns Ralph learns from failures. If Ralph keeps making the same mistake, add
 
 ---
 
-MIT License - [AllThrive AI](https://allthrive.ai)
+Inspired by [Ralph](https://ghuntley.com/ralph/) and [Anthropic's guidance on long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents).
+
+Built by [@allierays](https://github.com/allierays) | MIT License - [AllThrive AI](https://allthrive.ai)

@@ -41,6 +41,13 @@
       "category": "frontend",
       "learnedFrom": null,
       "createdAt": "2026-01-20T00:00:00-08:00"
+    },
+    {
+      "id": "sign-007",
+      "pattern": "When removing or modifying UI elements, grep for related tests and update them - stale tests that check for removed elements will fail",
+      "category": "testing",
+      "learnedFrom": null,
+      "createdAt": "2026-01-25T00:00:00-08:00"
     }
   ]
 }

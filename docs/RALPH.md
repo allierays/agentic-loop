@@ -44,43 +44,77 @@ Ralph reads from multiple files to give Claude full context:
 
 ### prd.json (The Work)
 
-The PRD contains everything about what to build:
+The PRD is the **single source of truth** - everything Claude needs is here:
 
 ```json
 {
   "feature": {
     "name": "User Dashboard",
-    "description": "A dashboard showing user activity"
+    "branch": "feature/user-dashboard",
+    "status": "pending"
   },
-  "originalContext": "Full text of the idea file or description that inspired this PRD. Preserves the user's original intent and nuance for Claude during implementation.",
+  "originalContext": "docs/ideas/dashboard.md",
+  "techStack": {
+    "frontend": "React 19, TypeScript, Vite",
+    "backend": "Python, FastAPI"
+  },
+  "testing": {
+    "approach": "TDD",
+    "unit": {"frontend": "vitest", "backend": "pytest"},
+    "e2e": "playwright"
+  },
+  "globalConstraints": [
+    "All API calls must have error handling",
+    "No console.log in production code"
+  ],
   "stories": [
     {
       "id": "TASK-001",
+      "type": "frontend",
       "title": "Create dashboard layout",
-      "description": "Build the main dashboard container...",
-      "acceptanceCriteria": ["Shows user name", "Responsive layout"],
-      "testUrl": "/dashboard",
-      "testSteps": ["npm test -- dashboard"],
-      "e2e": true,
+      "passes": false,
+      "files": {
+        "create": ["src/components/Dashboard.tsx"],
+        "modify": ["src/App.tsx"]
+      },
+      "acceptanceCriteria": [
+        "Shows user name in header",
+        "Responsive layout"
+      ],
+      "testing": {
+        "types": ["unit", "e2e"],
+        "approach": "TDD",
+        "files": {
+          "unit": ["src/components/Dashboard.test.tsx"],
+          "e2e": ["tests/e2e/dashboard.spec.ts"]
+        }
+      },
+      "testSteps": [
+        "npx tsc --noEmit",
+        "npm test -- Dashboard",
+        "npx playwright test tests/e2e/dashboard.spec.ts"
+      ],
+      "testUrl": "{config.urls.frontend}/dashboard",
       "mcp": ["playwright", "devtools"],
-      "passes": false
+      "contextFiles": ["docs/ideas/dashboard.md"],
+      "skills": [
+        {"name": "styleguide", "usage": "Reference for UI components"}
+      ]
     }
-  ],
-  "architecture": {
-    "frontend": "frontend/src/components",
-    "doNotCreate": ["new API routes without backend story"]
-  }
+  ]
 }
 ```
 
 Key fields:
-- `originalContext` - Full text of original idea/description (preserves intent)
-- `stories[].passes` - Ralph tracks completion state here
-- `stories[].testUrl` - URL to verify in browser after implementation
-- `stories[].testSteps` - Commands to run for verification
-- `stories[].e2e` - Whether Playwright e2e test is required
-- `stories[].mcp` - MCP tools for verification: `["playwright", "devtools"]`
-- `architecture` - Where to put files, what to avoid
+- `type` - Story type: `frontend` or `backend` (keep stories atomic)
+- `testing` - Test types, approach (TDD/test-after), files to create
+- `testSteps` - Executable shell commands (use `{config.urls.backend}` for URLs)
+- `testUrl` - URL to verify (use `{config.urls.frontend}`)
+- `contextFiles` - Idea files, styleguides Claude should read
+- `skills` - Relevant skills with usage hints
+- `mcp` - MCP tools for browser verification
+
+**URLs use placeholders** like `{config.urls.backend}` - Ralph expands these from `.ralph/config.json` before running testSteps.
 
 ### PROMPT.md (How to Code)
 
@@ -163,51 +197,32 @@ Add signs manually when you notice patterns:
 npx ralph sign "Always run migrations before seeding" backend
 ```
 
-## The Prompt Assembly
+## The Lean Prompt Model
 
-When Ralph starts a story, it builds a prompt by combining:
+Ralph uses a **lean prompt** approach inspired by [Anthropic's guidance](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents):
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│ PROMPT.md                        (base instructions)       │
-├────────────────────────────────────────────────────────────┤
-│ ## Current Story                                           │
-│ {story JSON from prd.json}                                 │
-├────────────────────────────────────────────────────────────┤
-│ ## File Guidance (if story has .files)                     │
-│ Create: [...], Modify: [...], Reuse: [...]                 │
-├────────────────────────────────────────────────────────────┤
-│ ## Styleguide (if frontend + configured)                   │
-│ FIRST: Read styleguide at docs/styleguide.html             │
-├────────────────────────────────────────────────────────────┤
-│ ## MCP Tools (if story.mcp defined)                        │
-│ Use playwright, devtools, etc. for verification            │
-├────────────────────────────────────────────────────────────┤
-│ ## Original Idea Context (if defined)                      │
-│ {full text of original idea file or description}           │
-├────────────────────────────────────────────────────────────┤
-│ ## Feature Context                                         │
-│ {feature name, metadata from prd.json}                     │
-├────────────────────────────────────────────────────────────┤
-│ ## Architecture Guidelines (if defined)                    │
-│ {architecture rules from prd.json}                         │
-├────────────────────────────────────────────────────────────┤
-│ ## Previous Iteration Failed (if retrying)                 │
-│ {error output from last_failure.txt}                       │
-├────────────────────────────────────────────────────────────┤
-│ ## Signs (Learned Patterns)                                │
-│ - [backend] Always use camelCase...                        │
-│ - [frontend] Import Button from...                         │
-├────────────────────────────────────────────────────────────┤
-│ ## Developer DNA (if ~/.claude/DNA.md exists)              │
-│ {your personal preferences}                                │
-└────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│   PROMPT.md = HOW to work (7-step framework, ~150 lines)       │
+│   prd.json  = WHAT to build (all context per story)            │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-This assembled prompt is piped to Claude:
+Instead of injecting thousands of tokens, Claude **reads files during orientation**:
+
+| Injected into Prompt | Claude Reads During Orient |
+|---------------------|---------------------------|
+| PROMPT.md (7-step framework) | `.ralph/prd.json` (full story details) |
+| Story ID | `story.contextFiles[]` (idea files, styleguides) |
+| Signs (learned patterns) | `CLAUDE.md` (project conventions) |
+| Failure context (if retrying) | `~/.claude/DNA.md` (personal preferences) |
+
+The prompt is piped to Claude:
 ```bash
-cat assembled_prompt.md | claude -p --dangerously-skip-permissions
+echo "$prompt" | claude -p --dangerously-skip-permissions
 ```
+
+This approach gives Claude better comprehension because it actively reads context rather than passively receiving it.
 
 ## Verification Pipeline
 
@@ -331,6 +346,18 @@ Now every future story will see this pattern.
 | `paths.backend` | `""` | Backend source directory |
 | `urls.frontend` | `"http://localhost:3000"` | Frontend dev server URL |
 | `urls.testUrlBase` | (frontend URL) | Base URL for relative testUrl paths |
+
+### URL Expansion
+
+Use `{config.urls.backend}` and `{config.urls.frontend}` in testSteps. Ralph expands these before running:
+
+```json
+// In prd.json
+"testSteps": ["curl -s {config.urls.backend}/users | jq '.data'"]
+
+// Ralph expands to
+"testSteps": ["curl -s http://localhost:8000/users | jq '.data'"]
+```
 | `checks.build` | `"npm run build"` | Build command |
 | `checks.test` | `true` | Run tests (`true`, `false`, or `"final"`) |
 | `checks.testCommand` | (auto-detect) | Custom test command |

@@ -39,7 +39,8 @@ npx agentic-loop status        → Check progress
 
 | Command | Purpose |
 |---------|---------|
-| `/idea` | Brainstorm feature → generate PRD |
+| `/idea` | Brainstorm feature → create idea file → generate PRD |
+| `/prd` | Generate PRD directly from idea file or description |
 | `/tour` | Interactive walkthrough |
 | `/vibe-check` | Code quality audit |
 | `/review` | Security-focused code review |

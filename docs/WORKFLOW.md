@@ -37,17 +37,21 @@ Review the idea file, then approve. Claude splits it into small, executable stor
 
 ```json
 {
-  "architecture": {
-    "directories": { "api": "src/api/", "types": "src/types/" },
-    "doNotCreate": ["New fetch wrapper (use existing)"]
-  },
+  "feature": {"name": "User Authentication", "status": "pending"},
+  "testing": {"approach": "TDD", "unit": {"backend": "pytest"}},
+  "globalConstraints": ["All endpoints require auth"],
   "stories": [
     {
       "id": "TASK-001",
+      "type": "backend",
       "title": "Add OAuth provider configuration",
-      "files": { "create": ["src/api/auth/config.ts"], "reuse": ["src/lib/db.ts"] },
-      "acceptanceCriteria": ["..."],
-      "scale": { "caching": "cache for 1hr", "rateLimit": "100/min" }
+      "files": {"create": ["src/api/auth/config.ts"], "reuse": ["src/lib/db.ts"]},
+      "acceptanceCriteria": ["OAuth config loads from environment"],
+      "testing": {"types": ["unit", "integration"]},
+      "testSteps": [
+        "pytest tests/unit/test_oauth_config.py",
+        "curl -s {config.urls.backend}/auth/providers | jq '.providers'"
+      ]
     }
   ]
 }

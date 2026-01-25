@@ -14,7 +14,7 @@ cat .ralph/progress.txt | tail -30      # Recent activity
 ```
 
 Then read these files:
-- `.ralph/prd.json` - Find your story, note `techStack`, `globalConstraints`, `devServer`
+- `.ralph/prd.json` - Find your story, note `techStack`, `globalConstraints`
 - `CLAUDE.md` - Project conventions and coding standards
 - Files listed in `story.contextFiles[]` - Idea files, styleguides, ASCII mockups
 - `~/.claude/DNA.md` - Personal coding preferences (if exists)
@@ -36,7 +36,7 @@ Read `.ralph/signs.json` - these are patterns learned from past failures. Follow
 ## Step 4: Verify Prerequisites
 
 Check `story.prerequisites[]` in your story. Ensure:
-- Required servers are running (see `prd.devServer`)
+- Required servers are running (check `.ralph/config.json` for URLs)
 - Database is seeded if needed
 - Dependencies are installed
 
@@ -69,6 +69,12 @@ Work on your story following these rules:
 - **KISS** - Keep it simple, avoid over-engineering
 - **DRY** - Don't repeat yourself
 - **YAGNI** - Don't build features you don't need yet
+
+### Removing UI? Update Tests!
+When removing or modifying UI elements:
+1. `grep -r "element text or testid" tests/` to find related tests
+2. Update or remove tests that reference removed elements
+3. Verify with: `grep -r "removed text" tests/ && exit 1 || echo "clean"`
 
 ### Error Handling
 Every async operation needs proper error handling:

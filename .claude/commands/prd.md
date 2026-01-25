@@ -64,7 +64,7 @@ cat pyproject.toml 2>/dev/null | head -20 || true
 Then say: "I'll create a PRD for: **{description}**
 
 Before I generate stories, quick questions:
-1. **Type:** Frontend, backend, or fullstack?
+1. **Type:** Frontend or backend?
 2. **Scale:** Any specific limits (users, items, rate limits)?
 3. **Anything else** I should know?
 
@@ -176,7 +176,6 @@ Ralph will work through each story, running tests and committing as it goes."
     }
   },
 
-
   "architecture": {
     "frontend": "src/components",
     "backend": "src/api",
@@ -203,7 +202,7 @@ Ralph will work through each story, running tests and committing as it goes."
   "stories": [
     {
       "id": "TASK-001",
-      "type": "frontend|backend|fullstack",
+      "type": "frontend|backend",
       "title": "Short description",
       "priority": 1,
       "passes": false,
@@ -299,7 +298,7 @@ Ralph will work through each story, running tests and committing as it goes."
 | Field | Required | Description |
 |-------|----------|-------------|
 | `id` | Yes | Unique ID (TASK-001, TASK-002, etc.) |
-| `type` | Yes | frontend, backend, or fullstack |
+| `type` | Yes | frontend or backend (keep stories atomic) |
 | `title` | Yes | Short description |
 | `priority` | No | Order of importance (1 = highest) |
 | `passes` | Yes | Always starts as `false` |
@@ -312,7 +311,7 @@ Ralph will work through each story, running tests and committing as it goes."
 | `mcp` | Frontend | MCP tools for verification |
 | `contextFiles` | No | Files Claude should read (idea files, styleguides) |
 | `skills` | No | Relevant skills with usage hints |
-| `apiContract` | Fullstack | Expected request/response |
+| `apiContract` | Backend | Expected request/response format |
 | `prerequisites` | No | What must be running/ready |
 | `notes` | No | Human guidance for Claude |
 | `scale` | No | small, medium, large |
@@ -444,11 +443,36 @@ Example for a Dashboard component:
 }
 ```
 
+### Removing/Modifying UI - Update Tests!
+
+**CRITICAL: When a story removes or modifies UI elements, it MUST update related tests.**
+
+Stories that remove UI must include:
+```json
+{
+  "files": {
+    "modify": ["src/components/Dashboard.tsx"],
+    "delete": ["src/components/SelectionPanel.tsx"]
+  },
+  "acceptanceCriteria": [
+    "Selection panel removed from dashboard",
+    "All tests referencing 'Auto-select' button updated or removed"
+  ],
+  "testSteps": [
+    "grep -r 'Auto-select' tests/ && exit 1 || echo 'No stale test references'",
+    "npx playwright test tests/e2e/dashboard.spec.ts"
+  ]
+}
+```
+
+The `grep ... && exit 1` pattern ensures the story fails if stale test references exist.
+
 ### Acceptance Criteria Rules
 
 1. **Behavior over implementation** - Describe what the user/API sees, not what code exists
 2. **Verifiable** - Each criterion must be testable with a curl, pytest, or playwright
 3. **Include callers** - If adding a new function, verify callers use it
+4. **Update tests** - If removing UI, verify no tests reference removed elements
 
 ```
 ❌ "Use astream_events() for progress"

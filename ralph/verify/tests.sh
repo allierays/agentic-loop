@@ -223,6 +223,57 @@ run_unit_tests() {
   fi
 }
 
+# Expand config placeholders in a string
+# Usage: expand_config_vars "curl {config.urls.backend}/api"
+# Expands: {config.urls.backend}, {config.urls.frontend}, {config.directories.*}
+_expand_config_vars() {
+  local input="$1"
+  local config="$RALPH_DIR/config.json"
+
+  # No config file, return as-is
+  [[ ! -f "$config" ]] && echo "$input" && return
+
+  local result="$input"
+
+  # Expand {config.urls.backend}
+  if [[ "$result" == *"{config.urls.backend}"* ]]; then
+    local backend_url
+    backend_url=$(jq -r '.urls.backend // .api.baseUrl // empty' "$config" 2>/dev/null)
+    if [[ -n "$backend_url" ]]; then
+      result="${result//\{config.urls.backend\}/$backend_url}"
+    fi
+  fi
+
+  # Expand {config.urls.frontend}
+  if [[ "$result" == *"{config.urls.frontend}"* ]]; then
+    local frontend_url
+    frontend_url=$(jq -r '.urls.frontend // .testUrlBase // empty' "$config" 2>/dev/null)
+    if [[ -n "$frontend_url" ]]; then
+      result="${result//\{config.urls.frontend\}/$frontend_url}"
+    fi
+  fi
+
+  # Expand {config.directories.backend}
+  if [[ "$result" == *"{config.directories.backend}"* ]]; then
+    local backend_dir
+    backend_dir=$(jq -r '.directories.backend // empty' "$config" 2>/dev/null)
+    if [[ -n "$backend_dir" ]]; then
+      result="${result//\{config.directories.backend\}/$backend_dir}"
+    fi
+  fi
+
+  # Expand {config.directories.frontend}
+  if [[ "$result" == *"{config.directories.frontend}"* ]]; then
+    local frontend_dir
+    frontend_dir=$(jq -r '.directories.frontend // empty' "$config" 2>/dev/null)
+    if [[ -n "$frontend_dir" ]]; then
+      result="${result//\{config.directories.frontend\}/$frontend_dir}"
+    fi
+  fi
+
+  echo "$result"
+}
+
 # Verify PRD acceptance criteria / test steps
 verify_prd_criteria() {
   local story="$1"
@@ -247,9 +298,13 @@ verify_prd_criteria() {
   while IFS= read -r step; do
     [[ -z "$step" ]] && continue
 
-    echo -n "    $step... "
+    # Expand config placeholders (e.g., {config.urls.backend})
+    local expanded_step
+    expanded_step=$(_expand_config_vars "$step")
 
-    if safe_exec "$step" "$log_file"; then
+    echo -n "    $expanded_step... "
+
+    if safe_exec "$expanded_step" "$log_file"; then
       print_success "passed"
     else
       print_error "failed"
@@ -260,7 +315,7 @@ verify_prd_criteria() {
       # Save failure details for retry context
       {
         echo "PRD test step $step_index failed for $story:"
-        echo "  Command: $step"
+        echo "  Command: $expanded_step"
         echo "  Error output:"
         tail -30 "$log_file" | sed 's/^/    /'
         echo ""

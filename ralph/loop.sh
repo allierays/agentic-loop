@@ -586,7 +586,7 @@ build_prompt() {
   echo "Also read:"
   echo "- \`prd.techStack\` - technologies in use"
   echo "- \`prd.globalConstraints\` - rules for all stories"
-  echo "- \`prd.devServer\` - how to run the app"
+  echo "- \`.ralph/config.json\` - URLs and directories"
 
   # Failure context if retrying
   if [[ -n "$failure_context" ]]; then

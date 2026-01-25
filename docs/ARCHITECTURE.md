@@ -393,7 +393,7 @@ The PRD is the **single source of truth** - everything Claude needs is here.
     "npm run build"
   ],
 
-  "testUrl": "http://localhost:3000/dashboard",
+  "testUrl": "{config.urls.frontend}/dashboard",
 
   "mcp": ["playwright", "devtools"],
 

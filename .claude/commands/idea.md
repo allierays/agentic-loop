@@ -115,250 +115,33 @@ Once the user confirms, write the idea file:
    - Any unresolved decisions
    ```
 
-3. Open the file for review:
-   ```bash
-   open -a TextEdit docs/ideas/{feature-name}.md
-   ```
-
-4. Say: "I've written the idea to `docs/ideas/{feature-name}.md`.
+3. Say: "I've written the idea to `docs/ideas/{feature-name}.md`.
 
    Review it and let me know:
-   - **'approved'** - Ready to split into PRDs
+   - **'approved'** - Ready to generate PRD
    - **'edit [changes]'** - Tell me what to change"
 
 **STOP and wait for user response. Do not proceed until they say 'approved' or 'done'.**
 
-### Step 5: Split into PRDs
+### Step 5: Generate PRD
 
 **Only proceed here after user explicitly approves the idea file.**
 
-Say: "Now I'll split this into executable PRDs for Ralph. Each story will be small enough to complete in one session."
+Say: "Now I'll generate the PRD from your idea file."
 
-Break the idea into small, executable PRDs following the JSON structure below.
-
-### Step 6: Write PRD
-
-1. Ensure .ralph directory exists and allow PRD edit:
-   ```bash
-   mkdir -p .ralph && touch .ralph/.prd-edit-allowed
-   ```
-
-2. Write to `.ralph/prd.json` ensuring:
-   - Valid JSON syntax
-   - `feature.name` is set (not null/empty)
-   - `feature.status` is "pending"
-   - `stories` array is not empty
-   - Each story has `id`, `title`, and `passes: false`
-
-3. Validate the PRD was written correctly:
-   ```bash
-   jq -e '.feature.name and (.stories | length > 0) and (.stories | all(.id and .title and .passes == false))' .ralph/prd.json && echo "PRD valid" || echo "PRD invalid"
-   ```
-
-4. Say: "I've created the PRD with {N} stories in `.ralph/prd.json`.
-
-   Review and let me know:
-   - **'approved'** - Ready for `npx ralph run`
-   - **'edit [changes]'** - Tell me what to change"
-
-**STOP and wait for user response. Do not proceed until they approve.**
-
-### Step 7: Final Review
-
-Before finishing, do a quick sanity check on the PRD:
-
-1. **Read the PRD back:**
-   ```bash
-   cat .ralph/prd.json | jq '.'
-   ```
-
-2. **Review for common issues:**
-   - Are story IDs sequential and unique?
-   - Does each story have testable acceptance criteria?
-   - Are file paths specific (not vague like "src/")?
-   - Are dependencies correctly ordered?
-   - Are testSteps actually executable shell commands?
-   - Is any story too large (>4 acceptance criteria)?
-
-3. **If issues found**, say:
-   "I found some issues with the PRD:
-   - [issue 1]
-   - [issue 2]
-
-   Fixing now..."
-
-   Then fix the issues and rewrite the PRD.
-
-4. **If no issues**, proceed to final instructions.
-
-### Step 8: Final Instructions
-
-Once the user approves the PRD, say:
-
-"Ready for autonomous development!
-
-**Idea:** `docs/ideas/{feature-name}.md`
-**PRD:** `.ralph/prd.json` ({N} stories)
-
-Run:
-```bash
-npx ralph run
+**Use the Skill tool** to invoke `/prd` with the idea file path:
+```
+Skill: prd
+Args: docs/ideas/{feature-name}.md
 ```
 
-**DO NOT start implementing code. The user will run `npx ralph run` separately.**
+This hands off to `/prd` which handles:
+- Reading the idea file
+- Splitting into stories
+- Writing `.ralph/prd.json`
+- All PRD schema details (testing, testSteps, MCP tools, etc.)
 
----
-
-## PRD JSON Structure
-
-```json
-{
-  "feature": {
-    "name": "Feature Name",
-    "ideaFile": "docs/ideas/{feature-name}.md",
-    "branch": "feature/{feature-name}",
-    "status": "pending"
-  },
-  "metadata": {
-    "createdAt": "ISO timestamp",
-    "estimatedStories": 5,
-    "complexity": "low|medium|high"
-  },
-  "stories": [
-    {
-      "id": "TASK-001",
-      "type": "frontend|backend",
-      "title": "Short description",
-      "passes": false,
-
-      "files": {
-        "create": ["paths to new files"],
-        "modify": ["paths to existing files"],
-        "reuse": ["existing files to import from"]
-      },
-
-      "acceptanceCriteria": [
-        "What it should do"
-      ],
-
-      "errorHandling": [
-        "What happens when things fail"
-      ],
-
-      "testSteps": [
-        "MUST be executable shell commands - see examples below"
-      ],
-
-      "dependsOn": [],
-
-      "notes": ""
-    }
-  ]
-}
-```
-
-### Frontend stories also need:
-- `testUrl` - URL to test
-- `loadingState` - What shows during async operations
-- `a11y` - Accessibility requirements
-- `mobile` - How it works on mobile
-
-### E2E Tests
-Add `"e2e": true` to **any frontend story where users interact** with the feature:
-- Forms, buttons, inputs, modals, wizards → e2e
-- Real-time features, drag & drop, file uploads → e2e
-- Multi-page flows, navigation → e2e
-- Static display-only components (no interaction) → skip e2e
-
-When `e2e: true`, the story should:
-- Create a Playwright test file in `tests/e2e/{story-id}.spec.ts`
-- Include the test in `testSteps`: `"npx playwright test tests/e2e/{story-id}.spec.ts"`
-- **Skip in CI** (runs nightly instead): Add `test.skip(!!process.env.CI, 'Runs nightly');` at top of test
-
-Don't ask - if users touch it, test it.
-
-### Backend stories also need:
-- `apiEndpoints` - Endpoints to test
-- `validation` - Input validation rules
-- `auth` - Authentication requirements
-- `scale` - Rate limiting, pagination (for list endpoints), caching
-
----
-
-## Guidelines
-
-### Story Guidelines
-- **Keep stories small** - Max 3-4 acceptance criteria per story, ~1000 tokens max description
-- **Order by dependency** - Stories that depend on others come later
-- **Max 10 stories** - If more, suggest splitting into phases
-- **Define error handling** - Every story specifies what happens on failure
-- **Notes field** - Claude fills this as it works (files created, decisions made, context for next story)
-
-### Context Size Limits
-Each story must be completable in ONE Claude session without context overflow:
-- **Max ~1000 tokens** for story description (title + criteria + error handling)
-- **Max 3-4 files** created or modified per story
-- If a story feels too big, split it
-
-### UI Stories Must Include Browser Verification
-For frontend stories, acceptance criteria MUST include:
-- "Page loads without console errors"
-- "Required elements render" (specify which: header, form, button, etc.)
-- "Works on mobile viewport (375px)"
-
-These get verified by Playwright tests and MCP browser tools.
-
-### Test Steps - CRITICAL
-**Test steps MUST be executable shell commands.** Ralph runs them with bash.
-
-✅ **GOOD test steps (executable):**
-```json
-"testSteps": [
-  "curl -s http://localhost:3000/api/health | jq -e '.status == \"ok\"'",
-  "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/api/users | grep 200",
-  "test -f frontend/src/components/Button.tsx",
-  "grep -q 'export function Button' frontend/src/components/Button.tsx",
-  "cd frontend && npx tsc --noEmit",
-  "docker compose exec -T web python manage.py test app.tests.TestUserAPI",
-  "npx playwright test tests/e2e/dashboard.spec.ts",
-  "npx playwright test --grep 'login flow'",
-  "cd frontend && npm test -- --testPathPattern=Button.test.tsx"
-]
-```
-
-**For UI/visual verification, use Playwright tests:**
-```json
-"testSteps": [
-  "npx playwright test tests/e2e/chat-panel.spec.ts"
-]
-```
-
-The Playwright test file can check:
-- Element visibility and positioning
-- Console errors (no errors in DevTools)
-- Network requests completing
-- Visual layout (screenshots, viewport checks)
-- Accessibility (axe-core integration)
-
-❌ **BAD test steps (not executable - will fail):**
-```json
-"testSteps": [
-  "Visit http://localhost:3000/dashboard",
-  "User can see the dashboard",
-  "Click the submit button",
-  "Form validates correctly",
-  "Chat panel renders in top 60%",
-  "Check DevTools for errors"
-]
-```
-
-**If a step can't be automated**, leave it out of testSteps and put it in acceptanceCriteria instead. Claude will verify acceptanceCriteria visually using MCP browser tools.
-
-### Architecture Guidelines
-- **Domain-driven directories** - Group by feature (`src/contact/`) not type (`src/components/`)
-- **Max 300 lines per file** - Split large files
-- **Reuse over recreate** - Check for existing utilities first
-- **Explicit file paths** - Every story specifies exactly which files
+**DO NOT duplicate the PRD schema or guidelines here - /prd is the single source of truth.**
 
 ---
 
@@ -366,33 +149,40 @@ The Playwright test file can check:
 
 - If user provides no arguments, ask what they want to brainstorm
 - If user abandons mid-flow, the idea file is still saved for later
+- If /prd fails, check the idea file has enough detail
 
-### If PRD Already Exists
+---
 
-Before writing to `.ralph/prd.json`, check if it exists:
+## Guidelines
 
-```bash
-cat .ralph/prd.json 2>/dev/null | jq '{stories: .stories | length, completed: [.stories[] | select(.passes == true)] | length}'
+### Idea File Quality
+
+A good idea file has:
+- **Clear problem statement** - What's broken or missing?
+- **Specific solution** - Not vague ("improve UX") but concrete ("add inline validation")
+- **Scope boundaries** - What's explicitly out of scope?
+- **Architecture hints** - Where do files go? What patterns to follow?
+
+### ASCII Art for UI
+
+If the feature involves UI, include ASCII mockups in the idea file:
+
+```
+┌─────────────────────────────────────┐
+│  Dashboard                    [⚙️]  │
+├─────────────────────────────────────┤
+│                                     │
+│  ┌─────────┐  ┌─────────┐          │
+│  │ Card 1  │  │ Card 2  │          │
+│  │  $1,234 │  │  89%    │          │
+│  └─────────┘  └─────────┘          │
+│                                     │
+│  ┌─────────────────────────────┐   │
+│  │ Recent Activity              │   │
+│  │ • Item 1                     │   │
+│  │ • Item 2                     │   │
+│  └─────────────────────────────┘   │
+└─────────────────────────────────────┘
 ```
 
-If it exists, say:
-"📋 `.ralph/prd.json` already exists with {N} stories ({M} completed, {P} pending).
-
-Options:
-- **'append'** - Add new stories to existing PRD (recommended)
-- **'overwrite'** - Replace entirely
-- **'cancel'** - Stop here"
-
-**STOP and wait for user choice.**
-
-If **'append'**:
-- Find highest existing story number (ignore prefix - could be US-019 or TASK-019)
-- **Always use TASK- prefix** for new stories (e.g., if highest is US-019 or TASK-019, new stories start at TASK-020)
-- Read existing PRD, add new stories to the `stories` array
-- Update `metadata.estimatedStories` count
-- Write back to `.ralph/prd.json`
-
-If **'overwrite'**:
-- Archive first: `mkdir -p .ralph/archive && mv .ralph/prd.json .ralph/archive/prd-$(date +%Y%m%d-%H%M%S).json`
-- Allow edit: `touch .ralph/.prd-edit-allowed`
-- Write new PRD
+Ralph will read these from the idea file via `story.contextFiles`.

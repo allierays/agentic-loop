@@ -35,6 +35,19 @@ Two approval gates. Nothing executes without your say-so.
 
 ---
 
+### `/prd`
+
+**Generate a PRD directly** from an idea file or description.
+
+```
+/prd docs/ideas/auth.md
+/prd "add user logout button"
+```
+
+Use `/prd` for quick PRD generation when you don't need the full `/idea` brainstorming flow. The `/idea` command calls `/prd` internally after the idea file is approved.
+
+---
+
 ### `/vibe-help`
 
 Quick reference cheatsheet for all commands.
@@ -153,6 +166,37 @@ Great for ensuring consistent UI across AI-generated code.
 
 ---
 
+### `/sign`
+
+**Add a learned pattern** that Ralph will remember for future stories.
+
+```
+/sign "Always use environment variables for API keys" backend
+/sign "Import from @/components, not relative paths" frontend
+```
+
+Signs are stored in `.ralph/signs.json` and injected into every Claude session. Use this to teach patterns from past failures.
+
+---
+
+### `/my-dna`
+
+**Set up your personal coding preferences.** Creates `~/.claude/DNA.md`.
+
+```
+/my-dna
+```
+
+Claude will ask about your:
+- Coding style preferences
+- Error handling approach
+- Comment philosophy
+- Testing habits
+
+Your DNA is read during every Ralph session, so code reflects your personal style.
+
+---
+
 ## CLAUDE.md
 
 The setup also creates a `CLAUDE.md` file that teaches Claude your coding standards:
@@ -188,9 +232,12 @@ Hooks that block will prevent the commit. Warnings let you commit but alert you.
 | Command | Purpose |
 |---------|---------|
 | `/idea` | Brainstorm → PRD → Ready for Ralph |
+| `/prd` | Generate PRD directly from idea file |
 | `/vibe-help` | Quick reference cheatsheet |
 | `/tour` | Interactive walkthrough |
 | `/vibe-check` | Code quality audit |
 | `/review` | Deep code review |
 | `/explain` | Explain code line by line |
 | `/styleguide` | Generate design system |
+| `/sign` | Add a learned pattern |
+| `/my-dna` | Set up personal coding preferences |
