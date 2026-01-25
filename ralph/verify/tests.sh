@@ -4,26 +4,81 @@
 
 # Check that new/modified source files have corresponding test files
 # This catches the case where Claude writes code but forgets tests
+# Config: .checks.requireTests = true|false (default: false)
 verify_test_files_exist() {
   local story_type="${RALPH_STORY_TYPE:-general}"
+
+  # Check if this check is enabled in config
+  local require_tests
+  require_tests=$(get_config '.checks.requireTests' "false")
+  if [[ "$require_tests" != "true" ]]; then
+    return 0
+  fi
 
   # Skip for frontend stories (handled differently with .test.tsx pattern)
   [[ "$story_type" == "frontend" ]] && return 0
 
   echo -n "    Test files exist for new code... "
 
+  local missing_tests=()
+  local checked=0
+
+  # Check Python files if this is a Python project
+  if [[ -f "pyproject.toml" ]] || [[ -f "requirements.txt" ]] || [[ -f "setup.py" ]]; then
+    _check_python_test_files missing_tests checked
+  fi
+
+  # Check Go files if this is a Go project
+  if [[ -f "go.mod" ]]; then
+    _check_go_test_files missing_tests checked
+  fi
+
+  # If nothing to check, skip
+  if [[ $checked -eq 0 ]]; then
+    print_success "skipped (no new source files)"
+    return 0
+  fi
+
+  if [[ ${#missing_tests[@]} -eq 0 ]]; then
+    print_success "passed ($checked files checked)"
+    return 0
+  else
+    print_error "missing tests"
+    echo ""
+    echo "    The following files need test files:"
+    for file in "${missing_tests[@]}"; do
+      echo "      $file"
+    done
+    echo ""
+    echo "    Create test files for new code before completing the story."
+    echo "    To disable this check: set .checks.requireTests = false in config.json"
+
+    # Save for failure context
+    {
+      echo "Missing test files for new code:"
+      for file in "${missing_tests[@]}"; do
+        echo "  $file"
+      done
+    } > "$RALPH_DIR/last_test_existence_failure.log"
+
+    return 1
+  fi
+}
+
+# Helper: Check Python files have corresponding test files
+# Usage: _check_python_test_files <missing_array_name> <checked_var_name>
+_check_python_test_files() {
+  local -n _missing=$1
+  local -n _checked=$2
+
   # Get list of modified Python files (excluding tests themselves)
   local modified_files
   modified_files=$(git diff --name-only HEAD~1 2>/dev/null | grep '\.py$' | grep -v 'test_' | grep -v '_test\.py' | grep -v '/tests/' || true)
 
-  # If no Python files modified, skip
-  if [[ -z "$modified_files" ]]; then
-    print_success "skipped (no new Python files)"
-    return 0
-  fi
+  [[ -z "$modified_files" ]] && return 0
 
-  local missing_tests=()
-  local checked=0
+  local backend_dir
+  backend_dir=$(get_config '.directories.backend' "")
 
   while IFS= read -r src_file; do
     [[ -z "$src_file" ]] && continue
@@ -35,11 +90,11 @@ verify_test_files_exist() {
     [[ "$src_file" == *"/alembic/"* ]] && continue
     [[ "$src_file" == *"config"* ]] && continue
     [[ "$src_file" == *"settings"* ]] && continue
+    [[ "$src_file" == *"conftest"* ]] && continue
 
-    ((checked++))
+    ((_checked++))
 
-    # Determine expected test file location
-    local base_name dir_name test_file
+    local base_name dir_name
     base_name=$(basename "$src_file" .py)
     dir_name=$(dirname "$src_file")
 
@@ -52,9 +107,6 @@ verify_test_files_exist() {
       "tests/${base_name}_test.py"
     )
 
-    # Check for backend dir patterns
-    local backend_dir
-    backend_dir=$(get_config '.directories.backend' "")
     if [[ -n "$backend_dir" ]]; then
       possible_tests+=(
         "$backend_dir/tests/test_${base_name}.py"
@@ -71,35 +123,46 @@ verify_test_files_exist() {
     done
 
     if [[ "$found" == "false" ]]; then
-      missing_tests+=("$src_file")
+      _missing+=("$src_file → test_${base_name}.py")
     fi
   done <<< "$modified_files"
+}
 
-  if [[ ${#missing_tests[@]} -eq 0 ]]; then
-    print_success "passed ($checked files checked)"
-    return 0
-  else
-    print_error "missing tests"
-    echo ""
-    echo "    The following files need test files:"
-    for file in "${missing_tests[@]}"; do
-      local base_name
-      base_name=$(basename "$file" .py)
-      echo "      $file → test_${base_name}.py"
-    done
-    echo ""
-    echo "    Create test files for new code before completing the story."
+# Helper: Check Go files have corresponding test files
+# Usage: _check_go_test_files <missing_array_name> <checked_var_name>
+_check_go_test_files() {
+  local -n _missing=$1
+  local -n _checked=$2
 
-    # Save for failure context
-    {
-      echo "Missing test files for new code:"
-      for file in "${missing_tests[@]}"; do
-        echo "  $file"
-      done
-    } > "$RALPH_DIR/last_test_existence_failure.log"
+  # Get list of modified Go files (excluding tests themselves)
+  local modified_files
+  modified_files=$(git diff --name-only HEAD~1 2>/dev/null | grep '\.go$' | grep -v '_test\.go$' || true)
 
-    return 1
-  fi
+  [[ -z "$modified_files" ]] && return 0
+
+  while IFS= read -r src_file; do
+    [[ -z "$src_file" ]] && continue
+    [[ ! -f "$src_file" ]] && continue
+
+    # Skip generated files, main.go, etc.
+    [[ "$src_file" == *"_generated.go" ]] && continue
+    [[ "$src_file" == *"/vendor/"* ]] && continue
+    [[ "$(basename "$src_file")" == "main.go" ]] && continue
+    [[ "$(basename "$src_file")" == "doc.go" ]] && continue
+
+    ((_checked++))
+
+    local base_name dir_name
+    base_name=$(basename "$src_file" .go)
+    dir_name=$(dirname "$src_file")
+
+    # Go convention: foo.go -> foo_test.go in same directory
+    local test_file="$dir_name/${base_name}_test.go"
+
+    if [[ ! -f "$test_file" ]]; then
+      _missing+=("$src_file → ${base_name}_test.go")
+    fi
+  done <<< "$modified_files"
 }
 
 # Run unit tests
