@@ -6,17 +6,18 @@ Complete technical breakdown of the agentic-loop codebase.
 
 1. [Overview](#overview)
 2. [Idea to Execution Flow](#idea-to-execution-flow)
-3. [System Flow](#system-flow)
-4. [Entry Points](#entry-points)
-5. [Core Loop](#core-loop)
-6. [Verification Pipeline](#verification-pipeline)
-7. [Prompt Assembly](#prompt-assembly)
-8. [Slash Commands](#slash-commands)
-9. [Claude Code Hooks](#claude-code-hooks)
-10. [Vibe-Check Engine](#vibe-check-engine)
-11. [Configuration](#configuration)
-12. [Templates](#templates)
-13. [Data Files](#data-files)
+3. [Project Setup](#project-setup)
+4. [System Flow](#system-flow)
+5. [Entry Points](#entry-points)
+6. [Core Loop](#core-loop)
+7. [Verification Pipeline](#verification-pipeline)
+8. [Prompt Assembly](#prompt-assembly)
+9. [Slash Commands](#slash-commands)
+10. [Claude Code Hooks](#claude-code-hooks)
+11. [Vibe-Check Engine](#vibe-check-engine)
+12. [Configuration](#configuration)
+13. [Templates](#templates)
+14. [Data Files](#data-files)
 
 ---
 
@@ -155,6 +156,100 @@ The PRD is a JSON file that contains everything Claude needs to implement the fe
 - **Atomic stories**: Each story is frontend OR backend, never both. This makes testing clearer.
 - **URL placeholders**: testSteps use `{config.urls.backend}` which gets replaced with actual URLs at runtime from config.json.
 - **Lean prompts**: Instead of stuffing everything into the prompt, Claude reads files during execution. This improves comprehension.
+
+---
+
+## Project Setup
+
+Before you can use agentic-loop, you need to set up your project. This is done once per project.
+
+```bash
+npx agentic-loop setup
+```
+
+### What Setup Does (ralph/setup.sh)
+
+Setup detects your project type and configures everything:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│  npx agentic-loop setup                                                  │
+│                                                                          │
+│  1. Detect project type                                                  │
+│     - Scan for package.json, pyproject.toml, go.mod, Cargo.toml         │
+│     - Identify if frontend, backend, or fullstack                        │
+│                                                                          │
+│  2. Create .ralph/ directory                                             │
+│     - config.json (URLs, directories, check settings)                    │
+│     - signs.json (default learned patterns)                              │
+│     - hooks/ (Claude Code hooks)                                         │
+│                                                                          │
+│  3. Create .claude/ directory                                            │
+│     - settings.json (hook configuration)                                 │
+│     - commands/ (slash commands: /idea, /prd, /review, etc.)             │
+│                                                                          │
+│  4. Create CLAUDE.md                                                     │
+│     - Project coding conventions                                         │
+│     - Based on detected tech stack                                       │
+│                                                                          │
+│  5. Create PROMPT.md (if not exists)                                     │
+│     - 7-step framework for Claude                                        │
+│                                                                          │
+│  6. Update .gitignore                                                    │
+│     - Add .ralph/last_failure.txt                                        │
+│     - Add .ralph/tool-log.txt                                            │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Setup Functions (ralph/setup.sh)
+
+| Function | What it does |
+|----------|--------------|
+| `setup_ralph_dir()` | Create `.ralph/` with config.json, signs.json based on detected project type |
+| `setup_gitignore()` | Add agentic-loop files to .gitignore |
+| `setup_claude_hooks()` | Copy hooks to `.ralph/hooks/` and configure `.claude/settings.json` |
+| `setup_slash_commands()` | Copy slash commands to `.claude/commands/` |
+| `setup_claude_md()` | Generate CLAUDE.md with conventions for detected stack |
+| `setup_mcp()` | Help configure MCP tools (Playwright, DevTools) |
+| `setup_precommit_hooks()` | Set up pre-commit hooks for git |
+| `setup_github_ci()` | Generate GitHub Actions workflows |
+
+### Project Type Detection
+
+Setup reads your project files to determine what config to use:
+
+| Detected | Config Template Used |
+|----------|---------------------|
+| `package.json` only | `templates/config/node.json` |
+| `pyproject.toml` or `requirements.txt` | `templates/config/python.json` |
+| `go.mod` | `templates/config/go.json` |
+| `Cargo.toml` | `templates/config/rust.json` |
+| Both frontend and backend | `templates/config/fullstack.json` |
+| Nothing detected | `templates/config/minimal.json` |
+
+### Generated config.json
+
+Based on detection, setup creates `.ralph/config.json`:
+
+```json
+{
+  "directories": {
+    "frontend": ".",           // or "apps/web" for monorepos
+    "backend": "."             // or "apps/api" for monorepos
+  },
+  "urls": {
+    "frontend": "http://localhost:3000",
+    "backend": "http://localhost:8000"
+  },
+  "checks": {
+    "build": true,
+    "lint": true,
+    "test": true
+  }
+}
+```
+
+The URLs in config.json are what `{config.urls.backend}` expands to in testSteps.
 
 ---
 
