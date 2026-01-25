@@ -48,77 +48,116 @@ run_auto_fix() {
 }
 
 # Verify lint passes after auto-fix (catch remaining errors that need manual fix)
+# Usage: verify_lint [story_type]
 verify_lint() {
+  local story_type="${1:-general}"
   local failed=0
   local lint_log="$RALPH_DIR/last_lint_failure.log"
 
   # Clear previous lint failure log
   rm -f "$lint_log"
 
-  # Python: ruff lint check
-  if command -v ruff &>/dev/null && [[ -f "pyproject.toml" || -f "ruff.toml" ]]; then
-    echo -n "    Ruff lint check... "
-    if ruff check . --quiet 2>/dev/null; then
-      print_success "passed"
-    else
-      print_error "failed"
-      echo ""
-      echo "    Lint errors (auto-fix couldn't resolve - Claude should fix these):"
-      local lint_output
-      lint_output=$(ruff check . 2>/dev/null | head -"$MAX_LINT_ERROR_LINES")
-      echo "$lint_output" | sed 's/^/      /'
-      {
-        echo "Lint errors in root directory:"
-        echo "$lint_output"
-      } >> "$lint_log"
-      failed=1
-    fi
-  fi
-
-  # Check for monorepo backend directories
-  local api_dirs
-  api_dirs=$(get_backend_dirs)
-
-  while IFS= read -r api_dir; do
-    [[ -z "$api_dir" ]] && continue
-    if [[ -f "$api_dir/pyproject.toml" || -f "$api_dir/ruff.toml" ]]; then
-      echo -n "    Ruff lint check ($api_dir)... "
-      if (cd "$api_dir" && ruff check . --quiet 2>/dev/null); then
+  # Python: ruff lint check (skip for frontend-only stories)
+  if [[ "$story_type" != "frontend" ]]; then
+    if command -v ruff &>/dev/null && [[ -f "pyproject.toml" || -f "ruff.toml" ]]; then
+      echo -n "    Ruff lint check... "
+      if ruff check . --quiet 2>/dev/null; then
         print_success "passed"
       else
         print_error "failed"
         echo ""
-        echo "    Lint errors in $api_dir (auto-fix couldn't resolve - Claude should fix these):"
+        echo "    Lint errors (auto-fix couldn't resolve - Claude should fix these):"
         local lint_output
-        lint_output=$(cd "$api_dir" && ruff check . 2>/dev/null | head -"$MAX_LINT_ERROR_LINES")
+        lint_output=$(ruff check . 2>/dev/null | head -"$MAX_LINT_ERROR_LINES")
         echo "$lint_output" | sed 's/^/      /'
         {
-          echo ""
-          echo "Lint errors in $api_dir:"
+          echo "Lint errors in root directory:"
           echo "$lint_output"
         } >> "$lint_log"
         failed=1
       fi
     fi
-  done <<< "$api_dirs"
 
-  # JavaScript/TypeScript: ESLint check (root)
-  if [[ -f "package.json" ]] && command -v npx &>/dev/null; then
-    if grep -q '"eslint"' package.json 2>/dev/null || [[ -f ".eslintrc.js" ]] || [[ -f "eslint.config.js" ]]; then
-      echo -n "    ESLint check... "
+    # Check for monorepo backend directories
+    local api_dirs
+    api_dirs=$(get_backend_dirs)
+
+    while IFS= read -r api_dir; do
+      [[ -z "$api_dir" ]] && continue
+      if [[ -f "$api_dir/pyproject.toml" || -f "$api_dir/ruff.toml" ]]; then
+        echo -n "    Ruff lint check ($api_dir)... "
+        if (cd "$api_dir" && ruff check . --quiet 2>/dev/null); then
+          print_success "passed"
+        else
+          print_error "failed"
+          echo ""
+          echo "    Lint errors in $api_dir (auto-fix couldn't resolve - Claude should fix these):"
+          local lint_output
+          lint_output=$(cd "$api_dir" && ruff check . 2>/dev/null | head -"$MAX_LINT_ERROR_LINES")
+          echo "$lint_output" | sed 's/^/      /'
+          {
+            echo ""
+            echo "Lint errors in $api_dir:"
+            echo "$lint_output"
+          } >> "$lint_log"
+          failed=1
+        fi
+      fi
+    done <<< "$api_dirs"
+  else
+    echo "    Ruff lint check... skipped (frontend story)"
+  fi
+
+  # JavaScript/TypeScript: ESLint check (skip for backend-only stories)
+  if [[ "$story_type" != "backend" ]]; then
+    if [[ -f "package.json" ]] && command -v npx &>/dev/null; then
+      if grep -q '"eslint"' package.json 2>/dev/null || [[ -f ".eslintrc.js" ]] || [[ -f "eslint.config.js" ]]; then
+        echo -n "    ESLint check... "
+        local eslint_output
+        if eslint_output=$(npx eslint . --max-warnings 0 2>&1); then
+          print_success "passed"
+        else
+          # Check if it's real errors or just warnings
+          if echo "$eslint_output" | grep -qE "✖ [0-9]+ problems? \([1-9]"; then
+            print_error "failed"
+            echo ""
+            echo "    ESLint errors:"
+            echo "$eslint_output" | tail -"$MAX_LINT_ERROR_LINES" | sed 's/^/      /'
+            {
+              echo ""
+              echo "ESLint errors in root:"
+              echo "$eslint_output"
+            } >> "$lint_log"
+            failed=1
+          else
+            print_success "passed (warnings only)"
+          fi
+        fi
+      fi
+    fi
+
+    # Check frontend directories (monorepo support)
+    local fe_dirs
+    fe_dirs=$(get_frontend_dirs)
+
+    while IFS= read -r fe_dir; do
+      [[ -z "$fe_dir" ]] && continue
+      [[ ! -f "$fe_dir/package.json" ]] && continue
+      grep -q '"eslint"' "$fe_dir/package.json" 2>/dev/null || continue
+
+      echo -n "    ESLint check ($fe_dir)... "
       local eslint_output
-      if eslint_output=$(npx eslint . --max-warnings 0 2>&1); then
+      if eslint_output=$(cd "$fe_dir" && npx eslint . --max-warnings 0 2>&1); then
         print_success "passed"
       else
-        # Check if it's real errors or just warnings
         if echo "$eslint_output" | grep -qE "✖ [0-9]+ problems? \([1-9]"; then
           print_error "failed"
           echo ""
-          echo "    ESLint errors:"
+          echo "    ESLint errors in $fe_dir:"
           echo "$eslint_output" | tail -"$MAX_LINT_ERROR_LINES" | sed 's/^/      /'
           {
             echo ""
-            echo "ESLint errors in root:"
+            echo "ESLint errors in $fe_dir:"
             echo "$eslint_output"
           } >> "$lint_log"
           failed=1
@@ -126,39 +165,10 @@ verify_lint() {
           print_success "passed (warnings only)"
         fi
       fi
-    fi
+    done <<< "$fe_dirs"
+  else
+    echo "    ESLint check... skipped (backend story)"
   fi
-
-  # Check frontend directories (monorepo support)
-  local fe_dirs
-  fe_dirs=$(get_frontend_dirs)
-
-  while IFS= read -r fe_dir; do
-    [[ -z "$fe_dir" ]] && continue
-    [[ ! -f "$fe_dir/package.json" ]] && continue
-    grep -q '"eslint"' "$fe_dir/package.json" 2>/dev/null || continue
-
-    echo -n "    ESLint check ($fe_dir)... "
-    local eslint_output
-    if eslint_output=$(cd "$fe_dir" && npx eslint . --max-warnings 0 2>&1); then
-      print_success "passed"
-    else
-      if echo "$eslint_output" | grep -qE "✖ [0-9]+ problems? \([1-9]"; then
-        print_error "failed"
-        echo ""
-        echo "    ESLint errors in $fe_dir:"
-        echo "$eslint_output" | tail -"$MAX_LINT_ERROR_LINES" | sed 's/^/      /'
-        {
-          echo ""
-          echo "ESLint errors in $fe_dir:"
-          echo "$eslint_output"
-        } >> "$lint_log"
-        failed=1
-      else
-        print_success "passed (warnings only)"
-      fi
-    fi
-  done <<< "$fe_dirs"
 
   return $failed
 }
@@ -438,29 +448,41 @@ check_enabled() {
   [[ "$value" == "true" ]]
 }
 
-# Run all checks based on config.json flags
+# Run all checks based on config.json flags and story type
+# Usage: run_configured_checks [story_type]
+# story_type: "backend", "frontend", or "general" (default)
 run_configured_checks() {
+  local story_type="${1:-general}"
+
   # ALWAYS run auto-fix (harmless, just formats code)
   run_auto_fix
 
-  # Lint check (ruff for Python, eslint for JS/TS)
+  # Lint check - skip irrelevant checks based on story type
   if check_enabled "lint"; then
-    if ! verify_lint; then
+    if ! verify_lint "$story_type"; then
       return 1
     fi
   fi
 
-  # TypeScript type checking
+  # TypeScript type checking - skip for backend-only stories
   if check_enabled "typecheck"; then
-    if ! verify_typescript; then
-      return 1
+    if [[ "$story_type" == "backend" ]]; then
+      echo "    TypeScript typecheck... skipped (backend story)"
+    else
+      if ! verify_typescript; then
+        return 1
+      fi
     fi
   fi
 
-  # Build verification (npm build, go build, cargo build)
+  # Build verification - skip frontend build for backend stories
   if check_enabled "build"; then
-    if ! verify_build; then
-      return 1
+    if [[ "$story_type" == "backend" ]]; then
+      echo "    npm build... skipped (backend story)"
+    else
+      if ! verify_build; then
+        return 1
+      fi
     fi
     if ! verify_go; then
       return 1
