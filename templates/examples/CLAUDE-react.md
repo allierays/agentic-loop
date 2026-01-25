@@ -10,7 +10,8 @@
 - **CSS classes**: `kebab-case` (TailwindCSS utility classes are standard)
 
 ## Tech Stack
-- **Frontend**: React 18, TypeScript, Vite
+<!-- Customize these for your project - detect from package.json -->
+- **Frontend**: React, TypeScript, Vite
 - **Styling**: TailwindCSS
 - **State**: React Query for server state, Zustand for client state
 - **Testing**: Vitest, React Testing Library, Playwright

@@ -9,7 +9,8 @@
 - **API endpoints**: `kebab-case` — e.g., `/api/user-profile`, `/api/auth/sign-in`
 
 ## Tech Stack
-- **Runtime**: Node.js 20+
+<!-- Customize these for your project - detect from package.json -->
+- **Runtime**: Node.js
 - **Framework**: Express.js / Fastify
 - **Language**: TypeScript
 - **Database**: PostgreSQL with Prisma

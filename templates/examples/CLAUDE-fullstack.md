@@ -19,8 +19,9 @@
 - **Constants**: `SCREAMING_SNAKE` — e.g., `MAX_RETRIES`
 
 ## Tech Stack
-- **Frontend**: React 18, TypeScript, Vite, TailwindCSS
-- **Backend**: Django 5, Django REST Framework
+<!-- Customize these for your project - detect from package.json/pyproject.toml -->
+- **Frontend**: React, TypeScript, Vite, TailwindCSS
+- **Backend**: Django, Django REST Framework
 - **Database**: PostgreSQL
 - **Cache/Queue**: Redis, Celery
 - **Testing**: pytest (backend), Vitest (frontend), Playwright (E2E)
