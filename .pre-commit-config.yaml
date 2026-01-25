@@ -1,9 +1,16 @@
 # Pre-commit hooks for agentic-loop development
-# Simplified - the vibe-check patterns have false positives on their own source code
+# We eat our own dog food
 
 repos:
   - repo: local
     hooks:
+      - id: vibe-check
+        name: Vibe Check
+        entry: node bin/vibe-check.js --exclude 'src/checks/**,src/utils/patterns.ts' --fail-on error
+        language: node
+        types_or: [javascript, ts, python, json]
+        pass_filenames: true
+
       - id: typecheck
         name: TypeScript typecheck
         entry: npx tsc --noEmit
@@ -20,5 +27,5 @@ repos:
       - id: end-of-file-fixer
         exclude: '\.txt$'
       - id: check-yaml
-        exclude: '\.pre-commit-hooks\.yaml$'  # Has special syntax
+        exclude: '\.pre-commit-hooks\.yaml$'
       - id: check-added-large-files

@@ -3,6 +3,7 @@
  */
 
 import type { Hook, HookResult, FileContext } from '../utils/types.js';
+import { shouldIgnoreLine } from '../utils/types.js';
 
 // Common CDN and safe domains to ignore
 const SAFE_DOMAINS = new Set([
@@ -54,6 +55,11 @@ export const checkHardcodedUrls: Hook = {
 
       // Skip comments
       if (isCommentLine(line, context.extension)) {
+        continue;
+      }
+
+      // Skip lines with noqa comment
+      if (shouldIgnoreLine(line, 'urls')) {
         continue;
       }
 

@@ -48,12 +48,36 @@ export interface CheckOptions {
   only?: string[];
   /** Skip these hooks (by id) */
   skip?: string[];
+  /** File patterns to exclude (glob patterns) */
+  exclude?: string[];
   /** Minimum severity to fail on */
   failOn?: Severity;
   /** Output format */
   format?: 'pretty' | 'json' | 'compact';
   /** Auto-fix issues where possible */
   fix?: boolean;
+}
+
+/**
+ * Check if a line should be ignored due to noqa comment
+ * Supports: // noqa, // noqa: rule, # noqa, # noqa: rule
+ */
+export function shouldIgnoreLine(line: string, ruleId?: string): boolean {
+  // Match // noqa or # noqa with optional rule specification
+  const noqaMatch = line.match(/(?:\/\/|#)\s*noqa(?::\s*([a-z0-9_,-]+))?/i);
+  if (!noqaMatch) return false;
+
+  // If no specific rule in comment, ignore all rules
+  if (!noqaMatch[1]) return true;
+
+  // If rule specified, check if current rule matches
+  if (ruleId) {
+    const rules = noqaMatch[1].split(',').map((r) => r.trim().toLowerCase());
+    const ruleBase = ruleId.split('/')[0].toLowerCase(); // e.g., 'debug' from 'debug/console'
+    return rules.includes(ruleBase) || rules.includes(ruleId.toLowerCase());
+  }
+
+  return true;
 }
 
 export interface CheckResult {

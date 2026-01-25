@@ -3,6 +3,7 @@
  */
 
 import type { Hook, HookResult, FileContext } from '../utils/types.js';
+import { shouldIgnoreLine } from '../utils/types.js';
 import { DEBUG_PATTERNS } from '../utils/patterns.js';
 
 export const checkDebugStatements: Hook = {
@@ -61,8 +62,10 @@ export const checkDebugStatements: Hook = {
             continue;
           }
 
-          // Skip if explicitly marked to keep
-          if (line.includes('// eslint-disable') || line.includes('# noqa')) {
+          const ruleId = `debug/${patternType}`;
+
+          // Skip if noqa comment present
+          if (shouldIgnoreLine(line, ruleId)) {
             continue;
           }
 
@@ -71,7 +74,7 @@ export const checkDebugStatements: Hook = {
             column: match.index || 0,
             message: getDebugMessage(patternType, language),
             severity: 'warning',
-            ruleId: `debug/${patternType}`,
+            ruleId,
           });
         }
       }

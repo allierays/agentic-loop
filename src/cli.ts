@@ -36,6 +36,9 @@ function parseArgs(args: string[]): { files: string[]; options: CheckOptions } {
     } else if (arg === '--skip' && args[i + 1]) {
       options.skip = args[i + 1].split(',').map((s) => s.trim());
       i += 2;
+    } else if (arg === '--exclude' && args[i + 1]) {
+      options.exclude = args[i + 1].split(',').map((s) => s.trim());
+      i += 2;
     } else if (arg === '--format' && args[i + 1]) {
       const format = args[i + 1] as 'pretty' | 'json' | 'compact';
       if (['pretty', 'json', 'compact'].includes(format)) {
@@ -83,17 +86,24 @@ Usage:
 Options:
   --only <hooks>      Only run specified hooks (comma-separated)
   --skip <hooks>      Skip specified hooks (comma-separated)
+  --exclude <globs>   Exclude file patterns (comma-separated globs)
   --format <format>   Output format: pretty, json, compact (default: pretty)
   --fail-on <level>   Fail on severity level: error, warning, info, none (default: error)
   --fix               Auto-fix issues where possible
   -h, --help          Show this help message
   -v, --version       Show version
 
+Inline suppression:
+  // noqa           Suppress all warnings on this line
+  // noqa: debug    Suppress only debug warnings on this line
+  # noqa: urls      Python-style suppression
+
 Examples:
   vibe-check .
   vibe-check src/
   vibe-check --only secrets,urls .
   vibe-check --skip any-types,snake-case .
+  vibe-check --exclude 'src/checks/**,tests/**' .
   vibe-check --format json .
 
 Available hooks:
@@ -152,7 +162,7 @@ function checkFile(filePath: string, options: CheckOptions): CheckResult {
  * Main vibe-check function
  */
 export function vibeCheck(files: string[], options: CheckOptions = {}): SummaryResult {
-  const resolvedFiles = resolveFiles(files);
+  const resolvedFiles = resolveFiles(files, options.exclude);
   const results: CheckResult[] = [];
 
   for (const file of resolvedFiles) {
@@ -212,14 +222,17 @@ export async function main(args: string[]): Promise<void> {
   console.log(output);
 
   // Determine exit code based on --fail-on
+  // 'error' (0) = only fail on errors
+  // 'warning' (1) = fail on errors or warnings
+  // 'info' (2) = fail on errors, warnings, or info
   if (options.failOn) {
     const severityOrder: Severity[] = ['error', 'warning', 'info'];
     const failIndex = severityOrder.indexOf(options.failOn);
 
     let shouldFail = false;
-    if (failIndex <= 0 && summary.errorCount > 0) shouldFail = true;
-    if (failIndex <= 1 && summary.warningCount > 0) shouldFail = true;
-    if (failIndex <= 2 && summary.infoCount > 0) shouldFail = true;
+    if (failIndex >= 0 && summary.errorCount > 0) shouldFail = true;
+    if (failIndex >= 1 && summary.warningCount > 0) shouldFail = true;
+    if (failIndex >= 2 && summary.infoCount > 0) shouldFail = true;
 
     if (shouldFail) {
       process.exit(1);

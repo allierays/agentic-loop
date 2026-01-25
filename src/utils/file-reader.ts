@@ -125,9 +125,38 @@ export function discoverFiles(dirPath: string): string[] {
 }
 
 /**
+ * Simple glob pattern matching
+ * Supports: * (any chars), ** (any path), ? (single char)
+ */
+function matchesGlob(filePath: string, pattern: string): boolean {
+  // Normalize path separators
+  const normalizedPath = filePath.replace(/\\/g, '/');
+  const normalizedPattern = pattern.replace(/\\/g, '/');
+
+  // Convert glob to regex
+  const regexPattern = normalizedPattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&') // Escape special regex chars
+    .replace(/\*\*/g, '<<<GLOBSTAR>>>') // Temp placeholder for **
+    .replace(/\*/g, '[^/]*') // * = any chars except /
+    .replace(/\?/g, '.') // ? = single char
+    .replace(/<<<GLOBSTAR>>>/g, '.*'); // ** = any chars including /
+
+  const regex = new RegExp(`^${regexPattern}$|/${regexPattern}$|^${regexPattern}/|/${regexPattern}/`);
+  return regex.test(normalizedPath);
+}
+
+/**
+ * Check if file matches any exclude pattern
+ */
+function isExcluded(filePath: string, excludePatterns: string[]): boolean {
+  const relativePath = path.relative(process.cwd(), filePath);
+  return excludePatterns.some((pattern) => matchesGlob(relativePath, pattern));
+}
+
+/**
  * Resolve input paths to a list of files
  */
-export function resolveFiles(inputs: string[]): string[] {
+export function resolveFiles(inputs: string[], excludePatterns: string[] = []): string[] {
   const files: string[] = [];
 
   for (const input of inputs) {
@@ -149,7 +178,10 @@ export function resolveFiles(inputs: string[]): string[] {
     }
   }
 
-  return [...new Set(files)]; // Deduplicate
+  // Apply exclude patterns
+  const filtered = excludePatterns.length > 0 ? files.filter((f) => !isExcluded(f, excludePatterns)) : files;
+
+  return [...new Set(filtered)]; // Deduplicate
 }
 
 // Max file size to read (10MB) - prevents OOM on huge files

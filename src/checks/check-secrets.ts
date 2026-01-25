@@ -3,6 +3,7 @@
  */
 
 import type { Hook, HookResult, FileContext } from '../utils/types.js';
+import { shouldIgnoreLine } from '../utils/types.js';
 import { SECRET_PATTERNS, isPlaceholder } from '../utils/patterns.js';
 
 export const checkSecrets: Hook = {
@@ -22,6 +23,11 @@ export const checkSecrets: Hook = {
 
       // Skip comments
       if (isCommentLine(line, context.extension)) {
+        continue;
+      }
+
+      // Skip lines with noqa comment
+      if (shouldIgnoreLine(line, 'secrets')) {
         continue;
       }
 
