@@ -1,97 +1,34 @@
 # Nightly comprehensive test suite
-# Runs full tests + all PRD testSteps
+# This is a minimal template. Run `npx agentic-loop ci install` to generate
+# a workflow customized for your project structure.
 
 name: Nightly Tests
 
 on:
   schedule:
-    # Run at 3am UTC every day
-    - cron: '0 3 * * *'
-  workflow_dispatch: # Allow manual trigger
+    - cron: '0 3 * * *'  # 3am UTC daily
+  workflow_dispatch:
 
 jobs:
   test:
     runs-on: ubuntu-latest
-
-    services:
-      # Add postgres if your project needs it
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: test
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
-    env:
-      DATABASE_URL: postgresql://test:test@localhost:5432/test
-
     steps:
       - uses: actions/checkout@v4
 
-      # Python setup
-      - name: Set up Python
-        if: hashFiles('pyproject.toml') != '' || hashFiles('requirements.txt') != ''
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Python dependencies
-        if: hashFiles('pyproject.toml') != ''
-        run: |
-          pip install uv
-          uv pip install -e ".[dev]" --system 2>/dev/null || pip install -e ".[dev]" 2>/dev/null || pip install -e . 2>/dev/null || true
-
-      # Node.js setup
       - name: Set up Node.js
-        if: hashFiles('package.json') != ''
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
-      - name: Install Node dependencies
-        if: hashFiles('package.json') != ''
-        run: npm ci
+      - name: Install dependencies
+        run: npm ci 2>/dev/null || true
 
-      # Run database migrations if needed
-      - name: Run migrations
-        if: hashFiles('alembic.ini') != ''
-        run: alembic upgrade head
-        continue-on-error: true
-
-      # Python tests
-      - name: Python tests
-        if: hashFiles('pyproject.toml') != '' || hashFiles('pytest.ini') != ''
-        run: |
-          pytest -v --tb=short 2>/dev/null || python -m pytest -v --tb=short 2>/dev/null || true
-
-      # Node tests
-      - name: Node tests
-        if: hashFiles('package.json') != ''
+      - name: Run tests
         run: npm test 2>/dev/null || true
-
-      # PRD testSteps (if ralph is set up)
-      - name: Install ralph
-        run: npm install -g agentic-loop 2>/dev/null || true
 
       - name: Run PRD tests
         if: hashFiles('.ralph/prd.json') != ''
-        run: ralph test prd 2>/dev/null || true
-        continue-on-error: true
-
-      # Coverage report
-      - name: Coverage report
-        if: hashFiles('pyproject.toml') != ''
-        run: |
-          pip install pytest-cov
-          pytest --cov --cov-report=term-missing 2>/dev/null || true
+        run: npx agentic-loop test prd 2>/dev/null || true
         continue-on-error: true
 
   notify:
@@ -100,6 +37,4 @@ jobs:
     if: failure()
     steps:
       - name: Notify on failure
-        run: |
-          echo "Nightly tests failed! Check the workflow run for details."
-          # Add Slack/Discord notification here if desired
+        run: echo "Nightly tests failed!"

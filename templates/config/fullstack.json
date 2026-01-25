@@ -16,7 +16,7 @@
     "execPrefix": "docker compose exec -T"
   },
 
-  "paths": {
+  "directories": {
     "frontend": "frontend",
     "backend": ".",
     "tests": "tests",

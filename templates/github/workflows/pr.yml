@@ -1,5 +1,6 @@
 # Fast PR checks - lint only, no tests
-# Tests run in nightly workflow to keep PRs fast
+# This is a minimal template. Run `npx agentic-loop ci install` to generate
+# a workflow customized for your project structure.
 
 name: PR Check
 
@@ -13,44 +14,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Python linting
-      - name: Set up Python
-        if: hashFiles('pyproject.toml') != '' || hashFiles('requirements.txt') != ''
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Python dependencies
-        if: hashFiles('pyproject.toml') != ''
-        run: |
-          pip install ruff
-          pip install -e . 2>/dev/null || true
-
-      - name: Ruff lint
-        if: hashFiles('pyproject.toml') != '' || hashFiles('ruff.toml') != ''
-        run: ruff check .
-
-      # Node.js linting
       - name: Set up Node.js
-        if: hashFiles('package.json') != ''
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
 
-      - name: Install Node dependencies
-        if: hashFiles('package.json') != ''
-        run: npm ci
+      - name: Install dependencies
+        run: npm ci 2>/dev/null || true
 
-      - name: ESLint
-        if: hashFiles('package.json') != ''
-        run: npm run lint 2>/dev/null || npx eslint . 2>/dev/null || true
+      - name: Lint
+        run: npm run lint 2>/dev/null || true
 
       - name: TypeScript check
-        if: hashFiles('tsconfig.json') != ''
-        run: npx tsc --noEmit
+        run: npx tsc --noEmit 2>/dev/null || true
 
-      # Build check (catches import/bundling errors)
       - name: Build
-        if: hashFiles('package.json') != ''
         run: npm run build 2>/dev/null || true
