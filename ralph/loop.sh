@@ -182,6 +182,7 @@ run_loop() {
   local total_attempts=0
   local skipped_stories=()
   local start_time
+  local session_started=false  # Track if we've started a Claude session
   start_time=$(date +%s)
 
   while [[ $iteration -lt $max_iterations ]]; do
@@ -278,7 +279,7 @@ run_loop() {
 
     # Temporarily disable errexit to capture build_prompt errors
     set +e
-    build_prompt "$story" "$failure_context" > "$prompt_file" 2>&1
+    build_prompt "$story" "$failure_context" "$session_started" > "$prompt_file" 2>&1
     local build_status=$?
     set -e
 
@@ -323,11 +324,19 @@ run_loop() {
     local timeout_seconds
     timeout_seconds=$(get_config '.maxSessionSeconds' "$DEFAULT_TIMEOUT_SECONDS")
 
-    # Run Claude with output visible on terminal
-    if ! cat "$prompt_file" | run_with_timeout "$timeout_seconds" claude -p --dangerously-skip-permissions --verbose; then
+    # Run Claude - first story gets fresh session, subsequent continue the session
+    local claude_cmd="claude -p --dangerously-skip-permissions --verbose"
+    if [[ "$session_started" == "true" ]]; then
+      claude_cmd="claude --continue -p --dangerously-skip-permissions --verbose"
+    fi
+
+    if ! cat "$prompt_file" | run_with_timeout "$timeout_seconds" $claude_cmd; then
       print_warning "Claude session ended (timeout or error)"
       log_progress "$story" "TIMEOUT" "Claude session ended after ${timeout_seconds}s"
       rm -f "$prompt_file"
+
+      # Session may be broken - reset for next attempt
+      session_started=false
 
       # If running specific story, exit on failure
       [[ -n "$specific_story" ]] && return 1
@@ -335,6 +344,7 @@ run_loop() {
     fi
 
     rm -f "$prompt_file"
+    session_started=true  # Mark session as active for subsequent stories
 
     # 5. Run migrations BEFORE verification (tests need DB schema)
     if ! run_migrations_if_needed "$pre_story_sha"; then
@@ -611,6 +621,52 @@ _inject_architecture() {
   echo "- Scripts go in scripts/, docs go in docs/"
 }
 
+# Helper: Build delta prompt for continuing session
+# Minimal context - just new story + any failure info
+_build_delta_prompt() {
+  local story="$1"
+  local story_json="$2"
+  local failure_context="${3:-}"
+
+  echo ""
+  echo "---"
+  echo ""
+
+  # If this is a retry (failure context exists), note it
+  if [[ -n "$failure_context" ]]; then
+    echo "## Retry: Fix the errors below"
+    echo ""
+    echo '```'
+    echo "$failure_context"
+    echo '```'
+    echo ""
+  else
+    # New story - note previous completion
+    local completed_count
+    completed_count=$(jq '[.stories[] | select(.passes==true)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+    if [[ "$completed_count" -gt 0 ]]; then
+      echo "## Previous stories complete. Moving to next story."
+      echo ""
+      # Suggest compact if we've done several stories
+      if [[ "$completed_count" -ge 3 ]]; then
+        echo "*Consider running /compact if context feels heavy.*"
+        echo ""
+      fi
+    fi
+  fi
+
+  echo "## Current Story"
+  echo ""
+  echo '```json'
+  echo "$story_json"
+  echo '```'
+
+  # Include file guidance for the new story
+  _inject_file_guidance "$story_json"
+  _inject_story_scale "$story_json"
+  _inject_styleguide "$story_json"
+}
+
 # Helper: Inject failure context from previous iteration
 _inject_failure_context() {
   local failure_context="$1"
@@ -653,16 +709,24 @@ _inject_developer_dna() {
 }
 
 # Build the prompt with story context injected
+# Usage: build_prompt <story_id> [failure_context] [is_continuation]
 build_prompt() {
   local story="$1"
   local failure_context="${2:-}"
-
-  # Read base PROMPT.md
-  cat "$PROMPT_FILE"
+  local is_continuation="${3:-false}"
 
   # Get story JSON once
   local story_json
   story_json=$(jq --arg id "$story" '.stories[] | select(.id==$id)' "$RALPH_DIR/prd.json")
+
+  if [[ "$is_continuation" == "true" ]]; then
+    # Delta prompt for continuing session - just new story context
+    _build_delta_prompt "$story" "$story_json" "$failure_context"
+    return
+  fi
+
+  # Full prompt for fresh session
+  cat "$PROMPT_FILE"
 
   # Inject all sections
   _inject_story_context "$story_json"
