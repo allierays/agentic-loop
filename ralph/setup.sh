@@ -26,6 +26,7 @@ ralph_setup() {
   setup_claude_md
   setup_mcp
   setup_precommit_hooks
+  setup_github_ci "$pkg_root"
 
   echo ""
   echo "  ========================================"
@@ -461,5 +462,55 @@ EOF
   else
     echo "  pre-commit not found - install with: pip install pre-commit"
     echo "  Then run: pre-commit install"
+  fi
+}
+
+# Set up GitHub Actions CI/CD
+setup_github_ci() {
+  local pkg_root="$1"
+  local template_dir="$pkg_root/templates/github/workflows"
+
+  # Skip if not a git repo
+  if [[ ! -d ".git" ]]; then
+    return 0
+  fi
+
+  # Skip if templates don't exist
+  if [[ ! -d "$template_dir" ]]; then
+    return 0
+  fi
+
+  # Skip if already set up
+  if [[ -f ".github/workflows/pr.yml" ]] && [[ -f ".github/workflows/nightly.yml" ]]; then
+    return 0
+  fi
+
+  echo ""
+  echo "  GitHub Actions CI/CD can be configured:"
+  echo "    - PR checks: Fast lint/typecheck on pull requests"
+  echo "    - Nightly: Full test suite + PRD tests at 3am UTC"
+  echo ""
+  read -r -p "  Set up GitHub Actions? [Y/n] " response
+
+  if [[ "$response" =~ ^[Nn]$ ]]; then
+    echo "  Skipped GitHub Actions (run 'ralph ci install' later)"
+    return 0
+  fi
+
+  echo "Setting up GitHub Actions CI/CD..."
+
+  # Create workflows directory
+  mkdir -p .github/workflows
+
+  # Install PR workflow
+  if [[ ! -f ".github/workflows/pr.yml" ]]; then
+    cp "$template_dir/pr.yml" .github/workflows/pr.yml
+    echo "  Created .github/workflows/pr.yml (fast PR checks)"
+  fi
+
+  # Install nightly workflow
+  if [[ ! -f ".github/workflows/nightly.yml" ]]; then
+    cp "$template_dir/nightly.yml" .github/workflows/nightly.yml
+    echo "  Created .github/workflows/nightly.yml (nightly full tests)"
   fi
 }
