@@ -37,11 +37,11 @@
   },
 
   "checks": {
-    "typescript": "cd frontend && npx tsc --noEmit",
-    "lint": "ruff check .",
-    "lintFrontend": "cd frontend && npm run lint",
-    "test": "python manage.py test --keepdb --parallel",
-    "testFrontend": "cd frontend && npm test"
+    "lint": true,
+    "typecheck": true,
+    "build": "final",
+    "test": true,
+    "fastapi": true
   },
 
   "api": {

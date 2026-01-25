@@ -239,6 +239,72 @@ save_failure_context() {
       echo ""
     fi
 
+    if [[ -f "$RALPH_DIR/last_lint_failure.log" ]]; then
+      echo "--- Lint Failure ---"
+      echo "Fix these lint errors. The auto-fixer couldn't resolve them, but you can:"
+      echo ""
+      cat "$RALPH_DIR/last_lint_failure.log"
+      echo ""
+      echo "Common fixes:"
+      echo "  - E722 bare except: Change 'except:' to 'except Exception:'"
+      echo "  - F401 unused import: Remove the unused import"
+      echo "  - F841 unused variable: Remove or use the variable"
+      echo ""
+    fi
+
+    if [[ -f "$RALPH_DIR/last_typescript_failure.log" ]]; then
+      echo "--- TypeScript Failure ---"
+      echo "Fix these TypeScript type errors:"
+      echo ""
+      cat "$RALPH_DIR/last_typescript_failure.log"
+      echo ""
+      echo "Common fixes:"
+      echo "  - TS2322: Type mismatch - ensure assigned value matches expected type"
+      echo "  - TS2339: Property not found - check spelling or add to interface"
+      echo "  - TS2345: Argument type mismatch - cast or fix the argument type"
+      echo "  - TS7006: Implicit any - add explicit type annotation"
+      echo ""
+    fi
+
+    if [[ -f "$RALPH_DIR/last_build_failure.log" ]]; then
+      echo "--- Build Failure ---"
+      echo "Fix these build errors:"
+      echo ""
+      cat "$RALPH_DIR/last_build_failure.log"
+      echo ""
+      echo "Common causes:"
+      echo "  - Import errors: Check file paths and exports"
+      echo "  - SSR issues (Next.js): Use dynamic imports for client-only code"
+      echo "  - Missing dependencies: Run npm install"
+      echo ""
+    fi
+
+    if [[ -f "$RALPH_DIR/last_go_failure.log" ]]; then
+      echo "--- Go Failure ---"
+      echo "Fix these Go errors:"
+      echo ""
+      cat "$RALPH_DIR/last_go_failure.log"
+      echo ""
+      echo "Common fixes:"
+      echo "  - Unused variable: Remove or use with _ prefix"
+      echo "  - Undefined: Check imports and spelling"
+      echo "  - Type mismatch: Ensure types align or use type assertion"
+      echo ""
+    fi
+
+    if [[ -f "$RALPH_DIR/last_rust_failure.log" ]]; then
+      echo "--- Rust Failure ---"
+      echo "Fix these Rust errors:"
+      echo ""
+      cat "$RALPH_DIR/last_rust_failure.log"
+      echo ""
+      echo "Common fixes:"
+      echo "  - Unused variable: Prefix with _ or remove"
+      echo "  - Borrow checker: Check ownership and lifetimes"
+      echo "  - Missing trait: Add #[derive(...)] or impl"
+      echo ""
+    fi
+
     if [[ -f "$RALPH_DIR/last_precommit_failure.log" ]]; then
       echo "--- Pre-commit / Lint Failure ---"
       echo "Fix these errors before the story can be completed:"

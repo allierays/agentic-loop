@@ -35,9 +35,11 @@
   },
 
   "checks": {
-    "build": "cargo build",
-    "lint": "cargo clippy -- -D warnings",
-    "test": "cargo test"
+    "lint": true,
+    "typecheck": false,
+    "build": true,
+    "test": true,
+    "fastapi": false
   },
 
   "api": {

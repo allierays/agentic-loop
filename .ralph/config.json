@@ -1,1 +1,9 @@
-{"checks": {"build": true, "lint": true, "test": true}}
+{
+  "checks": {
+    "lint": true,
+    "typecheck": true,
+    "build": "final",
+    "test": true,
+    "fastapi": false
+  }
+}

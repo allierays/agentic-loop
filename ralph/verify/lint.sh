@@ -47,9 +47,13 @@ run_auto_fix() {
   fi
 }
 
-# Verify lint passes after auto-fix (catch unfixable errors)
+# Verify lint passes after auto-fix (catch remaining errors that need manual fix)
 verify_lint() {
   local failed=0
+  local lint_log="$RALPH_DIR/last_lint_failure.log"
+
+  # Clear previous lint failure log
+  rm -f "$lint_log"
 
   # Python: ruff lint check
   if command -v ruff &>/dev/null && [[ -f "pyproject.toml" || -f "ruff.toml" ]]; then
@@ -59,8 +63,14 @@ verify_lint() {
     else
       print_error "failed"
       echo ""
-      echo "    Unfixable lint errors:"
-      ruff check . 2>/dev/null | head -"$MAX_LINT_ERROR_LINES" | sed 's/^/      /'
+      echo "    Lint errors (auto-fix couldn't resolve - Claude should fix these):"
+      local lint_output
+      lint_output=$(ruff check . 2>/dev/null | head -"$MAX_LINT_ERROR_LINES")
+      echo "$lint_output" | sed 's/^/      /'
+      {
+        echo "Lint errors in root directory:"
+        echo "$lint_output"
+      } >> "$lint_log"
       failed=1
     fi
   fi
@@ -78,14 +88,286 @@ verify_lint() {
       else
         print_error "failed"
         echo ""
-        echo "    Unfixable lint errors in $api_dir:"
-        (cd "$api_dir" && ruff check . 2>/dev/null) | head -"$MAX_LINT_ERROR_LINES" | sed 's/^/      /'
+        echo "    Lint errors in $api_dir (auto-fix couldn't resolve - Claude should fix these):"
+        local lint_output
+        lint_output=$(cd "$api_dir" && ruff check . 2>/dev/null | head -"$MAX_LINT_ERROR_LINES")
+        echo "$lint_output" | sed 's/^/      /'
+        {
+          echo ""
+          echo "Lint errors in $api_dir:"
+          echo "$lint_output"
+        } >> "$lint_log"
         failed=1
       fi
     fi
   done <<< "$api_dirs"
 
+  # JavaScript/TypeScript: ESLint check (root)
+  if [[ -f "package.json" ]] && command -v npx &>/dev/null; then
+    if grep -q '"eslint"' package.json 2>/dev/null || [[ -f ".eslintrc.js" ]] || [[ -f "eslint.config.js" ]]; then
+      echo -n "    ESLint check... "
+      local eslint_output
+      if eslint_output=$(npx eslint . --max-warnings 0 2>&1); then
+        print_success "passed"
+      else
+        # Check if it's real errors or just warnings
+        if echo "$eslint_output" | grep -qE "✖ [0-9]+ problems? \([1-9]"; then
+          print_error "failed"
+          echo ""
+          echo "    ESLint errors:"
+          echo "$eslint_output" | tail -"$MAX_LINT_ERROR_LINES" | sed 's/^/      /'
+          {
+            echo ""
+            echo "ESLint errors in root:"
+            echo "$eslint_output"
+          } >> "$lint_log"
+          failed=1
+        else
+          print_success "passed (warnings only)"
+        fi
+      fi
+    fi
+  fi
+
+  # Check frontend directories (monorepo support)
+  local fe_dirs
+  fe_dirs=$(get_frontend_dirs)
+
+  while IFS= read -r fe_dir; do
+    [[ -z "$fe_dir" ]] && continue
+    [[ ! -f "$fe_dir/package.json" ]] && continue
+    grep -q '"eslint"' "$fe_dir/package.json" 2>/dev/null || continue
+
+    echo -n "    ESLint check ($fe_dir)... "
+    local eslint_output
+    if eslint_output=$(cd "$fe_dir" && npx eslint . --max-warnings 0 2>&1); then
+      print_success "passed"
+    else
+      if echo "$eslint_output" | grep -qE "✖ [0-9]+ problems? \([1-9]"; then
+        print_error "failed"
+        echo ""
+        echo "    ESLint errors in $fe_dir:"
+        echo "$eslint_output" | tail -"$MAX_LINT_ERROR_LINES" | sed 's/^/      /'
+        {
+          echo ""
+          echo "ESLint errors in $fe_dir:"
+          echo "$eslint_output"
+        } >> "$lint_log"
+        failed=1
+      else
+        print_success "passed (warnings only)"
+      fi
+    fi
+  done <<< "$fe_dirs"
+
   return $failed
+}
+
+# Verify TypeScript types compile
+verify_typescript() {
+  local failed=0
+  local ts_log="$RALPH_DIR/last_typescript_failure.log"
+
+  # Clear previous failure log
+  rm -f "$ts_log"
+
+  # Check root tsconfig
+  if [[ -f "tsconfig.json" ]] && command -v npx &>/dev/null; then
+    echo -n "    TypeScript typecheck... "
+    local ts_output
+    if ts_output=$(npx tsc --noEmit 2>&1); then
+      print_success "passed"
+    else
+      print_error "failed"
+      echo ""
+      echo "    TypeScript errors:"
+      echo "$ts_output" | head -"$MAX_LINT_ERROR_LINES" | sed 's/^/      /'
+      # Save for retry context
+      {
+        echo "TypeScript errors in root:"
+        echo "$ts_output"
+      } >> "$ts_log"
+      failed=1
+    fi
+  fi
+
+  # Check frontend directories (monorepo support)
+  local fe_dirs
+  fe_dirs=$(get_frontend_dirs)
+
+  while IFS= read -r fe_dir; do
+    [[ -z "$fe_dir" ]] && continue
+    [[ ! -f "$fe_dir/tsconfig.json" ]] && continue
+
+    echo -n "    TypeScript typecheck ($fe_dir)... "
+    local ts_output
+    if ts_output=$(cd "$fe_dir" && npx tsc --noEmit 2>&1); then
+      print_success "passed"
+    else
+      print_error "failed"
+      echo ""
+      echo "    TypeScript errors in $fe_dir:"
+      echo "$ts_output" | head -"$MAX_LINT_ERROR_LINES" | sed 's/^/      /'
+      # Save for retry context
+      {
+        echo ""
+        echo "TypeScript errors in $fe_dir:"
+        echo "$ts_output"
+      } >> "$ts_log"
+      failed=1
+    fi
+  done <<< "$fe_dirs"
+
+  return $failed
+}
+
+# Verify npm build succeeds (catches bundling/SSR issues)
+verify_build() {
+  local failed=0
+  local build_log="$RALPH_DIR/last_build_failure.log"
+
+  # Clear previous failure log
+  rm -f "$build_log"
+
+  # Check root package.json for build script
+  if [[ -f "package.json" ]] && grep -q '"build"' package.json 2>/dev/null; then
+    echo -n "    npm build... "
+    local build_output
+    if build_output=$(npm run build 2>&1); then
+      print_success "passed"
+    else
+      print_error "failed"
+      echo ""
+      echo "    Build errors:"
+      echo "$build_output" | tail -"$MAX_LINT_ERROR_LINES" | sed 's/^/      /'
+      # Save for retry context
+      {
+        echo "Build errors in root:"
+        echo "$build_output"
+      } >> "$build_log"
+      failed=1
+    fi
+  fi
+
+  # Check frontend directories (monorepo support)
+  local fe_dirs
+  fe_dirs=$(get_frontend_dirs)
+
+  while IFS= read -r fe_dir; do
+    [[ -z "$fe_dir" ]] && continue
+    [[ ! -f "$fe_dir/package.json" ]] && continue
+    # Skip if no build script
+    grep -q '"build"' "$fe_dir/package.json" 2>/dev/null || continue
+
+    echo -n "    npm build ($fe_dir)... "
+    local build_output
+    if build_output=$(cd "$fe_dir" && npm run build 2>&1); then
+      print_success "passed"
+    else
+      print_error "failed"
+      echo ""
+      echo "    Build errors in $fe_dir:"
+      echo "$build_output" | tail -"$MAX_LINT_ERROR_LINES" | sed 's/^/      /'
+      # Save for retry context
+      {
+        echo ""
+        echo "Build errors in $fe_dir:"
+        echo "$build_output"
+      } >> "$build_log"
+      failed=1
+    fi
+  done <<< "$fe_dirs"
+
+  return $failed
+}
+
+# Verify Go code compiles and passes vet
+verify_go() {
+  local go_log="$RALPH_DIR/last_go_failure.log"
+
+  # Skip if not a Go project
+  [[ ! -f "go.mod" ]] && return 0
+  command -v go &>/dev/null || return 0
+
+  # Clear previous failure log
+  rm -f "$go_log"
+
+  # Go vet (catches common mistakes)
+  echo -n "    Go vet... "
+  local vet_output
+  if vet_output=$(go vet ./... 2>&1); then
+    print_success "passed"
+  else
+    print_error "failed"
+    echo ""
+    echo "    Go vet errors:"
+    echo "$vet_output" | head -"$MAX_LINT_ERROR_LINES" | sed 's/^/      /'
+    {
+      echo "Go vet errors:"
+      echo "$vet_output"
+    } >> "$go_log"
+    return 1
+  fi
+
+  # Go build (catches compile errors)
+  echo -n "    Go build... "
+  local build_output
+  if build_output=$(go build ./... 2>&1); then
+    print_success "passed"
+  else
+    print_error "failed"
+    echo ""
+    echo "    Go build errors:"
+    echo "$build_output" | head -"$MAX_LINT_ERROR_LINES" | sed 's/^/      /'
+    {
+      echo ""
+      echo "Go build errors:"
+      echo "$build_output"
+    } >> "$go_log"
+    return 1
+  fi
+
+  return 0
+}
+
+# Verify Rust code with clippy
+verify_rust() {
+  local rust_log="$RALPH_DIR/last_rust_failure.log"
+
+  # Skip if not a Rust project
+  [[ ! -f "Cargo.toml" ]] && return 0
+  command -v cargo &>/dev/null || return 0
+
+  # Clear previous failure log
+  rm -f "$rust_log"
+
+  # Cargo clippy (Rust's official linter - catches more than cargo check)
+  echo -n "    Cargo clippy... "
+  local clippy_output
+  if clippy_output=$(cargo clippy --all-targets --all-features -- -D warnings 2>&1); then
+    print_success "passed"
+    return 0
+  fi
+
+  # Check if clippy is installed
+  if echo "$clippy_output" | grep -q "can't find.*clippy"; then
+    echo -n "not installed, trying cargo check... "
+    if clippy_output=$(cargo check 2>&1); then
+      print_success "passed"
+      return 0
+    fi
+  fi
+
+  # Failed
+  print_error "failed"
+  echo ""
+  echo "    Rust errors:"
+  echo "$clippy_output" | head -"$MAX_LINT_ERROR_LINES" | sed 's/^/      /'
+  {
+    echo "Rust errors:"
+    echo "$clippy_output"
+  } >> "$rust_log"
+  return 1
 }
 
 # Check FastAPI endpoints have Pydantic response models (for Swagger docs)
@@ -137,205 +419,152 @@ run_fastapi_response_check() {
   return $failed
 }
 
-# Run all checks defined in config.json
-run_configured_checks() {
-  local config="$RALPH_DIR/config.json"
+# Check if a verification step is enabled in config
+# Values: true, false, "final" (only on last story)
+check_enabled() {
+  local check_name="$1"
+  local default="${2:-true}"
+  local value
+  value=$(get_config ".checks.$check_name" "$default")
 
-  # ALWAYS run auto-fix and lint verification, even without config.json
-  run_auto_fix
-
-  # Verify lint passes after auto-fix (catch unfixable errors)
-  if ! verify_lint; then
-    return 1
+  # Handle "final" - only run on last story
+  if [[ "$value" == "final" ]]; then
+    local remaining
+    remaining=$(jq '[.stories[] | select(.passes==false)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "1")
+    [[ "$remaining" -eq 1 ]]
+    return
   fi
 
-  # Auto-detect and run FastAPI response model check
-  run_fastapi_response_check
+  [[ "$value" == "true" ]]
+}
 
-  # Run pre-commit hooks if available (catches errors before commit attempt)
-  if command -v pre-commit &>/dev/null && [[ -f ".pre-commit-config.yaml" ]]; then
-    echo -n "    pre-commit hooks... "
-    local precommit_log="$RALPH_DIR/last_precommit_failure.log"
+# Run all checks based on config.json flags
+run_configured_checks() {
+  # ALWAYS run auto-fix (harmless, just formats code)
+  run_auto_fix
 
-    # Helper function: check if pre-commit output has REAL errors (not just file modifications or warnings)
-    has_real_errors() {
-      local log_file="$1"
-
-      # If all "Failed" hooks only have "files were modified" - not real errors
-      # Real errors have patterns like: "error:", "Error:", numbered errors "✖ N problems (N errors"
-      # But ESLint "0 errors, N warnings" is NOT a real error
-
-      # Check for actual error indicators (not warnings-only)
-      if grep -qE "^error:|: error:|Error:|SyntaxError|TypeError|NameError" "$log_file" 2>/dev/null; then
-        return 0  # Has real errors
-      fi
-
-      # Check ESLint output - fail only if errors > 0
-      if grep -qE "✖ [0-9]+ problems? \([1-9][0-9]* errors?" "$log_file" 2>/dev/null; then
-        return 0  # Has real ESLint errors
-      fi
-
-      # Check ruff output - actual errors have file:line:col: error pattern
-      if grep -qE "^[^:]+:[0-9]+:[0-9]+: [EF][0-9]+" "$log_file" 2>/dev/null; then
-        return 0  # Has real ruff errors
-      fi
-
-      # Check for hooks that failed for reasons OTHER than file modification
-      # Get all "Failed" hooks and check if any DON'T have "files were modified"
-      local failed_hooks
-      failed_hooks=$(grep -B 5 "^- hook id:" "$log_file" | grep -B 1 "Failed" | grep "hook id:" | sed 's/.*hook id: //' 2>/dev/null)
-
-      while IFS= read -r hook_id; do
-        [[ -z "$hook_id" ]] && continue
-        # Check if this hook's failure section contains "files were modified"
-        if ! grep -A 3 "hook id: $hook_id" "$log_file" | grep -q "files were modified"; then
-          # This hook failed for a real reason
-          return 0
-        fi
-      done <<< "$failed_hooks"
-
-      return 1  # No real errors found
-    }
-
-    # Run pre-commit up to 3 times to handle auto-fix chains
-    local max_attempts=3
-    local attempt=1
-    local passed=false
-
-    while [[ $attempt -le $max_attempts ]]; do
-      if pre-commit run --all-files > "$precommit_log" 2>&1; then
-        passed=true
-        break
-      fi
-
-      # Check if failure is due to file modifications (auto-fix)
-      if grep -q "files were modified by this hook" "$precommit_log"; then
-        # Check if there are also REAL errors (not just file mods)
-        if has_real_errors "$precommit_log"; then
-          # Real errors exist - fail
-          break
-        fi
-
-        # Only file modifications - stage and retry
-        if [[ $attempt -lt $max_attempts ]]; then
-          echo -n "auto-fixing (attempt $attempt)... "
-          git add -A 2>/dev/null || true
-          ((attempt++))
-          continue
-        else
-          # Max attempts reached, but only file mods - consider it passed
-          # Some hooks (like backup-database) always modify files
-          echo -n "auto-fix complete... "
-          git add -A 2>/dev/null || true
-          passed=true
-          break
-        fi
-      else
-        # Failed without "files were modified" - check for real errors
-        if has_real_errors "$precommit_log"; then
-          break  # Real errors
-        else
-          # No real errors detected (warnings only, etc.)
-          passed=true
-          break
-        fi
-      fi
-
-      ((attempt++))
-    done
-
-    if [[ "$passed" == "true" ]]; then
-      if [[ $attempt -gt 1 ]]; then
-        print_success "passed (after auto-fix)"
-      else
-        print_success "passed"
-      fi
-      rm -f "$precommit_log"
-    else
-      print_error "failed"
-      echo ""
-      echo "    Pre-commit hook errors:"
-      # Show actual errors, not just "Failed" status lines
-      grep -E "^error:|: error:|Error:|SyntaxError|✖ [0-9]+ problems|^[^:]+:[0-9]+:[0-9]+:" "$precommit_log" | head -"$MAX_ERROR_PREVIEW_LINES" | sed 's/^/      /'
-      # If no errors shown, show more context
-      if ! grep -qE "^error:|: error:|Error:|SyntaxError|✖ [0-9]+ problems" "$precommit_log"; then
-        echo "    Full output:"
-        tail -30 "$precommit_log" | sed 's/^/      /'
-      fi
+  # Lint check (ruff for Python, eslint for JS/TS)
+  if check_enabled "lint"; then
+    if ! verify_lint; then
       return 1
     fi
   fi
 
-  # Config-based checks are optional
-  if [[ ! -f "$config" ]]; then
-    echo "    (no config.json for additional checks)"
-    return 0
+  # TypeScript type checking
+  if check_enabled "typecheck"; then
+    if ! verify_typescript; then
+      return 1
+    fi
   fi
 
-  # Get list of check names (excluding 'test' which we run separately)
-  local check_names
-  check_names=$(jq -r '.checks | keys[] | select(. != "test")' "$config" 2>/dev/null)
-
-  if [[ -z "$check_names" ]]; then
-    echo "    (no additional checks configured)"
-    return 0
+  # Build verification (npm build, go build, cargo build)
+  if check_enabled "build"; then
+    if ! verify_build; then
+      return 1
+    fi
+    if ! verify_go; then
+      return 1
+    fi
+    if ! verify_rust; then
+      return 1
+    fi
   fi
 
-  local all_passed=0
+  # FastAPI response model check
+  if check_enabled "fastapi" "false"; then
+    run_fastapi_response_check
+  fi
 
-  while IFS= read -r check_name; do
-    [[ -z "$check_name" ]] && continue
+  # Run pre-commit hooks if available (catches errors before commit attempt)
+  run_precommit_hooks
 
-    local cmd
-    cmd=$(jq -r ".checks[\"$check_name\"] // empty" "$config")
-
-    if [[ -z "$cmd" || "$cmd" == "null" ]]; then
-      continue
-    fi
-
-    # Check if command exists
-    local first_word
-    first_word=$(echo "$cmd" | awk '{print $1}')
-
-    if [[ "$first_word" == "cd" ]]; then
-      local actual_cmd
-      actual_cmd=$(echo "$cmd" | sed 's/.*&& *//' | awk '{print $1}')
-      if [[ -n "$actual_cmd" ]] && ! command -v "$actual_cmd" &>/dev/null; then
-        echo "    Skipping $check_name ($actual_cmd not found)"
-        continue
-      fi
-    elif ! command -v "$first_word" &>/dev/null; then
-      echo "    Skipping $check_name ($first_word not found)"
-      continue
-    fi
-
-    if ! run_check "$check_name" "$cmd"; then
-      all_passed=1
-    fi
-  done <<< "$check_names"
-
-  return $all_passed
+  return 0
 }
 
-# Run a single check
-run_check() {
-  local name="$1"
-  local cmd="$2"
-  local log_file
-  log_file=$(create_temp_file ".log") || return 1
+# Run pre-commit hooks with auto-fix retry logic
+run_precommit_hooks() {
+  # Skip if pre-commit not available
+  command -v pre-commit &>/dev/null || return 0
+  [[ -f ".pre-commit-config.yaml" ]] || return 0
 
-  echo -n "    $name... "
+  echo -n "    pre-commit hooks... "
+  local precommit_log="$RALPH_DIR/last_precommit_failure.log"
 
-  if safe_exec "$cmd" "$log_file"; then
-    print_success "passed"
-    rm -f "$log_file"
+  # Helper function: check if pre-commit output has REAL errors
+  has_real_errors() {
+    local log_file="$1"
+
+    # Check for actual error indicators (not warnings-only)
+    if grep -qE "^error:|: error:|Error:|SyntaxError|TypeError|NameError" "$log_file" 2>/dev/null; then
+      return 0
+    fi
+
+    # Check ESLint output - fail only if errors > 0
+    if grep -qE "✖ [0-9]+ problems? \([1-9][0-9]* errors?" "$log_file" 2>/dev/null; then
+      return 0
+    fi
+
+    # Check ruff output - actual errors have file:line:col: error pattern
+    if grep -qE "^[^:]+:[0-9]+:[0-9]+: [EF][0-9]+" "$log_file" 2>/dev/null; then
+      return 0
+    fi
+
+    return 1
+  }
+
+  # Run pre-commit up to 3 times to handle auto-fix chains
+  local max_attempts=3
+  local attempt=1
+  local passed=false
+
+  while [[ $attempt -le $max_attempts ]]; do
+    if pre-commit run --all-files > "$precommit_log" 2>&1; then
+      passed=true
+      break
+    fi
+
+    # Check if failure is due to file modifications (auto-fix)
+    if grep -q "files were modified by this hook" "$precommit_log"; then
+      if has_real_errors "$precommit_log"; then
+        break  # Real errors exist
+      fi
+
+      # Only file modifications - stage and retry
+      if [[ $attempt -lt $max_attempts ]]; then
+        echo -n "auto-fixing (attempt $attempt)... "
+        git add -A 2>/dev/null || true
+        ((attempt++))
+        continue
+      else
+        git add -A 2>/dev/null || true
+        passed=true
+        break
+      fi
+    else
+      if has_real_errors "$precommit_log"; then
+        break
+      else
+        passed=true
+        break
+      fi
+    fi
+
+    ((attempt++))
+  done
+
+  if [[ "$passed" == "true" ]]; then
+    [[ $attempt -gt 1 ]] && print_success "passed (after auto-fix)" || print_success "passed"
+    rm -f "$precommit_log"
     return 0
   else
     print_error "failed"
     echo ""
-    echo "    Output (last $MAX_LOG_LINES lines):"
-    tail -"$MAX_LOG_LINES" "$log_file" | sed 's/^/      /'
-    rm -f "$log_file"
+    echo "    Pre-commit hook errors:"
+    grep -E "^error:|: error:|Error:|SyntaxError|✖ [0-9]+ problems|^[^:]+:[0-9]+:[0-9]+:" "$precommit_log" 2>/dev/null | head -"$MAX_ERROR_PREVIEW_LINES" | sed 's/^/      /'
+    if ! grep -qE "^error:|: error:|Error:|SyntaxError|✖ [0-9]+ problems" "$precommit_log" 2>/dev/null; then
+      echo "    Full output:"
+      tail -30 "$precommit_log" | sed 's/^/      /'
+    fi
     return 1
   fi
 }

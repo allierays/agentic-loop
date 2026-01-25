@@ -34,7 +34,13 @@
     "pattern": ""
   },
 
-  "checks": {},
+  "checks": {
+    "lint": true,
+    "typecheck": true,
+    "build": "final",
+    "test": true,
+    "fastapi": false
+  },
 
   "api": {
     "baseUrl": "http://localhost:3000",

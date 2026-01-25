@@ -35,9 +35,11 @@
   },
 
   "checks": {
-    "build": "go build ./...",
-    "lint": "golangci-lint run",
-    "test": "go test ./..."
+    "lint": true,
+    "typecheck": false,
+    "build": true,
+    "test": true,
+    "fastapi": false
   },
 
   "api": {

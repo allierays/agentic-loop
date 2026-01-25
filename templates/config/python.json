@@ -35,9 +35,11 @@
   },
 
   "checks": {
-    "lint": "ruff check .",
-    "typecheck": "mypy .",
-    "test": "pytest"
+    "lint": true,
+    "typecheck": false,
+    "build": false,
+    "test": true,
+    "fastapi": true
   },
 
   "api": {
