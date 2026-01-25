@@ -29,18 +29,22 @@ Agentic-loop is a system that lets you describe a feature in plain English, have
 
 **How it's built:**
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                      AGENTIC-LOOP                           │
-├──────────────┬──────────────┬──────────────┬───────────────┤
-│   CLI        │  Core Loop   │  Vibe-Check  │  Templates    │
-│  (Bash)      │  (Bash)      │  (TypeScript)│  (MD/JSON)    │
-├──────────────┼──────────────┼──────────────┼───────────────┤
-│ bin/         │ ralph/       │ src/         │ templates/    │
-│ agentic-     │ loop.sh      │ checks/      │ config/       │
-│ loop.sh      │ verify.sh    │ cli.ts       │ PROMPT.md     │
-│ ralph.sh     │ utils.sh     │              │ signs.json    │
-└──────────────┴──────────────┴──────────────┴───────────────┘
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#ffffff', 'primaryBorderColor': '#999999', 'lineColor': '#666666', 'primaryTextColor': '#333333'}}}%%
+block-beta
+    columns 4
+    block:cli["CLI (Bash)"]:1
+        bin["bin/agentic-loop.sh<br>bin/ralph.sh"]
+    end
+    block:core["Core Loop (Bash)"]:1
+        ralph["ralph/loop.sh<br>ralph/verify.sh<br>ralph/utils.sh"]
+    end
+    block:vibe["Vibe-Check (TypeScript)"]:1
+        src["src/checks/<br>src/cli.ts"]
+    end
+    block:templates["Templates (MD/JSON)"]:1
+        tpl["templates/config/<br>PROMPT.md<br>signs.json"]
+    end
 ```
 
 **Languages:**
@@ -57,52 +61,34 @@ This is the main user journey - from a rough idea to shipped, working code.
 
 **Why this matters:** Most AI coding tools are single-shot - you prompt, get code, manually test it, prompt again. Agentic-loop creates a structured pipeline with checkpoints and automated verification.
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  PHASE 1: BRAINSTORM (/idea command)                                    │
-│                                                                          │
-│  User types: /idea "add user authentication"                             │
-│                              │                                           │
-│                              ▼                                           │
-│  Claude asks clarifying questions, explores your codebase to understand  │
-│  existing patterns, then writes a structured idea file.                  │
-│                              │                                           │
-│                              ▼                                           │
-│  Output: docs/ideas/user-authentication.md                               │
-│  (Contains: problem, solution, scope, architecture hints)                │
-│                              │                                           │
-│                              ▼                                           │
-│  User reviews and says "approved"                                        │
-├─────────────────────────────────────────────────────────────────────────┤
-│  PHASE 2: PLANNING (/prd command, called automatically by /idea)         │
-│                                                                          │
-│  Claude reads the idea file and splits it into small, testable stories.  │
-│  Each story is either "frontend" or "backend" (never both).              │
-│                              │                                           │
-│                              ▼                                           │
-│  Claude detects your tech stack (reads package.json, pyproject.toml)     │
-│  and generates appropriate test commands for each story.                 │
-│                              │                                           │
-│                              ▼                                           │
-│  Output: .ralph/prd.json                                                 │
-│  (Contains: stories with acceptance criteria, test steps, file lists)    │
-│                              │                                           │
-│                              ▼                                           │
-│  User reviews PRD and says "approved"                                    │
-├─────────────────────────────────────────────────────────────────────────┤
-│  PHASE 3: EXECUTION (npx agentic-loop run)                               │
-│                                                                          │
-│  Ralph (the autonomous loop) takes over:                                 │
-│  1. Picks next incomplete story from PRD                                 │
-│  2. Gives Claude instructions + story ID                                 │
-│  3. Claude writes the code                                               │
-│  4. Ralph runs verification (build, lint, tests, custom test steps)      │
-│  5. If pass: commit and move to next story                               │
-│     If fail: save error, give Claude the error, retry                    │
-│                              │                                           │
-│                              ▼                                           │
-│  All stories pass → Feature complete, code committed                     │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#ffffff', 'primaryBorderColor': '#999999', 'lineColor': '#666666', 'primaryTextColor': '#333333'}}}%%
+flowchart TB
+    subgraph phase1["PHASE 1: BRAINSTORM (/idea command)"]
+        A1["/idea 'add user authentication'"] --> A2["Claude asks clarifying questions,<br>explores codebase for patterns"]
+        A2 --> A3["Output: docs/ideas/user-authentication.md<br>(problem, solution, scope, architecture)"]
+        A3 --> A4["User reviews and says 'approved'"]
+    end
+
+    subgraph phase2["PHASE 2: PLANNING (/prd command)"]
+        B1["Claude reads idea file,<br>splits into small testable stories"] --> B2["Detect tech stack from<br>package.json, pyproject.toml"]
+        B2 --> B3["Output: .ralph/prd.json<br>(stories, acceptance criteria, test steps)"]
+        B3 --> B4["User reviews PRD and says 'approved'"]
+    end
+
+    subgraph phase3["PHASE 3: EXECUTION (npx agentic-loop run)"]
+        C1["Pick next incomplete story"] --> C2["Give Claude instructions + story ID"]
+        C2 --> C3["Claude writes code"]
+        C3 --> C4["Run verification<br>(build, lint, tests, testSteps)"]
+        C4 --> C5{Pass?}
+        C5 -->|Yes| C6["Commit, mark done,<br>next story"]
+        C5 -->|No| C7["Save error, retry<br>with error context"]
+        C7 --> C2
+        C6 --> C8["All stories pass →<br>Feature complete"]
+    end
+
+    A4 --> B1
+    B4 --> C1
 ```
 
 ### /idea Command (.claude/commands/idea.md)
@@ -171,34 +157,28 @@ npx agentic-loop setup
 
 Setup detects your project type and configures everything:
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│  npx agentic-loop setup                                                  │
-│                                                                          │
-│  1. Detect project type                                                  │
-│     - Scan for package.json, pyproject.toml, go.mod, Cargo.toml         │
-│     - Identify if frontend, backend, or fullstack                        │
-│                                                                          │
-│  2. Create .ralph/ directory                                             │
-│     - config.json (URLs, directories, check settings)                    │
-│     - signs.json (default learned patterns)                              │
-│     - hooks/ (Claude Code hooks)                                         │
-│                                                                          │
-│  3. Create .claude/ directory                                            │
-│     - settings.json (hook configuration)                                 │
-│     - commands/ (slash commands: /idea, /prd, /review, etc.)             │
-│                                                                          │
-│  4. Create CLAUDE.md                                                     │
-│     - Project coding conventions                                         │
-│     - Based on detected tech stack                                       │
-│                                                                          │
-│  5. Create PROMPT.md (if not exists)                                     │
-│     - 7-step framework for Claude                                        │
-│                                                                          │
-│  6. Update .gitignore                                                    │
-│     - Add .ralph/last_failure.txt                                        │
-│     - Add .ralph/tool-log.txt                                            │
-└─────────────────────────────────────────────────────────────────────────┘
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#ffffff', 'primaryBorderColor': '#999999', 'lineColor': '#666666', 'primaryTextColor': '#333333'}}}%%
+flowchart TB
+    S0["npx agentic-loop setup"] --> S1
+
+    S1["1. Detect project type"] --> S1a["Scan for package.json,<br>pyproject.toml, go.mod, Cargo.toml"]
+    S1a --> S1b["Identify: frontend, backend, or fullstack"]
+
+    S1b --> S2["2. Create .ralph/ directory"]
+    S2 --> S2a["config.json<br>signs.json<br>hooks/"]
+
+    S2a --> S3["3. Create .claude/ directory"]
+    S3 --> S3a["settings.json<br>commands/"]
+
+    S3a --> S4["4. Create CLAUDE.md"]
+    S4 --> S4a["Project conventions<br>based on detected stack"]
+
+    S4a --> S5["5. Create PROMPT.md"]
+    S5 --> S5a["7-step framework for Claude"]
+
+    S5a --> S6["6. Update .gitignore"]
+    S6 --> S6a["Add .ralph/last_failure.txt<br>Add .ralph/tool-log.txt"]
 ```
 
 ### Setup Functions (ralph/setup.sh)
@@ -257,46 +237,28 @@ The URLs in config.json are what `{config.urls.backend}` expands to in testSteps
 
 Once you run `npx agentic-loop run`, here's what happens inside the system:
 
-```
-User runs: npx agentic-loop run
-                │
-                ▼
-        bin/agentic-loop.sh          ← CLI entry point, routes to subcommands
-                │
-                ▼
-        ralph/loop.sh                ← Main orchestrator
-                │
-                ▼
-        Read .ralph/prd.json         ← Find story where passes=false
-                │
-                ▼
-        build_prompt()               ← Assemble what to send to Claude
-        - templates/PROMPT.md        ← "How to work" instructions
-        - Story ID (e.g., TASK-001)  ← "What to build" (Claude reads full details)
-        - Signs from signs.json      ← Patterns to follow
-        - Failure context            ← If this is a retry, include the error
-                │
-                ▼
-        Spawn Claude CLI             ← Actually run Claude
-        echo "$prompt" | claude -p --dangerously-skip-permissions
-                │
-                ▼
-        Claude writes code...        ← Claude reads prd.json, implements story
-                │
-                ▼
-        ralph/verify.sh              ← Run verification pipeline
-        ├── verify/lint.sh           ← Build, lint, typecheck
-        ├── verify/tests.sh          ← Unit tests
-        └── testSteps from PRD       ← Custom commands (curl, playwright, etc.)
-                │
-        ┌───────┴───────┐
-        ▼               ▼
-      PASS            FAIL
-        │               │
-        ▼               ▼
-   git commit     Save error to last_failure.txt
-   Set passes=true     │
-   Next story    ──────┘ Loop back with error context
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#ffffff', 'primaryBorderColor': '#999999', 'lineColor': '#666666', 'primaryTextColor': '#333333'}}}%%
+flowchart TB
+    U["npx agentic-loop run"] --> CLI["bin/agentic-loop.sh<br><i>CLI entry point</i>"]
+    CLI --> LOOP["ralph/loop.sh<br><i>Main orchestrator</i>"]
+    LOOP --> PRD["Read .ralph/prd.json<br><i>Find story where passes=false</i>"]
+    PRD --> BUILD["build_prompt()<br>• PROMPT.md (how to work)<br>• Story ID (what to build)<br>• Signs (patterns)<br>• Failure context (if retry)"]
+    BUILD --> SPAWN["Spawn Claude CLI<br><code>echo $prompt | claude -p</code>"]
+    SPAWN --> CODE["Claude writes code<br><i>reads prd.json, implements story</i>"]
+    CODE --> VERIFY["ralph/verify.sh"]
+
+    VERIFY --> LINT["verify/lint.sh<br>build, lint, typecheck"]
+    VERIFY --> TESTS["verify/tests.sh<br>unit tests"]
+    VERIFY --> STEPS["testSteps from PRD<br>curl, playwright, etc."]
+
+    LINT --> CHECK{All Pass?}
+    TESTS --> CHECK
+    STEPS --> CHECK
+
+    CHECK -->|Yes| COMMIT["git commit<br>Set passes=true<br>Next story"]
+    CHECK -->|No| FAIL["Save error to<br>last_failure.txt"]
+    FAIL --> BUILD
 ```
 
 ---
@@ -440,20 +402,24 @@ Instead of injecting everything into the prompt, we give Claude minimal instruct
 
 This function assembles the prompt text:
 
-```
-┌─────────────────────────────────────┐
-│ [Contents of templates/PROMPT.md]   │  ← 7-step framework
-├─────────────────────────────────────┤
-│ ## Current Story: TASK-001          │  ← Just the ID
-│ Read full details from prd.json     │
-├─────────────────────────────────────┤
-│ ## Previous Iteration Failed        │  ← Only if retrying
-│ [Error output from last attempt]    │
-├─────────────────────────────────────┤
-│ ## Signs (Learned Patterns)         │
-│ - [backend] Use camelCase for API   │  ← From signs.json
-│ - [frontend] Add data-testid attrs  │
-└─────────────────────────────────────┘
+```mermaid
+%%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#ffffff', 'primaryBorderColor': '#999999', 'lineColor': '#666666', 'primaryTextColor': '#333333'}}}%%
+block-beta
+    columns 1
+    block:prompt["Assembled Prompt"]
+        block:section1:1
+            A["templates/PROMPT.md<br><i>7-step framework</i>"]
+        end
+        block:section2:1
+            B["## Current Story: TASK-001<br>Read full details from prd.json"]
+        end
+        block:section3:1
+            C["## Previous Iteration Failed<br><i>(only if retrying)</i><br>Error output from last attempt"]
+        end
+        block:section4:1
+            D["## Signs (Learned Patterns)<br>• [backend] Use camelCase for API<br>• [frontend] Add data-testid attrs"]
+        end
+    end
 ```
 
 ### templates/PROMPT.md
