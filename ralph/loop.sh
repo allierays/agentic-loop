@@ -251,8 +251,8 @@ run_loop() {
       last_story="$story"
     fi
 
-    # 2. Session startup checklist (Anthropic best practice)
-    startup_checklist
+    # 2. Session startup checklist (skip on retries)
+    [[ $consecutive_failures -gt 1 ]] && startup_checklist "true" || startup_checklist "false"
 
     # 3. Build prompt with current story context (including failure context if any)
     print_info "Preparing prompt for $story..."
@@ -439,28 +439,43 @@ run_loop() {
   return 1
 }
 
-# Display startup checklist (Anthropic best practice)
+# Display startup checklist (only full version on first iteration)
+# Usage: startup_checklist [is_retry]
 startup_checklist() {
+  local is_retry="${1:-false}"
+
+  # On retries, just show minimal info
+  if [[ "$is_retry" == "true" ]]; then
+    return 0
+  fi
+
   echo "--- Startup Checklist ---"
   echo "Working directory: $(pwd)"
   echo ""
 
-  echo "Recent progress:"
+  # Show progress summary instead of full list
+  local passed_count total_count
+  passed_count=$(jq '[.stories[] | select(.passes==true)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+  total_count=$(jq '[.stories[]] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+  echo "Progress: $passed_count/$total_count stories complete"
+  echo ""
+
+  # Only show last few progress entries
   if [[ -f "$RALPH_DIR/progress.txt" ]]; then
-    tail -"$MAX_PROGRESS_LINES" "$RALPH_DIR/progress.txt" | sed 's/^/  /'
-  else
-    echo "  (no progress yet)"
-  fi
-  echo ""
-
-  echo "Stories:"
-  jq -r '.stories[] | "  \(.id): \(.title) [\(if .passes then "DONE" else "TODO" end)]"' "$RALPH_DIR/prd.json" 2>/dev/null || echo "  (none)"
-  echo ""
-
-  if command -v git &>/dev/null && [[ -d ".git" ]]; then
-    echo "Git status:"
-    git status --short | head -"$MAX_GIT_STATUS_LINES" | sed 's/^/  /'
+    echo "Recent:"
+    tail -3 "$RALPH_DIR/progress.txt" | sed 's/^/  /'
     echo ""
+  fi
+
+  # Show git status only if there are changes
+  if command -v git &>/dev/null && [[ -d ".git" ]]; then
+    local git_changes
+    git_changes=$(git status --short 2>/dev/null | head -5)
+    if [[ -n "$git_changes" ]]; then
+      echo "Uncommitted:"
+      echo "$git_changes" | sed 's/^/  /'
+      echo ""
+    fi
   fi
 }
 
