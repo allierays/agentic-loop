@@ -1,0 +1,24 @@
+# Pre-commit hooks for agentic-loop development
+# Simplified - the vibe-check patterns have false positives on their own source code
+
+repos:
+  - repo: local
+    hooks:
+      - id: typecheck
+        name: TypeScript typecheck
+        entry: npx tsc --noEmit
+        language: node
+        pass_filenames: false
+        files: '\.(ts|tsx)$'
+
+  # Standard hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.txt$'
+      - id: end-of-file-fixer
+        exclude: '\.txt$'
+      - id: check-yaml
+        exclude: '\.pre-commit-hooks\.yaml$'  # Has special syntax
+      - id: check-added-large-files
