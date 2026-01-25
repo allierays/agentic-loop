@@ -1,5 +1,5 @@
 /**
- * Ready-to-use lint-staged configuration for thrivekit
+ * Ready-to-use lint-staged configuration for agentic-loop
  *
  * Copy this file to your project root, or reference the config:
  *

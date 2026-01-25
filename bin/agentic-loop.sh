@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
-# thrivekit - Tools to thrive with agentic coding
+# agentic-loop - Tools to thrive with agentic coding
 #
 # Main CLI - wraps ralph.sh for the autonomous dev loop.
 

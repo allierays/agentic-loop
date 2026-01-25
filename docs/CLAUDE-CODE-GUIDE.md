@@ -524,4 +524,4 @@ Run `/mcp` inside Claude to check status and authenticate.
 1. Create a `CLAUDE.md` for your project
 2. Set up project-level permissions in `.claude/settings.json`
 3. Try plan mode for exploring new codebases
-4. Install thrivekit for enhanced workflows: `npm install thrivekit`
+4. Install agentic-loop for enhanced workflows: `npm install agentic-loop`

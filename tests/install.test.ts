@@ -43,14 +43,14 @@ describe('install flow', () => {
       const content = readFileSync(tourPath, 'utf-8')
 
       expect(content).toContain('Ralph')
-      expect(content).toContain('thrivekit')
+      expect(content).toContain('agentic-loop')
     })
   })
 
   describe('bin scripts', () => {
-    it('thrivekit.sh is executable', () => {
-      const thrivekitPath = join(PROJECT_ROOT, 'bin', 'thrivekit.sh')
-      expect(existsSync(thrivekitPath)).toBe(true)
+    it('agentic-loop.sh is executable', () => {
+      const agentic-loopPath = join(PROJECT_ROOT, 'bin', 'agentic-loop.sh')
+      expect(existsSync(agentic-loopPath)).toBe(true)
     })
 
     it('ralph.sh exists for internal use', () => {
@@ -93,7 +93,7 @@ describe('install flow', () => {
       const pkgPath = join(PROJECT_ROOT, 'package.json')
       const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
 
-      expect(pkg.bin).toHaveProperty('thrivekit')
+      expect(pkg.bin).toHaveProperty('agentic-loop')
       expect(pkg.bin).toHaveProperty('vibe-check')
     })
 
@@ -161,7 +161,7 @@ describe('simulated install', () => {
 
   it('quick-setup creates .pre-commit-config.yaml', () => {
     const precommitConfig = `repos:
-  - repo: https://github.com/allthriveai/thrivekit
+  - repo: https://github.com/allthriveai/agentic-loop
     rev: v1.0.0
     hooks:
       - id: check-secrets

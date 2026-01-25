@@ -1,5 +1,5 @@
 ---
-description: Take an interactive tour of thrivekit - the system for going from idea to shipped code with AI.
+description: Take an interactive tour of agentic-loop - the system for going from idea to shipped code with AI.
 ---
 
 # Vibe & Thrive Tour
@@ -31,7 +31,7 @@ Print this exactly:
    ```
    - If missing or count is 0: Copy from node_modules:
      ```bash
-     mkdir -p .claude/commands && cp -r node_modules/thrivekit/.claude/commands/* .claude/commands/
+     mkdir -p .claude/commands && cp -r node_modules/agentic-loop/.claude/commands/* .claude/commands/
      ```
    - Then: ✓ Slash commands installed
 

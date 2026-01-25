@@ -65,7 +65,7 @@ quick_setup() {
         return
         ;;
       q|Q)
-        echo -e "\n  ${DIM}Setup cancelled. Run 'npx thrivekit' anytime.${NC}"
+        echo -e "\n  ${DIM}Setup cancelled. Run 'npx agentic-loop' anytime.${NC}"
         return 1
         ;;
       *)
@@ -118,7 +118,7 @@ install_claude_skills() {
 
   mkdir -p .claude/commands
 
-  # Copy all command files from thrivekit
+  # Copy all command files from agentic-loop
   if [[ -d "$VIBE_ROOT/.claude/commands" ]]; then
     cp -r "$VIBE_ROOT/.claude/commands/"* .claude/commands/ 2>/dev/null || true
     local count=$(ls -1 .claude/commands/*.md 2>/dev/null | wc -l | tr -d ' ')
@@ -134,7 +134,7 @@ install_precommit_hooks() {
   if [[ ! -f .pre-commit-config.yaml ]]; then
     cat > .pre-commit-config.yaml << 'EOF'
 repos:
-  - repo: https://github.com/allthriveai/thrivekit
+  - repo: https://github.com/allthriveai/agentic-loop
     rev: v1.0.0
     hooks:
       - id: check-secrets

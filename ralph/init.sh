@@ -441,10 +441,10 @@ ralph_status() {
 # Show help
 ralph_help() {
   cat <<'EOF'
-thrivekit - Tools to thrive with agentic coding
+agentic-loop - Tools to thrive with agentic coding
 
 What is this?
-  thrivekit helps you build features using two terminals working together.
+  agentic-loop helps you build features using two terminals working together.
 
   Terminal 1 - Claude Code (your AI pair programmer):
     claude --dangerously-skip-permissions
@@ -457,22 +457,22 @@ What is this?
     docs/ideas/, then breaks them into small, executable PRDs.
 
   Terminal 2 - Ralph (autonomous execution):
-    npx thrivekit run
+    npx agentic-loop run
 
     Ralph picks up the PRDs you created and builds them autonomously.
     It writes code, runs tests, and iterates until each feature works.
     Ralph runs separately so you can keep brainstorming in Claude.
 
 Quick Start:
-  1. npx thrivekit setup
+  1. npx agentic-loop setup
   2. Terminal 1: claude --dangerously-skip-permissions
   3. In Claude: /idea "your feature description"
-  4. Terminal 2: npx thrivekit run
+  4. Terminal 2: npx agentic-loop run
   5. Monitor Terminal 2 - it should be autonomous. If issues come up,
      stop the loop (Ctrl+C) and paste the errors into Terminal 1.
 
 Usage:
-  npx thrivekit <command> [options]
+  npx agentic-loop <command> [options]
 
 Commands:
   setup                   Set up project (hooks, config, CLAUDE.md)
@@ -495,21 +495,21 @@ Commands:
 
 PRD Generation:
   /idea <description>           Thorough brainstorm (in Claude Code)
-  npx thrivekit prd <notes>     Quick PRD generation
+  npx agentic-loop prd <notes>     Quick PRD generation
 
 Examples:
-  npm install thrivekit && npx thrivekit setup
+  npm install agentic-loop && npx agentic-loop setup
   /idea "Add user authentication with OAuth"
-  npx thrivekit prd "Add a contact form"
-  npx thrivekit run
-  npx thrivekit run --max 10
-  npx thrivekit status
-  npx thrivekit sign "Always use camelCase" frontend
+  npx agentic-loop prd "Add a contact form"
+  npx agentic-loop run
+  npx agentic-loop run --max 10
+  npx agentic-loop status
+  npx agentic-loop sign "Always use camelCase" frontend
 
 Environment:
   RALPH_DIR       Override .ralph directory location (default: .ralph)
   PROMPT_FILE     Override PROMPT.md location (default: PROMPT.md)
 
-For more information, see: https://github.com/allthriveai/thrivekit
+For more information, see: https://github.com/allthriveai/agentic-loop
 EOF
 }

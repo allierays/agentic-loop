@@ -257,18 +257,18 @@ Now every future story will see this pattern.
 
 | Command | What it does |
 |---------|--------------|
-| `npx thrivekit run` | Start the loop |
-| `npx thrivekit run --fast` | Fast mode: skip code review (~2x faster) |
-| `npx thrivekit run --story TASK-001` | Run specific story only |
-| `npx thrivekit run --max 5` | Limit to 5 iterations |
-| `npx thrivekit stop` | Stop after current story |
-| `npx thrivekit status` | Show story progress |
-| `npx thrivekit check` | Run verification without Claude |
-| `npx thrivekit verify TASK-001` | Verify specific story |
-| `npx thrivekit signs` | List learned patterns |
-| `npx thrivekit sign "pattern" category` | Add a pattern |
-| `npx thrivekit unsign "pattern"` | Remove a pattern |
-| `npx thrivekit progress` | Show recent log entries |
+| `npx agentic-loop run` | Start the loop |
+| `npx agentic-loop run --fast` | Fast mode: skip code review (~2x faster) |
+| `npx agentic-loop run --story TASK-001` | Run specific story only |
+| `npx agentic-loop run --max 5` | Limit to 5 iterations |
+| `npx agentic-loop stop` | Stop after current story |
+| `npx agentic-loop status` | Show story progress |
+| `npx agentic-loop check` | Run verification without Claude |
+| `npx agentic-loop verify TASK-001` | Verify specific story |
+| `npx agentic-loop signs` | List learned patterns |
+| `npx agentic-loop sign "pattern" category` | Add a pattern |
+| `npx agentic-loop unsign "pattern"` | Remove a pattern |
+| `npx agentic-loop progress` | Show recent log entries |
 
 ## Configuration Reference
 

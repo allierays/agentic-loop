@@ -7,8 +7,8 @@ Found a pattern that AI agents commonly introduce? We'd love to add it!
 ### 1. Fork the repo
 
 ```bash
-git clone https://github.com/allthriveai/thrivekit.git
-cd thrivekit
+git clone https://github.com/allthriveai/agentic-loop.git
+cd agentic-loop
 npm install
 ```
 

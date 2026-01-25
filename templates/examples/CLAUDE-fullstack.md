@@ -220,7 +220,7 @@ REDIS_URL=redis://localhost:6379
 ```
 
 ## Pre-commit Hooks
-This project uses thrivekit hooks. Run `/vibe-check` before committing.
+This project uses agentic-loop hooks. Run `/vibe-check` before committing.
 
 ## Common Commands
 

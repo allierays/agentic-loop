@@ -1,16 +1,17 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
-# setup.sh - Set up thrivekit in a project
+# setup.sh - Set up agentic-loop in a project
 
 ralph_setup() {
   echo ""
-  echo "  _____ _          _          _    _ _   "
-  echo " |_   _| |__  _ __(_)_   _____| | _(_) |_ "
-  echo "   | | | '_ \| '__| \ \ / / _ \ |/ / | __|"
-  echo "   | | | | | | |  | |\ V /  __/   <| | |_ "
-  echo "   |_| |_| |_|_|  |_| \_/ \___|_|\_\_|\__|"
+  echo "    _                    _   _        _                       "
+  echo "   / \   __ _  ___ _ __ | |_(_) ___  | |    ___   ___  _ __   "
+  echo "  / _ \ / _\` |/ _ \ '_ \| __| |/ __| | |   / _ \ / _ \| '_ \  "
+  echo " / ___ \ (_| |  __/ | | | |_| | (__  | |__| (_) | (_) | |_) | "
+  echo "/_/   \_\__, |\___|_| |_|\__|_|\___| |_____\___/ \___/| .__/  "
+  echo "        |___/                                         |_|     "
   echo ""
-  echo "   Tools to thrive with agentic coding"
+  echo "   Autonomous AI coding loop"
   echo ""
 
   # Package root is relative to this script (works with npx and local installs)
@@ -39,8 +40,8 @@ ralph_setup() {
   echo "  /idea 'your feature'    # Generate a PRD"
   echo ""
   echo "  --- Terminal 2: Ralph Loop ---"
-  echo "  npx thrivekit run       # Execute PRDs autonomously"
-  echo "  npx thrivekit run --fast  # Skip code review (~2x faster)"
+  echo "  npx agentic-loop run       # Execute PRDs autonomously"
+  echo "  npx agentic-loop run --fast  # Skip code review (~2x faster)"
   echo ""
 }
 
@@ -154,7 +155,7 @@ setup_claude_hooks() {
   # Check for jq
   if ! command -v jq &>/dev/null; then
     print_warning "jq not installed - skipping hooks setup"
-    echo "  Install jq and run: npx thrivekit setup"
+    echo "  Install jq and run: npx agentic-loop setup"
     return 0
   fi
 
@@ -242,7 +243,7 @@ setup_slash_commands() {
 
 # Generate CLAUDE.md with detected project info
 setup_claude_md() {
-  local marker="<!-- thrivekit-detected -->"
+  local marker="<!-- agentic-loop-detected -->"
 
   # Skip if we already added our section
   [[ -f "CLAUDE.md" ]] && grep -q "$marker" "CLAUDE.md" 2>/dev/null && return 0
@@ -322,7 +323,7 @@ ${styling:+- Styling: $styling}
 ${testing:+- Testing: $testing}
 ${python_runner:+- Python: Use \`$python_runner\` (not bare \`python\`)}
 
-*Auto-detected by thrivekit. Edit freely.*"
+*Auto-detected by agentic-loop. Edit freely.*"
 
   if [[ -f "CLAUDE.md" ]]; then
     echo "$detected_section" >> CLAUDE.md
@@ -370,8 +371,8 @@ setup_precommit_hooks() {
   if [[ ! -f ".pre-commit-config.yaml" ]]; then
     cat > .pre-commit-config.yaml << 'EOF'
 repos:
-  - repo: https://github.com/allthriveai/thrivekit
-    rev: v2.0.0
+  - repo: https://github.com/allthriveai/agentic-loop
+    rev: v1.0.0
     hooks:
       - id: check-secrets
         name: Check for hardcoded secrets

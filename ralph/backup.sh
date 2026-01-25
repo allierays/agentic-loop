@@ -639,7 +639,7 @@ ralph_backup() {
   if [[ -f ".gitignore" ]]; then
     if ! grep -q "^\.backups/" ".gitignore" 2>/dev/null; then
       echo "" >> ".gitignore"
-      echo "# Database backups (thrivekit)" >> ".gitignore"
+      echo "# Database backups (agentic-loop)" >> ".gitignore"
       echo ".backups/" >> ".gitignore"
     fi
   fi

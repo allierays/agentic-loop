@@ -44,7 +44,7 @@ show_welcome() {
   echo -e "      ${DIM}I know what I'm doing, just configure my project${NC}"
   echo ""
   echo -e "  ${GREEN}[2]${NC} ${EMOJI_MOVIE} ${BOLD}Feature Tour${NC}"
-  echo -e "      ${DIM}Show me what thrivekit can do (auto-demo)${NC}"
+  echo -e "      ${DIM}Show me what agentic-loop can do (auto-demo)${NC}"
   echo ""
   echo -e "  ${GREEN}[3]${NC} ${EMOJI_BOOK} ${BOLD}New to Claude Code${NC}"
   echo -e "      ${DIM}Teach me the basics (interactive tutorial)${NC}"

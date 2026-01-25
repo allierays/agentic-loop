@@ -1,10 +1,10 @@
 /**
- * Example ESLint configuration using thrivekit plugin
+ * Example ESLint configuration using agentic-loop plugin
  *
  * Copy this file to your project root and customize as needed.
  */
 
-import vibe from "thrivekit/eslint-plugin";
+import vibe from "agentic-loop/eslint-plugin";
 
 export default [
   // Use the recommended config (balanced defaults)

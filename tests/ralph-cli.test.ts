@@ -24,7 +24,7 @@ describe('ralph CLI', () => {
   describe('help command', () => {
     it('shows help text', () => {
       const output = ralph('help')
-      expect(output).toContain('thrivekit - Tools to thrive with agentic coding')
+      expect(output).toContain('agentic-loop - Tools to thrive with agentic coding')
       expect(output).toContain('Commands:')
       expect(output).toContain('init')
       expect(output).toContain('run')
@@ -33,7 +33,7 @@ describe('ralph CLI', () => {
 
     it('shows help with --help flag', () => {
       const output = ralph('--help')
-      expect(output).toContain('thrivekit - Tools to thrive with agentic coding')
+      expect(output).toContain('agentic-loop - Tools to thrive with agentic coding')
     })
   })
 

@@ -1,6 +1,6 @@
-# ThriveKit
+# Agentic Loop
 
-**Tools to thrive with agentic coding.**
+**Autonomous AI coding loop for Claude Code.**
 
 A toolkit for implementing [RALPH](https://ghuntley.com/ralph/) with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that helps you go from idea to shipped code.
 
@@ -15,8 +15,8 @@ A toolkit for implementing [RALPH](https://ghuntley.com/ralph/) with [Claude Cod
 
 #### Autonomous Code Loops with RALPH principles
 Run this in the terminal not in a claude cli session. It will use your claude subscription not an API key.
-- **`npx thrivekit run`** - RALPH Autonomous loop: Brainstorm ideas → turn ideas into atomic prds → implement → verify → commit → repeat
-- **`npx thrivekit run --fast`** - Fast mode: skips code review for quicker iterations (~2-3 min/story vs 5-8 min)
+- **`npx agentic-loop run`** - RALPH Autonomous loop: Brainstorm ideas → turn ideas into atomic prds → implement → verify → commit → repeat
+- **`npx agentic-loop run --fast`** - Fast mode: skips code review for quicker iterations (~2-3 min/story vs 5-8 min)
 
 #### Guardrails
 - **`/vibe-check`** - manually run the same automated tests and guardrail checks at any time
@@ -44,8 +44,8 @@ See More for on how the [RALPH loop](docs/RALPH.md) works in this repo
 
 ```bash
 cd [your-project]
-npm install thrivekit
-npx thrivekit setup
+npm install agentic-loop
+npx agentic-loop setup
 ```
 
 This sets up:
@@ -54,7 +54,7 @@ This sets up:
 - Claude Code hooks (real-time warnings)
 - Ralph configuration files
 
-> **Note:** Claude Code hooks require `jq`. On macOS with Homebrew, it's installed automatically. On Linux, if you see a warning, run `sudo apt install jq` (or your package manager) then `npx thrivekit setup`.
+> **Note:** Claude Code hooks require `jq`. On macOS with Homebrew, it's installed automatically. On Linux, if you see a warning, run `sudo apt install jq` (or your package manager) then `npx agentic-loop setup`.
 
 ## Step 1: Start claude (--dangerously-skip-permissions is optional)
 
@@ -91,13 +91,13 @@ Type `/exit` or open a new terminal, then run:
 
 ```bash
 # Standard mode (with code review)
-npx thrivekit run
+npx agentic-loop run
 
 # Fast mode (skip code review, ~2x faster)
-npx thrivekit run --fast
+npx agentic-loop run --fast
 
 # Limit iterations
-npx thrivekit run --max 10
+npx agentic-loop run --max 10
 ```
 
 Ralph loops through stories one at a time, writes tests, verifies, and commits.
@@ -155,7 +155,7 @@ Ralph loops through stories one at a time, writes tests, verifies, and commits.
 ## Project Structure
 
 ```
-thrivekit/
+agentic-loop/
 ├── .claude/commands/       # Slash commands (/idea, /review, etc.)
 ├── ralph/                  # Autonomous loop (Bash)
 │   ├── hooks/              # Claude Code hooks (real-time warnings)
@@ -169,7 +169,7 @@ thrivekit/
 │   ├── optional/           # Extra configs (eslint, vscode, etc.)
 │   └── examples/           # Example CLAUDE.md files by stack
 ├── docs/                   # Documentation
-└── bin/                    # CLI entry points (thrivekit, vibe-check)
+└── bin/                    # CLI entry points (agentic-loop, vibe-check)
 ```
 
 ### Three Layers of Quality Checks
@@ -190,7 +190,7 @@ This means Claude Code hooks are configured but the hook scripts can't be found.
 
 ```bash
 # Reinstall project hooks
-npx thrivekit setup
+npx agentic-loop setup
 ```
 
 ### Hooks not working after moving project
@@ -198,12 +198,12 @@ npx thrivekit setup
 Claude Code hooks use absolute paths. After moving a project or cloning on a new machine, reinstall hooks:
 
 ```bash
-npx thrivekit setup
+npx agentic-loop setup
 ```
 
 ### Team members getting hook errors
 
-`.claude/settings.json` contains machine-specific paths and should not be committed to git. The setup script automatically adds it to `.gitignore`. Each team member's hooks are configured when they run `npx thrivekit setup`.
+`.claude/settings.json` contains machine-specific paths and should not be committed to git. The setup script automatically adds it to `.gitignore`. Each team member's hooks are configured when they run `npx agentic-loop setup`.
 
 If `.claude/settings.json` was accidentally committed:
 ```bash
@@ -224,7 +224,7 @@ sudo apt install jq
 sudo dnf install jq
 
 # Then run setup
-npx thrivekit setup
+npx agentic-loop setup
 ```
 
 ---

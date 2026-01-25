@@ -1,11 +1,11 @@
 # Claude Code Commands Reference
 
-Slash commands for Claude Code that power the thrivekit workflow.
+Slash commands for Claude Code that power the agentic-loop workflow.
 
 ## Installation
 
 ```bash
-npm install thrivekit
+npm install agentic-loop
 ```
 
 The postinstall automatically copies commands to your project's `.claude/commands/`.
@@ -49,7 +49,7 @@ Shows the workflow, all slash commands, Ralph commands, and setup instructions.
 
 ### `/tour`
 
-Interactive walkthrough of thrivekit.
+Interactive walkthrough of agentic-loop.
 
 ```
 /tour

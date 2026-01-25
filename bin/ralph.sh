@@ -3,7 +3,7 @@
 # ralph.sh - Autonomous AI Development Loop
 #
 # A CLI tool that orchestrates Claude CLI for autonomous development loops.
-# Part of thrivekit: https://github.com/allthriveai/thrivekit
+# Part of agentic-loop: https://github.com/allthriveai/agentic-loop
 
 set -euo pipefail
 
@@ -156,7 +156,7 @@ main() {
       # Read version from package.json
       local version
       version=$(jq -r '.version // "unknown"' "$SCRIPT_DIR/../package.json" 2>/dev/null || echo "unknown")
-      echo "ralph $version (thrivekit)"
+      echo "ralph $version (agentic-loop)"
       ;;
     *)
       print_error "Unknown command: $cmd"

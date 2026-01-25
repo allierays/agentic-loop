@@ -125,7 +125,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 ```
 
 ## Pre-commit Hooks
-This project uses thrivekit hooks. Run `/vibe-check` before committing.
+This project uses agentic-loop hooks. Run `/vibe-check` before committing.
 
 ## Common Commands
 ```bash

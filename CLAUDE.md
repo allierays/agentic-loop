@@ -1,4 +1,4 @@
-# Claude Code Instructions for thrivekit
+# Claude Code Instructions for agentic-loop
 
 ## Project Overview
 Ralph is an autonomous AI development loop written in Bash. It orchestrates Claude CLI for automated development workflows including code generation, verification, and testing.

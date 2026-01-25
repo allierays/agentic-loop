@@ -1,5 +1,5 @@
 /**
- * thrivekit
+ * agentic-loop
  *
  * Catch common AI-generated code issues before they hit your codebase.
  */

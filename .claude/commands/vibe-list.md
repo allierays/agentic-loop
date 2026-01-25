@@ -1,5 +1,5 @@
 ---
-description: Show complete reference for all thrivekit commands (slash commands, Ralph CLI, vibe CLI).
+description: Show complete reference for all agentic-loop commands (slash commands, Ralph CLI, vibe CLI).
 ---
 
 # Vibe & Thrive - Complete Reference
@@ -19,7 +19,7 @@ Print this complete reference for the user. Do not add any commentary.
 | `/review` | Code review with OWASP security checks |
 | `/explain` | Explain code line by line |
 | `/styleguide` | Generate UI component design system |
-| `/tour` | Interactive walkthrough of thrivekit |
+| `/tour` | Interactive walkthrough of agentic-loop |
 | `/vibe-help` | Quick reference cheatsheet |
 | `/vibe-list` | This complete reference |
 
@@ -200,4 +200,4 @@ docs/ideas/          # Brainstorm outputs from /idea
 
 ---
 
-*https://github.com/allthriveai/thrivekit*
+*https://github.com/allthriveai/agentic-loop*

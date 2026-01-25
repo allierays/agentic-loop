@@ -188,7 +188,7 @@ console.log('Initializing...'); // noqa: debug
 ## Quick Setup
 
 ```bash
-npm install thrivekit
+npm install agentic-loop
 ```
 
 That's it. The postinstall sets up everything automatically.
@@ -213,4 +213,4 @@ That's it. The postinstall sets up everything automatically.
 - [Prompting Guide](docs/PROMPTING-GUIDE.md)
 - [Workflow Guide](docs/WORKFLOW.md)
 - [Hooks Reference](docs/HOOKS.md)
-- [GitHub Repo](https://github.com/allthriveai/thrivekit)
+- [GitHub Repo](https://github.com/allthriveai/agentic-loop)

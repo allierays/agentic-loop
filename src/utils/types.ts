@@ -1,5 +1,5 @@
 /**
- * Shared types for thrivekit
+ * Shared types for agentic-loop
  */
 
 export type Severity = 'error' | 'warning' | 'info';

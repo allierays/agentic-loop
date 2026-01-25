@@ -1,33 +1,34 @@
 {
-  "name": "thrivekit",
-  "version": "2.0.24",
-  "description": "Tools to thrive with agentic coding - RALPH autonomous loop, Claude Code hooks, PRD-driven development",
+  "name": "agentic-loop",
+  "version": "1.0.0",
+  "description": "Autonomous AI coding loop - PRD-driven development with Claude Code",
   "author": "Allie Jones <allie@allthrive.ai>",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/allthriveai/thrivekit"
+    "url": "https://github.com/allthriveai/agentic-loop"
   },
-  "homepage": "https://github.com/allthriveai/thrivekit#readme",
+  "homepage": "https://github.com/allthriveai/agentic-loop#readme",
   "bugs": {
-    "url": "https://github.com/allthriveai/thrivekit/issues"
+    "url": "https://github.com/allthriveai/agentic-loop/issues"
   },
   "keywords": [
     "ai",
     "agentic",
+    "autonomous",
     "claude",
     "claude-code",
-    "autonomous",
+    "coding-agent",
     "prd",
     "ralph",
-    "pre-commit",
-    "code-quality"
+    "ai-development",
+    "code-generation"
   ],
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
-    "thrivekit": "./bin/thrivekit.sh",
+    "agentic-loop": "./bin/agentic-loop.sh",
     "vibe-check": "./bin/vibe-check.js"
   },
   "exports": {

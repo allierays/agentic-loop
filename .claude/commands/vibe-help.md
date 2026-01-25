@@ -1,5 +1,5 @@
 ---
-description: Quick reference cheatsheet for all thrivekit commands including Ralph.
+description: Quick reference cheatsheet for all agentic-loop commands including Ralph.
 ---
 
 # Vibe & Thrive Cheatsheet
@@ -44,4 +44,4 @@ npx ralph signs          view learned patterns
 
 ---
 
-*https://github.com/allthriveai/thrivekit*
+*https://github.com/allthriveai/agentic-loop*
