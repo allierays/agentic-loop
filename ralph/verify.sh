@@ -188,11 +188,6 @@ run_verification() {
     return 0
   else
     print_error "=== Verification failed ==="
-    # Debug: Show which failure logs exist
-    echo "Saving failure context..."
-    [[ -f "$RALPH_DIR/last_lint_failure.log" ]] && echo "  - Found lint failure log"
-    [[ -f "$RALPH_DIR/last_test_failure.log" ]] && echo "  - Found test failure log"
-    [[ -f "$RALPH_DIR/last_typescript_failure.log" ]] && echo "  - Found typescript failure log"
     # Save failure context for next iteration
     save_failure_context "$story"
     return 1
