@@ -320,16 +320,16 @@ The PRD is the **single source of truth** - everything Claude needs is here.
   "originalContext": "docs/ideas/dashboard.md",
 
   "techStack": {
-    "frontend": "React 18 + TypeScript",
-    "backend": "FastAPI + Python 3.11",
-    "database": "PostgreSQL"
+    "frontend": "{auto-detected from package.json}",
+    "backend": "{auto-detected from pyproject.toml/go.mod}",
+    "database": "{detected or specified}"
   },
 
   "testing": {
     "approach": "TDD",
-    "unit": {"frontend": "vitest", "backend": "pytest"},
-    "integration": "playwright",
-    "e2e": "playwright",
+    "unit": {"frontend": "{vitest|jest}", "backend": "{pytest|go test}"},
+    "integration": "{playwright|cypress}",
+    "e2e": "{playwright|cypress}",
     "coverage": {"minimum": 80, "enforced": false}
   },
 

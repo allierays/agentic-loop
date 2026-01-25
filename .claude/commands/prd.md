@@ -157,19 +157,19 @@ Ralph will work through each story, running tests and committing as it goes."
   "originalContext": "docs/ideas/{feature-name}.md",
 
   "techStack": {
-    "frontend": "React 18 + TypeScript",
-    "backend": "FastAPI + Python 3.11",
-    "database": "PostgreSQL"
+    "frontend": "{detected from package.json}",
+    "backend": "{detected from pyproject.toml/go.mod}",
+    "database": "{detected or asked}"
   },
 
   "testing": {
     "approach": "TDD",
     "unit": {
-      "frontend": "vitest",
-      "backend": "pytest"
+      "frontend": "{vitest|jest - detected from package.json}",
+      "backend": "{pytest|go test - detected from project}"
     },
-    "integration": "playwright",
-    "e2e": "playwright",
+    "integration": "{playwright|cypress}",
+    "e2e": "{playwright|cypress}",
     "coverage": {
       "minimum": 80,
       "enforced": false
@@ -329,7 +329,7 @@ Ralph will work through each story, running tests and committing as it goes."
 
 ### PRD-Level Testing Config
 
-Define the overall testing strategy for the feature:
+Define the overall testing strategy for the feature. **Auto-detect tools from project config files:**
 
 ```json
 "testing": {
@@ -347,11 +347,16 @@ Define the overall testing strategy for the feature:
 }
 ```
 
+**Detection hints:**
+- Check `package.json` for `vitest`, `jest`, `playwright`, `cypress`
+- Check `pyproject.toml` for `pytest`
+- Check `go.mod` for Go projects (use `go test`)
+
 | Field | Values | Description |
 |-------|--------|-------------|
 | `approach` | `TDD`, `test-after` | Write tests first (TDD) or after implementation |
-| `unit.frontend` | `vitest`, `jest` | Frontend unit test runner |
-| `unit.backend` | `pytest`, `go test` | Backend unit test runner |
+| `unit.frontend` | `vitest`, `jest` | Frontend unit test runner (detect from package.json) |
+| `unit.backend` | `pytest`, `go test` | Backend unit test runner (detect from project) |
 | `integration` | `playwright`, `cypress` | Integration test tool |
 | `e2e` | `playwright`, `cypress` | End-to-end test tool |
 | `coverage.minimum` | `0-100` | Minimum coverage percentage |
