@@ -3,18 +3,27 @@
 # lint.sh - Lint and auto-fix verification module for ralph
 
 # Auto-fix lint issues before running checks
+# Usage: run_auto_fix [story_type]
 run_auto_fix() {
+  local story_type="${1:-general}"
   echo "    Auto-fixing lint issues..."
 
-  # Python: ruff fix (auto-fix what we can)
-  if command -v ruff &>/dev/null; then
-    ruff check --fix . 2>/dev/null || true
+  # Python: ruff fix (skip for frontend-only stories)
+  if [[ "$story_type" != "frontend" ]]; then
+    if command -v ruff &>/dev/null; then
+      ruff check --fix . >/dev/null 2>&1 || true
+    fi
   fi
 
-  # JavaScript/TypeScript: eslint fix (root)
+  # Skip JS/TS auto-fix for backend stories
+  if [[ "$story_type" == "backend" ]]; then
+    return 0
+  fi
+
+  # JavaScript/TypeScript: eslint fix (root) - suppress all output
   if [[ -f "package.json" ]] && command -v npx &>/dev/null; then
     if grep -q '"eslint"' package.json 2>/dev/null || [[ -f ".eslintrc.js" ]] || [[ -f "eslint.config.js" ]]; then
-      npx eslint --fix . 2>/dev/null || true
+      npx eslint --fix . >/dev/null 2>&1 || true
     fi
   fi
 
@@ -25,25 +34,25 @@ run_auto_fix() {
   while IFS= read -r fe_dir; do
     [[ -z "$fe_dir" ]] && continue
     [[ ! -f "$fe_dir/package.json" ]] && continue
-    # ESLint fix
+    # ESLint fix - suppress output
     if grep -q '"eslint"' "$fe_dir/package.json" 2>/dev/null; then
-      (cd "$fe_dir" && npx eslint --fix . 2>/dev/null) || true
+      (cd "$fe_dir" && npx eslint --fix . >/dev/null 2>&1) || true
     fi
 
     # Next.js lint fix
     if grep -q '"next"' "$fe_dir/package.json" 2>/dev/null; then
-      (cd "$fe_dir" && npx next lint --fix 2>/dev/null) || true
+      (cd "$fe_dir" && npx next lint --fix >/dev/null 2>&1) || true
     fi
 
     # Prettier fix (common in frontend)
     if grep -q '"prettier"' "$fe_dir/package.json" 2>/dev/null; then
-      (cd "$fe_dir" && npx prettier --write . 2>/dev/null) || true
+      (cd "$fe_dir" && npx prettier --write . >/dev/null 2>&1) || true
     fi
   done <<< "$fe_dirs"
 
   # Prettier fix (root - for non-monorepo)
   if [[ -f "package.json" ]] && grep -q '"prettier"' package.json 2>/dev/null; then
-    npx prettier --write . 2>/dev/null || true
+    npx prettier --write . >/dev/null 2>&1 || true
   fi
 }
 
@@ -461,7 +470,7 @@ run_configured_checks() {
   local story_type="${1:-general}"
 
   # ALWAYS run auto-fix (harmless, just formats code)
-  run_auto_fix
+  run_auto_fix "$story_type"
 
   # Lint check - skip irrelevant checks based on story type
   if check_enabled "lint"; then
