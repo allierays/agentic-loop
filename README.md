@@ -2,7 +2,7 @@
 
 **Autonomous AI coding loop for Claude Code.**
 
-A toolkit for implementing [RALPH](https://ghuntley.com/ralph/) with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that helps you go from idea to shipped code.
+You describe what you want to build. Claude Code writes a PRD (Product Requirements Document) with small, testable stories. Ralph executes each story automatically - coding, testing, and committing in a loop until everything passes.
 
 > **Optimized for:** Python, TypeScript, React, Go/Hugo, and Docker projects.
 
@@ -10,17 +10,19 @@ A toolkit for implementing [RALPH](https://ghuntley.com/ralph/) with [Claude Cod
 
 ## What It Does
 
-**Customize your AI output:**
-- `/my-dna` - Add your voice and values to claude.md
+**Brainstorm ideas with `/idea`**
+Describe a feature in plain English. Claude asks clarifying questions, explores your codebase, and generates a PRD with atomic stories that can be implemented one at a time.
+
+**Execute with Ralph**
+Ralph reads the PRD and implements each story autonomously. It spawns Claude, runs verification (lint, tests, browser checks), and either commits on success or retries with error context on failure.
+
+**Customize your output**
+- `/my-dna` - Add your voice and values so the code reflects your style
 - `/styleguide` - Generate a UI component reference for consistent design
 
-**Run autonomous coding loops:**
-- `npx agentic-loop run` - Implement → verify → commit → repeat
-- `npx agentic-loop run --fast` - Skip code review (~2x faster)
-
-**Built-in guardrails:**
-- `/vibe-check`, `/review` - On-demand quality checks
-- Pre-commit hooks - Block secrets, URLs, debug statements
+**Built-in guardrails**
+- `/vibe-check`, `/review` - On-demand quality and security checks
+- Pre-commit hooks - Block secrets, hardcoded URLs, debug statements
 - Claude Code hooks - Real-time warnings while coding
 
 ---
@@ -37,7 +39,7 @@ npx agentic-loop setup
 **Terminal 1 - Claude Code:**
 ```bash
 claude --dangerously-skip-permissions
-/tour                    # Guided walkthrough
+/tour                    # Guided walkthrough (recommended first time)
 /idea 'your feature'     # Generate a PRD
 ```
 
@@ -46,6 +48,8 @@ claude --dangerously-skip-permissions
 npx agentic-loop run       # Execute PRDs autonomously
 npx agentic-loop run --fast  # Skip code review (~2x faster)
 ```
+
+> **Tip:** Use two terminals. Plan with Claude in one, run Ralph in the other.
 
 ---
 
@@ -65,11 +69,35 @@ npx agentic-loop run --fast  # Skip code review (~2x faster)
 └─────────────────────────────────────────────────────────────┘
 ```
 
+**What's a PRD?**
+A JSON file (`.ralph/prd.json`) containing your feature broken into small stories. Each story has acceptance criteria, test steps, and a test URL. Ralph implements them one by one.
+
+**What are Signs?**
+Patterns Ralph learns from failures. If Ralph keeps making the same mistake, add a sign: `npx agentic-loop sign "Always use camelCase for API fields" backend`. Future stories will see this guidance.
+
+---
+
+## Commands
+
+| Command | Description |
+|---------|-------------|
+| `npx agentic-loop setup` | Set up hooks, commands, and config |
+| `npx agentic-loop run` | Start the autonomous loop |
+| `npx agentic-loop run --fast` | Skip code review (~2x faster) |
+| `npx agentic-loop run --max 5` | Limit to 5 iterations |
+| `npx agentic-loop status` | Show story progress |
+| `npx agentic-loop verify TASK-001` | Verify a specific story |
+| `npx agentic-loop sign "pattern" category` | Add a learned pattern |
+
 ---
 
 ## Docs
 
-[How Ralph Works](docs/RALPH.md) · [Cheatsheet](docs/CHEATSHEET.md) · [Hooks](docs/HOOKS.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Contributing](docs/CONTRIBUTING.md)
+- [How Ralph Works](docs/RALPH.md) - Architecture, config, verification pipeline
+- [Cheatsheet](docs/CHEATSHEET.md) - All commands at a glance
+- [Hooks Reference](docs/HOOKS.md) - Pre-commit and Claude Code hooks
+- [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and fixes
+- [Contributing](docs/CONTRIBUTING.md) - How to contribute
 
 ---
 
