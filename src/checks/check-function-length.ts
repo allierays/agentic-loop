@@ -34,7 +34,17 @@ function getLanguage(ext: string): string {
   return 'unknown';
 }
 
-function checkJavaScriptFunctions(content: string): HookResult[] {
+function createTooLongResult(funcLine: number, funcName: string, length: number): HookResult { // noqa: dry
+  return {
+    line: funcLine,
+    column: 0,
+    message: `Function "${funcName}" is ${length} lines (max: ${MAX_FUNCTION_LENGTH}) - consider refactoring`,
+    severity: 'warning',
+    ruleId: 'function-length/too-long',
+  };
+}
+
+function checkJavaScriptFunctions(content: string): HookResult[] { // noqa: dry
   const results: HookResult[] = [];
   const lines = content.split('\n');
 
@@ -83,13 +93,7 @@ function checkJavaScriptFunctions(content: string): HookResult[] {
           const length = lineNum - func.line + 1;
 
           if (length > MAX_FUNCTION_LENGTH) {
-            results.push({
-              line: func.line,
-              column: 0,
-              message: `Function "${func.name}" is ${length} lines (max: ${MAX_FUNCTION_LENGTH}) - consider refactoring`,
-              severity: 'warning',
-              ruleId: 'function-length/too-long',
-            });
+            results.push(createTooLongResult(func.line, func.name, length));
           }
 
           functionStarts.splice(j, 1);
@@ -128,13 +132,7 @@ function checkPythonFunctions(content: string): HookResult[] {
         const length = lineNum - func.line;
 
         if (length > MAX_FUNCTION_LENGTH) {
-          results.push({
-            line: func.line,
-            column: 0,
-            message: `Function "${func.name}" is ${length} lines (max: ${MAX_FUNCTION_LENGTH}) - consider refactoring`,
-            severity: 'warning',
-            ruleId: 'function-length/too-long',
-          });
+          results.push(createTooLongResult(func.line, func.name, length));
         }
       }
 
@@ -152,13 +150,7 @@ function checkPythonFunctions(content: string): HookResult[] {
         const length = i - func.line; // Previous line was the end
 
         if (length > MAX_FUNCTION_LENGTH) {
-          results.push({
-            line: func.line,
-            column: 0,
-            message: `Function "${func.name}" is ${length} lines (max: ${MAX_FUNCTION_LENGTH}) - consider refactoring`,
-            severity: 'warning',
-            ruleId: 'function-length/too-long',
-          });
+          results.push(createTooLongResult(func.line, func.name, length));
         }
       }
     }

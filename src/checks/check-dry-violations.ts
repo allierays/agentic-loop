@@ -3,6 +3,7 @@
  */
 
 import type { Hook, HookResult, FileContext } from '../utils/types.js';
+import { shouldIgnoreLine } from '../utils/types.js';
 
 // Minimum number of similar lines to consider a duplicate
 const MIN_DUPLICATE_LINES = 8;
@@ -110,6 +111,11 @@ export const checkDryViolations: Hook = {
 
           if (!reportedBlocks.has(blockKey)) {
             reportedBlocks.add(blockKey);
+
+            // Check if the block is suppressed with noqa
+            if (shouldIgnoreLine(block1[0].original, 'dry')) {
+              continue;
+            }
 
             results.push({
               line: block1[0].lineNum,
