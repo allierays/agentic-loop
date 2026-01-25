@@ -330,5 +330,18 @@ save_failure_context() {
       echo "  async def get_items() -> list[ItemSchema]:"
       echo ""
     fi
+
+    if [[ -f "$RALPH_DIR/last_prd_failure.log" ]]; then
+      echo "--- PRD Test Step Failure ---"
+      echo "A test step in the PRD failed. Either fix your implementation OR fix the test step:"
+      echo ""
+      cat "$RALPH_DIR/last_prd_failure.log"
+      echo ""
+      echo "If the test step itself is broken (not your code), you can fix it:"
+      echo "  1. Read .ralph/prd.json to find the story and testSteps array"
+      echo "  2. Fix the command (e.g., add missing imports for SQLAlchemy models)"
+      echo "  3. Update with: jq '.stories[IDX].testSteps[N] = \"fixed command\"' .ralph/prd.json > tmp && mv tmp .ralph/prd.json"
+      echo ""
+    fi
   } > "$context_file"
 }

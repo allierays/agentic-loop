@@ -58,8 +58,13 @@ verify_prd_criteria() {
 
   local failed=0
   local log_file
+  local prd_failure_log="$RALPH_DIR/last_prd_failure.log"
   log_file=$(create_temp_file ".log") || return 1
 
+  # Clear previous PRD failure log
+  rm -f "$prd_failure_log"
+
+  local step_index=0
   while IFS= read -r step; do
     [[ -z "$step" ]] && continue
 
@@ -72,8 +77,19 @@ verify_prd_criteria() {
       echo ""
       echo "    Output:"
       tail -"$MAX_OUTPUT_PREVIEW_LINES" "$log_file" | sed 's/^/      /'
+
+      # Save failure details for retry context
+      {
+        echo "PRD test step $step_index failed for $story:"
+        echo "  Command: $step"
+        echo "  Error output:"
+        tail -30 "$log_file" | sed 's/^/    /'
+        echo ""
+      } >> "$prd_failure_log"
+
       failed=1
     fi
+    ((step_index++)) || true
   done <<< "$test_steps"
 
   rm -f "$log_file"
