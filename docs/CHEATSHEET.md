@@ -1,85 +1,21 @@
 # Agentic Loop Cheatsheet
 
-All commands at a glance. For quick reference in Claude Code, use `/vibe-help`.
+Quick reference for all commands.
 
 ---
 
-## The Loop
+## The Workflow
 
 ```
-/idea "your feature"     Brainstorm & generate PRD
-npx agentic-loop run                Autonomous coding, commits when done
-npx agentic-loop status             Check progress
-/vibe-check              Audit before shipping
-```
-
----
-
-## Pre-commit Hooks
-
-| Hook | What it catches | Blocks? |
-|------|-----------------|---------|
-| `check-secrets` | API keys, passwords, tokens | Yes |
-| `check-hardcoded-urls` | localhost URLs | Yes |
-| `check-debug-statements` | console.log, print() | No |
-| `check-todo-fixme` | TODO, FIXME comments | No |
-| `check-empty-catch` | Empty catch blocks | No |
-| `check-snake-case-ts` | snake_case in TypeScript | No |
-| `check-dry-violations-python` | Duplicate code (Python) | No |
-| `check-dry-violations-js` | Duplicate code (JS/TS) | No |
-| `check-magic-numbers` | Hardcoded numbers | No |
-| `check-any-types` | TypeScript `any` usage | No |
-| `check-function-length` | Functions > 50 lines | No |
-| `check-commented-code` | Large commented blocks | No |
-| `check-ai-models` | Hardcoded AI model names | No |
-
-**Commands:**
-```bash
-pre-commit run --all-files          # Run all hooks
-pre-commit run check-secrets        # Run specific hook
+/idea "your feature"           → Brainstorm & generate PRD
+npx agentic-loop run           → Autonomous coding loop
+npx agentic-loop status        → Check progress
+/vibe-check                    → Audit before shipping
 ```
 
 ---
 
-## Claude Code Hooks (Real-time)
-
-Hooks that fire during Claude sessions for immediate feedback:
-
-| Hook | Event | Purpose |
-|------|-------|---------|
-| `protect-prd.sh` | PreToolUse | Blocks edits to prd.json |
-| `warn-debug.sh` | PostToolUse | Warns about console.log/debugger |
-| `warn-secrets.sh` | PostToolUse | Warns about hardcoded secrets |
-| `warn-urls.sh` | PostToolUse | Warns about localhost URLs |
-| `inject-context.sh` | SessionStart | Loads signs & progress |
-| `save-learnings.sh` | Stop | Extracts learnings for signs |
-| `log-tools.sh` | PostToolUse | Logs to .ralph/tool-log.txt |
-
-**Install:**
-```bash
-npx agentic-loop hooks              # Project-level
-npx agentic-loop hooks --global     # All projects
-```
-
----
-
-## Claude Code Commands
-
-| Command | Purpose |
-|---------|---------|
-| `/idea` | Brainstorm → PRD → Ready for Ralph |
-| `/sign` | Add a learned pattern for Ralph to remember |
-| `/vibe-help` | Quick reference cheatsheet |
-| `/tour` | Interactive walkthrough |
-| `/vibe-check` | Full code quality audit |
-| `/review` | Code review with security checks |
-| `/explain` | Explain code line by line |
-| `/styleguide` | Generate design system reference |
-| `/my-dna` | Set up your personal coding preferences |
-
----
-
-## CLI Commands (terminal)
+## CLI Commands
 
 | Command | Purpose |
 |---------|---------|
@@ -87,89 +23,55 @@ npx agentic-loop hooks --global     # All projects
 | `npx agentic-loop run` | Execute stories autonomously |
 | `npx agentic-loop run --fast` | Skip code review (~2x faster) |
 | `npx agentic-loop run --max 10` | Limit iterations |
+| `npx agentic-loop stop` | Stop after current story |
 | `npx agentic-loop status` | Show progress |
 | `npx agentic-loop check` | Run verification only |
-| `npx agentic-loop verify TASK-001` | Verify specific task |
+| `npx agentic-loop verify TASK-001` | Verify specific story |
 | `npx agentic-loop signs` | List learned patterns |
-| `npx agentic-loop sign "pattern"` | Teach Ralph a pattern |
-| `npx agentic-loop prd "idea"` | Generate PRD from description |
-| `npx agentic-loop hooks` | Install Claude Code hooks (project) |
-| `npx agentic-loop hooks --global` | Install Claude Code hooks (global) |
+| `npx agentic-loop sign "pattern" category` | Add a pattern |
+| `npx agentic-loop progress` | Show recent log entries |
 
 ---
 
-## Common AI Mistakes
+## Slash Commands (in Claude Code)
 
-| Mistake | Fix |
-|---------|-----|
-| Uses `any` type | "Create proper interfaces, don't use any" |
-| 100+ line function | "Break this into smaller functions" |
-| `catch (e) {}` | "Handle the error, don't swallow it" |
-| `localhost` URLs | "Use environment variables" |
-| `console.log` | "Use proper logging or remove" |
-| Copy-paste code | "Extract into reusable function" |
-| No error handling | "Add loading, error, empty states" |
-| `dangerouslySetInnerHTML` | "Sanitize HTML or use text content" |
-| Hardcoded `gpt-4`, `claude-3` | "Use env vars or settings.AI_MODEL" |
+| Command | Purpose |
+|---------|---------|
+| `/idea` | Brainstorm feature → generate PRD |
+| `/tour` | Interactive walkthrough |
+| `/vibe-check` | Code quality audit |
+| `/review` | Security-focused code review |
+| `/sign` | Add a learned pattern |
+| `/explain` | Explain code line by line |
+| `/styleguide` | Generate UI component reference |
+| `/my-dna` | Set up your coding preferences |
 
 ---
 
-## Good Prompts
+## Pre-commit Hooks
 
-### Be Specific
-```
-❌ "Build a form"
-✅ "Build a login form with email validation,
-    error messages, loading state, using
-    react-hook-form and our Button component"
-```
+| Hook | What it catches |
+|------|-----------------|
+| `check-secrets` | API keys, passwords, tokens |
+| `check-hardcoded-urls` | localhost URLs |
+| `check-debug` | console.log, print() |
 
-### Ask for Tests First
-```
-"Before implementing, write the failing test.
- I want to see it fail, then we'll implement."
-```
-
-### Ask What Could Go Wrong
-```
-"What could go wrong with this code?
- What errors should we handle?"
-```
-
-### Reference Existing Patterns
-```
-"Follow the same pattern as UserForm.tsx"
+```bash
+pre-commit run --all-files     # Run all hooks
 ```
 
 ---
 
-## Code Review Checklist
+## Claude Code Hooks
 
-Before committing AI code:
+Real-time warnings while Claude writes code:
 
-- [ ] No `any` types (unless justified)
-- [ ] Functions under 50 lines
-- [ ] Errors are handled (not swallowed)
-- [ ] URLs use environment variables
-- [ ] No console.log in production code
-- [ ] No copy-pasted duplicate code
-- [ ] Loading/error states handled
-- [ ] No security vulnerabilities
-- [ ] Tests written (for non-trivial code)
-
----
-
-## The Vibe Workflow
-
-```
-1. IDEA      - /idea "your feature" (brainstorm in plan mode)
-2. APPROVE   - Review idea file, approve or edit
-3. PRD       - Auto-split into small stories
-4. APPROVE   - Review PRD, approve or edit
-5. RUN       - npx agentic-loop run (autonomous execution)
-6. CHECK     - npx agentic-loop status (monitor progress)
-7. AUDIT     - /vibe-check (before shipping)
-```
+| Hook | Purpose |
+|------|---------|
+| `warn-debug.sh` | Warns about console.log/debugger |
+| `warn-secrets.sh` | Warns about hardcoded secrets |
+| `warn-urls.sh` | Warns about localhost URLs |
+| `protect-prd.sh` | Blocks edits to prd.json |
 
 ---
 
@@ -187,32 +89,9 @@ console.log('Initializing...'); // noqa: debug
 
 ---
 
-## Quick Setup
-
-```bash
-npm install agentic-loop
-```
-
-That's it. The postinstall sets up everything automatically.
-
-### What Gets Installed
-
-| Item | Location | Purpose |
-|------|----------|---------|
-| Slash commands | `.claude/commands/` | /idea, /tour, /vibe-check, etc. |
-| Ralph config | `.ralph/config.json` | Project settings for verification |
-| Pre-commit hooks | `.pre-commit-config.yaml` | Block secrets and security issues |
-| Claude Code hooks | `npx agentic-loop hooks` to install | Real-time warnings while coding |
-| Project guide | `CLAUDE.md` | Auto-detected project info for Claude |
-| Gitignore entries | `.gitignore` | Ignore Ralph temp files |
-
----
-
 ## Links
 
-- [Claude Code Beginner Guide](docs/CLAUDE-CODE-GUIDE.md) - New to Claude Code? Start here
-- [Bad Patterns Guide](docs/BAD-PATTERNS.md)
-- [Prompting Guide](docs/PROMPTING-GUIDE.md)
-- [Workflow Guide](docs/WORKFLOW.md)
-- [Hooks Reference](docs/HOOKS.md)
-- [GitHub Repo](https://github.com/allthriveai/agentic-loop)
+- [How Ralph Works](RALPH.md)
+- [Hooks Reference](HOOKS.md)
+- [Troubleshooting](TROUBLESHOOTING.md)
+- [Contributing](CONTRIBUTING.md)
