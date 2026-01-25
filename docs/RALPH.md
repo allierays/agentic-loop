@@ -11,7 +11,7 @@ Ralph is an autonomous coding agent that implements features from a PRD (Product
 │                                                             │
 │  1. Read prd.json → find next story where passes=false      │
 │  2. Build prompt (story + context + failures + signs)       │
-│  3. Spawn Claude with prompt → claude -p                    │
+│  3. Run Claude (first story fresh, subsequent --continue)   │
 │  4. Run verification pipeline                               │
 │  5. Pass? → commit, next story                              │
 │     Fail? → save error, retry same story                    │
@@ -19,6 +19,15 @@ Ralph is an autonomous coding agent that implements features from a PRD (Product
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+### Session Continuity
+
+Ralph maintains Claude session context across stories within a single run:
+- **First story**: Fresh session with full prompt
+- **Subsequent stories**: `--continue` with delta prompt (just new story context)
+- **Retries**: Same session, remembers previous attempts
+
+This means Claude remembers what it built in TASK-001 when working on TASK-002.
 
 ## Data Sources
 
@@ -258,6 +267,10 @@ Now every future story will see this pattern.
 | `npx agentic-loop status` | Show story progress |
 | `npx agentic-loop check` | Run verification without Claude |
 | `npx agentic-loop verify TASK-001` | Verify specific story |
+| `npx agentic-loop test` | Run full test suite + PRD tests (for nightly CI) |
+| `npx agentic-loop test prd` | Run only PRD testSteps |
+| `npx agentic-loop coverage` | Generate test coverage report |
+| `npx agentic-loop ci` | Install GitHub Actions workflows |
 | `npx agentic-loop signs` | List learned patterns |
 | `npx agentic-loop sign "pattern" category` | Add a pattern |
 | `npx agentic-loop unsign "pattern"` | Remove a pattern |
@@ -309,11 +322,20 @@ Now every future story will see this pattern.
 | `urls.frontend` | `"http://localhost:3000"` | Frontend dev server URL |
 | `urls.testUrlBase` | (frontend URL) | Base URL for relative testUrl paths |
 | `checks.build` | `"npm run build"` | Build command |
-| `checks.test` | `"npm test"` | Test command |
+| `checks.test` | `true` | Run tests (`true`, `false`, or `"final"`) |
+| `checks.testCommand` | (auto-detect) | Custom test command |
+| `checks.requireTests` | `false` | Require test files for new Python/Go code |
 | `docker.enabled` | `false` | Run commands in Docker |
 | `playwright.enabled` | `true` | Enable e2e tests |
 | `styleguide` | `""` | Path to styleguide for frontend stories |
 | `maxSessionSeconds` | `600` | Claude session timeout |
+
+### Test Modes
+
+The `checks.test` field supports:
+- `true` - Run tests on every story (default)
+- `false` - Skip tests entirely
+- `"final"` - Only run tests on the last story (faster iteration)
 
 ## File Structure
 
@@ -377,3 +399,27 @@ npx ralph check
 3. **Styleguide** - Consistent UI reduces failures
 4. **Atomic stories** - Smaller scope = faster verification
 5. **MCP browser tools** - Claude verifies its own work in real-time
+
+## GitHub Actions CI/CD
+
+Ralph can set up GitHub Actions workflows for your project:
+
+```bash
+npx agentic-loop ci install
+```
+
+This creates two workflows:
+
+| Workflow | Trigger | What it runs |
+|----------|---------|--------------|
+| `.github/workflows/pr.yml` | Pull requests | Fast lint + typecheck + build |
+| `.github/workflows/nightly.yml` | Daily at 3am UTC | Full test suite + PRD testSteps |
+
+### Running Nightly Tests Locally
+
+```bash
+npx agentic-loop test        # Full suite + PRD tests
+npx agentic-loop test unit   # Just unit tests
+npx agentic-loop test prd    # Just PRD testSteps
+npx agentic-loop coverage    # Generate coverage report
+```

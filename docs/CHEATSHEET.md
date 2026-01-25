@@ -26,6 +26,9 @@ npx agentic-loop status        → Check progress
 | `npx agentic-loop status` | Show progress |
 | `npx agentic-loop check` | Run verification only |
 | `npx agentic-loop verify TASK-001` | Verify specific story |
+| `npx agentic-loop test` | Run full test suite + PRD tests |
+| `npx agentic-loop coverage` | Generate test coverage report |
+| `npx agentic-loop ci` | Install GitHub Actions workflows |
 | `npx agentic-loop signs` | List learned patterns |
 | `npx agentic-loop sign "pattern" category` | Add a pattern |
 | `npx agentic-loop progress` | Show recent log entries |
@@ -84,6 +87,31 @@ print("Server starting...")  # noqa: debug
 
 ```typescript
 console.log('Initializing...'); // noqa: debug
+```
+
+---
+
+## CI/CD
+
+```bash
+npx agentic-loop ci install      # Set up GitHub Actions
+npx agentic-loop ci status       # Check workflow status
+```
+
+| Workflow | Runs on | Speed |
+|----------|---------|-------|
+| PR Check | Pull requests | Fast (~1-2 min) |
+| Nightly | Daily 3am UTC | Full (~5-10 min) |
+
+---
+
+## Testing
+
+```bash
+npx agentic-loop test            # Full suite + PRD tests
+npx agentic-loop test unit       # Unit tests only
+npx agentic-loop test prd        # PRD testSteps only
+npx agentic-loop coverage        # Coverage report
 ```
 
 ---
