@@ -2,6 +2,80 @@
 # shellcheck shell=bash
 # setup.sh - Set up agentic-loop in a project
 
+# Append missing sections from template to existing PROMPT.md
+# Usage: append_prompt_sections <template_file> <target_file>
+append_prompt_sections() {
+  local template="$1"
+  local target="$2"
+  local added=false
+
+  # Key sections to check and append if missing
+  local sections=(
+    "### 3. Verify It Actually Works"
+    "**Playwright MCP**"
+    "**Chrome DevTools MCP**"
+    "## Verification Checklist"
+    "## Code Quality Standards"
+    "## Architecture Rules"
+    "## Scalability Rules"
+  )
+
+  for section in "${sections[@]}"; do
+    if ! grep -qF "$section" "$target" 2>/dev/null; then
+      # Section missing - extract and append it
+      case "$section" in
+        "### 3. Verify It Actually Works"|"**Playwright MCP**"|"**Chrome DevTools MCP**")
+          # Extract the browser verification block
+          if ! grep -qF "Playwright MCP" "$target" 2>/dev/null; then
+            echo "" >> "$target"
+            echo "### 3. Verify It Actually Works" >> "$target"
+            echo "" >> "$target"
+            echo "**You have browser tools - USE THEM to verify your work:**" >> "$target"
+            echo "" >> "$target"
+            echo "**Playwright MCP** (testing & automation):" >> "$target"
+            echo "- Navigate to URLs and verify page content" >> "$target"
+            echo "- Take screenshots to verify UI renders correctly" >> "$target"
+            echo "- Click elements and fill forms to test interactions" >> "$target"
+            echo "- Get accessibility snapshots for a11y testing" >> "$target"
+            echo "" >> "$target"
+            echo "**Chrome DevTools MCP** (debugging & inspection):" >> "$target"
+            echo "- Inspect DOM elements and check console for errors" >> "$target"
+            echo "- Debug network requests and responses" >> "$target"
+            echo "- Check element styles and computed properties" >> "$target"
+            echo "" >> "$target"
+            echo "**Do NOT say you're done until:**" >> "$target"
+            echo "- All unit tests pass" >> "$target"
+            echo "- You've opened the browser and visually verified the feature works" >> "$target"
+            echo "- Console has no errors" >> "$target"
+            echo "- Error states are handled gracefully" >> "$target"
+            added=true
+            break  # Don't re-add for the other MCP checks
+          fi
+          ;;
+        "## Verification Checklist")
+          echo "" >> "$target"
+          echo "## Verification Checklist" >> "$target"
+          echo "" >> "$target"
+          echo "Before considering any story complete:" >> "$target"
+          echo "" >> "$target"
+          echo "- [ ] All acceptance criteria are met" >> "$target"
+          echo "- [ ] All error handling from story is implemented" >> "$target"
+          echo "- [ ] TypeScript/code compiles without errors" >> "$target"
+          echo "- [ ] Unit tests written and passing" >> "$target"
+          echo "- [ ] **Browser verified** - used MCP tools to visually confirm it works" >> "$target"
+          echo "- [ ] No console errors" >> "$target"
+          echo "- [ ] Linting passes" >> "$target"
+          added=true
+          ;;
+      esac
+    fi
+  done
+
+  if [[ "$added" == "true" ]]; then
+    echo "  Updated PROMPT.md with new sections"
+  fi
+}
+
 ralph_setup() {
   echo ""
   echo "    _                    _   _        _                       "
@@ -93,10 +167,15 @@ setup_ralph_dir() {
     echo "  Created .ralph/signs.json"
   fi
 
-  # Create PROMPT.md if missing
-  if [[ ! -f "PROMPT.md" ]] && [[ -f "$pkg_root/templates/PROMPT.md" ]]; then
-    cp "$pkg_root/templates/PROMPT.md" "PROMPT.md"
-    echo "  Created PROMPT.md"
+  # Create or update PROMPT.md
+  if [[ -f "$pkg_root/templates/PROMPT.md" ]]; then
+    if [[ ! -f "PROMPT.md" ]]; then
+      cp "$pkg_root/templates/PROMPT.md" "PROMPT.md"
+      echo "  Created PROMPT.md"
+    else
+      # Append missing sections to existing PROMPT.md
+      append_prompt_sections "$pkg_root/templates/PROMPT.md" "PROMPT.md"
+    fi
   fi
 
   # Auto-detect project settings

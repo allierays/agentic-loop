@@ -111,6 +111,7 @@ Break the idea into small, executable stories:
 2. Write to `.ralph/prd.json`:
    - If **overwriting** or no existing PRD: Create new file with full structure
    - If **appending**: Read existing JSON, add new stories to the `stories` array, update `metadata.estimatedStories` count, write back
+   - **IMPORTANT**: Set `originalContext` to the full text of the idea file (if from file) or the user's description (if direct input). This preserves the original intent for Claude during implementation.
 
 3. Say: "I've {created|updated} the PRD with {N} stories ({X} new).
 
@@ -151,6 +152,7 @@ Ralph will work through each story, running tests and committing as it goes."
     "branch": "feature/{feature-name}",
     "status": "pending"
   },
+  "originalContext": "Full text content of the idea file or user description that inspired this PRD. This gives Claude the original intent and nuance beyond the structured stories.",
   "metadata": {
     "createdAt": "ISO timestamp",
     "estimatedStories": 5,
@@ -183,11 +185,21 @@ Ralph will work through each story, running tests and committing as it goes."
 
       "dependsOn": [],
 
+      "mcp": ["playwright", "devtools"],
+
       "notes": ""
     }
   ]
 }
 ```
+
+### MCP Tools
+Specify which MCP tools Claude should use for verification:
+- `playwright` - Browser automation, screenshots, form interactions, a11y testing
+- `devtools` - Console errors, network inspection, DOM debugging
+- Future: `postgres`, `redis`, etc.
+
+For frontend stories, default to `["playwright", "devtools"]`. Backend-only stories can omit or use `[]`.
 
 ### Frontend stories also need:
 - `testUrl` - URL to test

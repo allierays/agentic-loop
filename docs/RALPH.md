@@ -52,6 +52,7 @@ The PRD contains everything about what to build:
     "name": "User Dashboard",
     "description": "A dashboard showing user activity"
   },
+  "originalContext": "Full text of the idea file or description that inspired this PRD. Preserves the user's original intent and nuance for Claude during implementation.",
   "stories": [
     {
       "id": "TASK-001",
@@ -61,6 +62,7 @@ The PRD contains everything about what to build:
       "testUrl": "/dashboard",
       "testSteps": ["npm test -- dashboard"],
       "e2e": true,
+      "mcp": ["playwright", "devtools"],
       "passes": false
     }
   ],
@@ -72,10 +74,12 @@ The PRD contains everything about what to build:
 ```
 
 Key fields:
+- `originalContext` - Full text of original idea/description (preserves intent)
 - `stories[].passes` - Ralph tracks completion state here
 - `stories[].testUrl` - URL to verify in browser after implementation
 - `stories[].testSteps` - Commands to run for verification
 - `stories[].e2e` - Whether Playwright e2e test is required
+- `stories[].mcp` - MCP tools for verification: `["playwright", "devtools"]`
 - `architecture` - Where to put files, what to avoid
 
 ### PROMPT.md (How to Code)
@@ -175,6 +179,12 @@ When Ralph starts a story, it builds a prompt by combining:
 ├────────────────────────────────────────────────────────────┤
 │ ## Styleguide (if frontend + configured)                   │
 │ FIRST: Read styleguide at docs/styleguide.html             │
+├────────────────────────────────────────────────────────────┤
+│ ## MCP Tools (if story.mcp defined)                        │
+│ Use playwright, devtools, etc. for verification            │
+├────────────────────────────────────────────────────────────┤
+│ ## Original Idea Context (if defined)                      │
+│ {full text of original idea file or description}           │
 ├────────────────────────────────────────────────────────────┤
 │ ## Feature Context                                         │
 │ {feature name, metadata from prd.json}                     │

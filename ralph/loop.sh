@@ -571,6 +571,80 @@ _inject_styleguide() {
   fi
 }
 
+# Helper: Inject MCP tool instructions based on story's mcp array
+_inject_mcp_instructions() {
+  local story_json="$1"
+
+  # Get mcp array from story (default to playwright+devtools for frontend)
+  local mcp_tools
+  local story_type
+  story_type=$(echo "$story_json" | jq -r '.type // "frontend"' 2>/dev/null)
+  mcp_tools=$(echo "$story_json" | jq -r '.mcp // empty' 2>/dev/null)
+
+  # If no mcp specified but it's a frontend story, default to browser tools
+  if [[ -z "$mcp_tools" || "$mcp_tools" == "null" ]]; then
+    if [[ "$story_type" == "frontend" ]]; then
+      mcp_tools='["playwright", "devtools"]'
+    else
+      return  # No MCP tools for backend without explicit config
+    fi
+  fi
+
+  # Check if array is empty
+  local tool_count
+  tool_count=$(echo "$mcp_tools" | jq 'length' 2>/dev/null || echo "0")
+  [[ "$tool_count" == "0" ]] && return
+
+  echo ""
+  echo "## MCP Tools - USE THESE FOR VERIFICATION"
+  echo ""
+  echo "This story requires verification with the following MCP tools:"
+  echo ""
+
+  # Check for each tool and add instructions
+  if echo "$mcp_tools" | jq -e 'index("playwright")' > /dev/null 2>&1; then
+    echo "**Playwright MCP** (browser automation & testing):"
+    echo "- Navigate to URLs and verify page content"
+    echo "- Take screenshots to verify UI renders correctly"
+    echo "- Click elements and fill forms to test interactions"
+    echo "- Get accessibility snapshots for a11y testing"
+    echo ""
+  fi
+
+  if echo "$mcp_tools" | jq -e 'index("devtools")' > /dev/null 2>&1; then
+    echo "**Chrome DevTools MCP** (debugging & inspection):"
+    echo "- Inspect DOM elements and check console for errors"
+    echo "- Debug network requests and responses"
+    echo "- Check element styles and computed properties"
+    echo ""
+  fi
+
+  if echo "$mcp_tools" | jq -e 'index("postgres")' > /dev/null 2>&1; then
+    echo "**Postgres MCP** (database inspection):"
+    echo "- Query database to verify data was created/updated"
+    echo "- Check table schemas and indexes"
+    echo ""
+  fi
+
+  echo "**Do NOT mark this story complete until you have verified with these tools.**"
+}
+
+# Helper: Inject original idea context (preserves user's original intent)
+_inject_original_context() {
+  local original_context
+  original_context=$(jq -r '.originalContext // empty' "$RALPH_DIR/prd.json" 2>/dev/null)
+  [[ -z "$original_context" ]] && return
+
+  echo ""
+  echo "## Original Idea Context"
+  echo ""
+  echo "This is the original description/idea that inspired this feature. Use it to understand the user's intent:"
+  echo ""
+  echo '```'
+  echo "$original_context"
+  echo '```'
+}
+
 # Helper: Inject feature-level context
 _inject_feature_context() {
   echo ""
@@ -671,6 +745,7 @@ _build_delta_prompt() {
   _inject_file_guidance "$story_json"
   _inject_story_scale "$story_json"
   _inject_styleguide "$story_json"
+  _inject_mcp_instructions "$story_json"
 }
 
 # Helper: Inject failure context from previous iteration
@@ -739,6 +814,8 @@ build_prompt() {
   _inject_file_guidance "$story_json"
   _inject_story_scale "$story_json"
   _inject_styleguide "$story_json"
+  _inject_mcp_instructions "$story_json"
+  _inject_original_context
   _inject_feature_context
   _inject_scalability
   _inject_architecture
