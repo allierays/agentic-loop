@@ -7,9 +7,25 @@ run_unit_tests() {
   local log_file
   log_file=$(create_temp_file ".log") || return 1
 
+  # Check if tests should run (supports true, false, "final")
+  local test_setting
+  test_setting=$(get_config '.checks.test' "")
+
+  # Handle "final" - only run on last story
+  if [[ "$test_setting" == "final" ]]; then
+    local remaining
+    remaining=$(jq '[.stories[] | select(.passes==false)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "1")
+    if [[ "$remaining" -gt 1 ]]; then
+      echo "    (tests set to 'final' - will run on last story)"
+      return 0
+    fi
+    # Last story - use testCommand if specified, otherwise auto-detect
+    test_setting=$(get_config '.checks.testCommand' "")
+  fi
+
   # Try common test commands
   local test_cmd
-  test_cmd=$(get_config '.checks.test' "")
+  test_cmd="$test_setting"
 
   if [[ -z "$test_cmd" ]]; then
     # Auto-detect test command
