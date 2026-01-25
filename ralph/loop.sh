@@ -413,7 +413,9 @@ run_loop() {
       fi
 
       log_progress "$story" "COMPLETED"
-      print_success "Story $story completed!"
+
+      # Show completion summary
+      print_story_complete "$story" "$title"
 
       # If running specific story, we're done
       [[ -n "$specific_story" ]] && return 0
@@ -649,6 +651,53 @@ build_prompt() {
   _inject_failure_context "$failure_context"
   _inject_signs
   _inject_developer_dna
+}
+
+# Print story completion summary
+print_story_complete() {
+  local story="$1"
+  local title="$2"
+
+  # Get stats
+  local passed_count total_count remaining
+  passed_count=$(jq '[.stories[] | select(.passes==true)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+  total_count=$(jq '[.stories[]] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+  remaining=$((total_count - passed_count))
+
+  # Get commit info
+  local commit_hash=""
+  local files_changed="0"
+  if command -v git &>/dev/null && [[ -d ".git" ]]; then
+    commit_hash=$(git rev-parse --short HEAD 2>/dev/null || echo "")
+    files_changed=$(git diff --name-only HEAD~1 2>/dev/null | wc -l | tr -d ' ')
+  fi
+
+  # Build progress bar
+  local bar_filled=$((passed_count * 10 / total_count))
+  local bar_empty=$((10 - bar_filled))
+  local progress_bar=""
+  for ((i=0; i<bar_filled; i++)); do progress_bar+="█"; done
+  for ((i=0; i<bar_empty; i++)); do progress_bar+="░"; done
+
+  # Truncate title if too long
+  local display_title="$story: $title"
+  [[ ${#display_title} -gt 50 ]] && display_title="${display_title:0:47}..."
+
+  echo ""
+  echo "  ┌──────────────────────────────────────────────────────┐"
+  echo "  │  ✅ STORY COMPLETE                                   │"
+  echo "  ├──────────────────────────────────────────────────────┤"
+  printf "  │  %-52s│\n" "$display_title"
+  echo "  ├──────────────────────────────────────────────────────┤"
+  printf "  │  Progress: [%s] %d/%d stories               │\n" "$progress_bar" "$passed_count" "$total_count"
+  [[ -n "$commit_hash" ]] && printf "  │  Commit:   %-42s│\n" "$commit_hash ($files_changed files)"
+  if [[ $remaining -eq 0 ]]; then
+    echo "  │  Status:   All stories complete!                    │"
+  else
+    printf "  │  Remaining: %-41s│\n" "$remaining stories"
+  fi
+  echo "  └──────────────────────────────────────────────────────┘"
+  echo ""
 }
 
 # Print progress summary at end of run
