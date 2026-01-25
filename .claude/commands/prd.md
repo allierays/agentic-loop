@@ -176,11 +176,6 @@ Ralph will work through each story, running tests and committing as it goes."
     }
   },
 
-  "devServer": {
-    "command": "npm run dev",
-    "url": "http://localhost:3000",
-    "backend": "http://localhost:8000"
-  },
 
   "architecture": {
     "frontend": "src/components",
@@ -241,7 +236,7 @@ Ralph will work through each story, running tests and committing as it goes."
         "Executable shell commands - see examples below"
       ],
 
-      "testUrl": "http://localhost:3000/feature-page",
+      "testUrl": "{config.urls.frontend}/feature-page",
 
       "mcp": ["playwright", "devtools"],
 
@@ -290,13 +285,14 @@ Ralph will work through each story, running tests and committing as it goes."
 |-------|----------|-------------|
 | `feature` | Yes | Feature name, branch, status |
 | `originalContext` | Yes | Path to idea file (Claude reads this for full context) |
-| `techStack` | Yes | Technologies in use (helps Claude make correct choices) |
+| `techStack` | No | Technologies in use (auto-detect from project) |
 | `testing` | Yes | Testing strategy, tools, coverage requirements |
-| `devServer` | Yes | How to run the app (command, URLs) |
-| `architecture` | Yes | Directory structure, patterns, constraints |
-| `globalConstraints` | Yes | Rules that apply to ALL stories |
+| `architecture` | No | Directory structure, patterns, constraints |
+| `globalConstraints` | No | Rules that apply to ALL stories |
 | `testUsers` | No | Test accounts for auth flows |
 | `metadata` | Yes | Created date, complexity estimate |
+
+**Note:** URLs come from `.ralph/config.json`, not the PRD. Use `{config.urls.backend}` in testSteps.
 
 ### Story-Level Fields
 
@@ -415,6 +411,68 @@ Example for a Dashboard component:
 8. Run test → PASS
 ```
 
+### Testing Anti-Patterns (AVOID THESE)
+
+**The "grep for code" trap:**
+```json
+// ❌ BAD - verifies code exists, not that it works
+"testSteps": [
+  "grep -q 'astream_events' app/domains/chat/agent/graph.py"
+]
+
+// ✅ GOOD - verifies actual behavior
+"testSteps": [
+  "curl -N {config.urls.backend}/chat -d '{\"message\":\"test\"}' | grep -q 'progress'"
+]
+```
+
+**Missing integration points:**
+```json
+// ❌ BAD - creates function but doesn't verify callers use it
+{
+  "files": {"modify": ["graph.py"]},
+  "acceptanceCriteria": ["Create stream_agent function"]
+}
+
+// ✅ GOOD - verifies the full chain
+{
+  "files": {"modify": ["graph.py", "service.py"]},
+  "acceptanceCriteria": [
+    "service.py calls stream_agent() (not run_agent)",
+    "POST /chat returns progress SSE events"
+  ]
+}
+```
+
+### Acceptance Criteria Rules
+
+1. **Behavior over implementation** - Describe what the user/API sees, not what code exists
+2. **Verifiable** - Each criterion must be testable with a curl, pytest, or playwright
+3. **Include callers** - If adding a new function, verify callers use it
+
+```
+❌ "Use astream_events() for progress"
+✅ "POST /chat streams progress events before final response"
+
+❌ "Create stream_agent function"
+✅ "service.py send_message_stream() calls stream_agent()"
+```
+
+### Integration Test Requirements
+
+Backend stories that modify internal functions MUST have integration tests that verify the API behavior:
+
+```python
+# ✅ GOOD - tests actual API behavior
+async def test_send_message_streams_progress_events():
+    """Verify the API actually streams progress events."""
+    async with client.stream("POST", f"/chat/{conv_id}/messages",
+                             json={"content": "test"}) as response:
+        events = [e async for e in parse_sse(response)]
+        progress_events = [e for e in events if e["event_type"] == "progress"]
+        assert len(progress_events) > 0, "No progress events streamed"
+```
+
 ### Example Stories by Type
 
 **Frontend story:**
@@ -435,26 +493,19 @@ Example for a Dashboard component:
   "types": ["unit", "integration"],
   "approach": "TDD",
   "files": {
-    "unit": ["tests/test_users_api.py"],
-    "integration": ["tests/integration/test_users_flow.py"]
+    "unit": ["tests/unit/test_stream_agent.py"],
+    "integration": ["tests/integration/test_chat_streaming.py"]
   }
-}
-```
-
-**Fullstack story:**
-```json
-"testing": {
-  "types": ["unit", "integration", "e2e"],
-  "approach": "TDD",
-  "files": {
-    "unit": [
-      "src/components/UserForm.test.tsx",
-      "tests/test_users_api.py"
-    ],
-    "integration": ["tests/integration/test_user_creation.py"],
-    "e2e": ["tests/e2e/user-signup.spec.ts"]
-  }
-}
+},
+"acceptanceCriteria": [
+  "service.py calls stream_agent() instead of run_agent()",
+  "POST /chat/messages returns SSE stream with progress events",
+  "Progress events include tool name and status"
+],
+"testSteps": [
+  "pytest tests/integration/test_chat_streaming.py -v",
+  "curl -N {config.urls.backend}/chat/1/messages -d '{\"content\":\"test\"}' | grep -q 'progress'"
+]
 ```
 
 ---
@@ -499,24 +550,78 @@ Example:
 
 **Test steps MUST be executable shell commands.** Ralph runs them with bash.
 
-### Good Test Steps (executable)
+### Backend Stories MUST Have Curl Tests
+
+**CRITICAL: Every backend story MUST include curl commands that verify actual API behavior.**
+
+Use `{config.urls.backend}` - Ralph expands this from `.ralph/config.json`:
+
 ```json
+// ✅ REQUIRED for backend stories
 "testSteps": [
-  "curl -s http://localhost:3000/api/health | jq -e '.status == \"ok\"'",
-  "test -f frontend/src/components/Button.tsx",
-  "grep -q 'export function Button' frontend/src/components/Button.tsx",
-  "cd frontend && npx tsc --noEmit",
-  "npx playwright test tests/e2e/dashboard.spec.ts",
-  "cd frontend && npm test -- --testPathPattern=Button.test.tsx"
+  "curl -s {config.urls.backend}/users | jq -e '.data | length > 0'",
+  "curl -s -X POST {config.urls.backend}/users -d '{\"email\":\"test@test.com\"}' | jq -e '.id'",
+  "curl -N {config.urls.backend}/chat/1/messages -d '{\"content\":\"test\"}' | grep -q 'progress'"
 ]
 ```
 
-### Bad Test Steps (will fail)
+Ralph reads `.ralph/config.json` and expands `{config.urls.backend}` before running.
+
+**Why?** Grep tests verify code exists. Curl tests verify the feature works.
+
+```json
+// ❌ NEVER DO THIS for backend stories
+"testSteps": [
+  "grep -q 'astream_events' app/domains/chat/agent/graph.py"
+]
+// This passed but the feature was broken!
+```
+
+### Test Steps by Story Type
+
+| Story Type | Required testSteps |
+|------------|-------------------|
+| `backend` | curl commands using `{config.urls.backend}` to verify API behavior |
+| `frontend` | `tsc --noEmit` (type errors) + `npm test` (unit) + playwright (e2e) |
+| `e2e` | playwright test commands |
+
+**Frontend stories MUST include TypeScript check** - curl won't catch type errors:
+```json
+// ✅ Frontend story testSteps
+"testSteps": [
+  "npx tsc --noEmit",
+  "npm test -- --testPathPattern=Dashboard",
+  "npx playwright test tests/e2e/dashboard.spec.ts"
+]
+```
+
+### Good Test Steps (executable)
+```json
+// Backend story - use {config.urls.backend}
+"testSteps": [
+  "curl -s {config.urls.backend}/health | jq -e '.status == \"ok\"'",
+  "curl -s -X POST {config.urls.backend}/users -H 'Content-Type: application/json' -d '{\"email\":\"test@example.com\"}' | jq -e '.id'",
+  "pytest tests/integration/test_users.py -v"
+]
+
+// Frontend story
+"testSteps": [
+  "npm test -- --testPathPattern=Button.test.tsx",
+  "npx tsc --noEmit"
+]
+
+// E2E story
+"testSteps": [
+  "npx playwright test tests/e2e/user-signup.spec.ts"
+]
+```
+
+### Bad Test Steps (will fail or miss bugs)
 ```json
 "testSteps": [
-  "Visit http://localhost:3000/dashboard",
-  "User can see the dashboard",
-  "Click the submit button"
+  "grep -q 'function createUser' app/services/user.py",  // ❌ Just checks code exists
+  "Visit http://localhost:3000/dashboard",                // ❌ Not executable
+  "User can see the dashboard"                            // ❌ Not executable
 ]
 ```
 

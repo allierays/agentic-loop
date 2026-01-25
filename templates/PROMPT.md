@@ -57,9 +57,12 @@ Work on your story following these rules:
 
 ### From the PRD
 - **prd.globalConstraints** - Rules that apply to ALL stories
-- **prd.techStack** - Technologies in use
 - **prd.testing** - Testing strategy (TDD, tools, coverage)
-- **prd.architecture** - Directory structure and patterns
+
+### From Config (.ralph/config.json)
+- **config.urls.backend** - API base URL for curl tests
+- **config.urls.frontend** - Frontend URL for browser tests
+- **config.directories** - Where frontend/backend code lives
 
 ### Code Quality
 - **Readability First** - Code is read more than written

@@ -333,12 +333,6 @@ The PRD is the **single source of truth** - everything Claude needs is here.
     "coverage": {"minimum": 80, "enforced": false}
   },
 
-  "devServer": {
-    "command": "npm run dev",
-    "url": "http://localhost:3000",
-    "backend": "http://localhost:8000"
-  },
-
   "architecture": {
     "frontend": "src/components",
     "backend": "src/api",
@@ -437,17 +431,18 @@ The PRD is the **single source of truth** - everything Claude needs is here.
 
 | Field | Level | Purpose |
 |-------|-------|---------|
-| `techStack` | PRD | Technologies in use |
+| `techStack` | PRD | Technologies in use (auto-detect) |
 | `testing` | PRD | Testing strategy (TDD, tools, coverage) |
-| `devServer` | PRD | How to run the app |
 | `globalConstraints` | PRD | Rules for ALL stories |
 | `testing` | Story | Test types, approach, files to create |
-| `testUrl` | Story | Where to verify the feature |
+| `testUrl` | Story | Path to verify (uses `{config.urls.frontend}`) |
 | `contextFiles` | Story | Idea files, styleguides to read |
 | `skills` | Story | Relevant skills with usage hints |
 | `apiContract` | Story | Expected request/response |
 | `prerequisites` | Story | What must be running |
 | `notes` | Story | Human guidance for Claude |
+
+**URLs come from `.ralph/config.json`**, not the PRD. Use `{config.urls.backend}` in testSteps.
 
 ---
 
