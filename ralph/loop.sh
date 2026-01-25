@@ -504,209 +504,11 @@ startup_checklist() {
   fi
 }
 
-# Helper: Inject story details into prompt
-_inject_story_context() {
-  local story_json="$1"
-
-  echo ""
-  echo "---"
-  echo ""
-  echo "## Current Story"
-  echo ""
-  echo '```json'
-  echo "$story_json"
-  echo '```'
-}
-
-# Helper: Inject file guidance into prompt
-_inject_file_guidance() {
-  local story_json="$1"
-
-  local has_files
-  has_files=$(echo "$story_json" | jq -r '.files // empty' 2>/dev/null)
-  [[ -z "$has_files" ]] && return
-
-  echo ""
-  echo "### File Guidance for This Story"
-  echo ""
-  echo "**Create these files:**"
-  echo "$story_json" | jq -r '.files.create[]? // empty' | sed 's/^/- /'
-  echo ""
-  echo "**Modify these files:**"
-  echo "$story_json" | jq -r '.files.modify[]? // empty' | sed 's/^/- /'
-  echo ""
-  echo "**Reuse/import from:**"
-  echo "$story_json" | jq -r '.files.reuse[]? // empty' | sed 's/^/- /'
-}
-
-# Helper: Inject scalability guidance for story
-_inject_story_scale() {
-  local story_json="$1"
-
-  local has_scale
-  has_scale=$(echo "$story_json" | jq -r '.scale // empty' 2>/dev/null)
-  [[ -z "$has_scale" ]] && return
-
-  echo ""
-  echo "### Scalability Requirements for This Story"
-  echo ""
-  echo "$story_json" | jq -r '.scale | to_entries[] | "- **\(.key):** \(.value)"' 2>/dev/null
-}
-
-# Helper: Inject styleguide reference for frontend stories
-_inject_styleguide() {
-  local story_json="$1"
-
-  local story_type
-  story_type=$(echo "$story_json" | jq -r '.type // "frontend"' 2>/dev/null)
-  local styleguide_path
-  styleguide_path=$(get_config '.styleguide' "")
-
-  if [[ "$story_type" == "frontend" && -n "$styleguide_path" && -f "$styleguide_path" ]]; then
-    echo ""
-    echo "### Styleguide"
-    echo ""
-    echo "**FIRST:** Read the project styleguide at \`$styleguide_path\` before implementing."
-    echo "Use existing components, colors, and patterns from the styleguide."
-  fi
-}
-
-# Helper: Inject MCP tool instructions based on story's mcp array
-_inject_mcp_instructions() {
-  local story_json="$1"
-
-  # Get mcp array from story (default to playwright+devtools for frontend)
-  local mcp_tools
-  local story_type
-  story_type=$(echo "$story_json" | jq -r '.type // "frontend"' 2>/dev/null)
-  mcp_tools=$(echo "$story_json" | jq -r '.mcp // empty' 2>/dev/null)
-
-  # If no mcp specified but it's a frontend story, default to browser tools
-  if [[ -z "$mcp_tools" || "$mcp_tools" == "null" ]]; then
-    if [[ "$story_type" == "frontend" ]]; then
-      mcp_tools='["playwright", "devtools"]'
-    else
-      return  # No MCP tools for backend without explicit config
-    fi
-  fi
-
-  # Check if array is empty
-  local tool_count
-  tool_count=$(echo "$mcp_tools" | jq 'length' 2>/dev/null || echo "0")
-  [[ "$tool_count" == "0" ]] && return
-
-  echo ""
-  echo "## MCP Tools - USE THESE FOR VERIFICATION"
-  echo ""
-  echo "This story requires verification with the following MCP tools:"
-  echo ""
-
-  # Check for each tool and add instructions
-  if echo "$mcp_tools" | jq -e 'index("playwright")' > /dev/null 2>&1; then
-    echo "**Playwright MCP** (browser automation & testing):"
-    echo "- Navigate to URLs and verify page content"
-    echo "- Take screenshots to verify UI renders correctly"
-    echo "- Click elements and fill forms to test interactions"
-    echo "- Get accessibility snapshots for a11y testing"
-    echo ""
-  fi
-
-  if echo "$mcp_tools" | jq -e 'index("devtools")' > /dev/null 2>&1; then
-    echo "**Chrome DevTools MCP** (debugging & inspection):"
-    echo "- Inspect DOM elements and check console for errors"
-    echo "- Debug network requests and responses"
-    echo "- Check element styles and computed properties"
-    echo ""
-  fi
-
-  if echo "$mcp_tools" | jq -e 'index("postgres")' > /dev/null 2>&1; then
-    echo "**Postgres MCP** (database inspection):"
-    echo "- Query database to verify data was created/updated"
-    echo "- Check table schemas and indexes"
-    echo ""
-  fi
-
-  echo "**Do NOT mark this story complete until you have verified with these tools.**"
-}
-
-# Helper: Inject original idea context (preserves user's original intent)
-_inject_original_context() {
-  local original_context
-  original_context=$(jq -r '.originalContext // empty' "$RALPH_DIR/prd.json" 2>/dev/null)
-  [[ -z "$original_context" ]] && return
-
-  echo ""
-  echo "## Original Idea Context"
-  echo ""
-  echo "This is the original description/idea that inspired this feature. Use it to understand the user's intent:"
-  echo ""
-  echo '```'
-  echo "$original_context"
-  echo '```'
-}
-
-# Helper: Inject feature-level context
-_inject_feature_context() {
-  echo ""
-  echo "## Feature Context"
-  echo ""
-  echo '```json'
-  jq '{feature: .feature, metadata: .metadata}' "$RALPH_DIR/prd.json"
-  echo '```'
-}
-
-# Helper: Inject scalability requirements
-_inject_scalability() {
-  local has_scalability
-  has_scalability=$(jq -r '.scalability // empty' "$RALPH_DIR/prd.json" 2>/dev/null)
-  [[ -z "$has_scalability" ]] && return
-
-  echo ""
-  echo "## Scalability Requirements"
-  echo ""
-  echo "**IMPORTANT:** Follow these scalability rules."
-  echo ""
-  echo '```json'
-  jq '.scalability' "$RALPH_DIR/prd.json"
-  echo '```'
-  echo ""
-  echo "### Key Rules:"
-  echo "- Always paginate list endpoints (never return unbounded arrays)"
-  echo "- Avoid N+1 queries - eager load relationships"
-  echo "- Add database indexes for frequently queried fields"
-  echo "- Implement caching strategy as specified"
-  echo "- Add rate limiting to public endpoints"
-}
-
-# Helper: Inject architecture guidelines
-_inject_architecture() {
-  local has_architecture
-  has_architecture=$(jq -r '.architecture // empty' "$RALPH_DIR/prd.json" 2>/dev/null)
-  [[ -z "$has_architecture" ]] && return
-
-  echo ""
-  echo "## Architecture Guidelines"
-  echo ""
-  echo "**IMPORTANT:** Follow these architecture rules strictly."
-  echo ""
-  echo '```json'
-  jq '.architecture' "$RALPH_DIR/prd.json"
-  echo '```'
-  echo ""
-  echo "### Key Rules:"
-  echo "- Put files in the specified directories"
-  echo "- Reuse existing components listed in 'patterns.reuse'"
-  echo "- Do NOT create anything in 'doNotCreate'"
-  echo "- Keep files under $(jq -r '.architecture.principles.maxFileLines // 300' "$RALPH_DIR/prd.json") lines"
-  echo "- Scripts go in scripts/, docs go in docs/"
-}
-
 # Helper: Build delta prompt for continuing session
-# Minimal context - just new story + any failure info
+# Minimal context - just story ID + any failure info
 _build_delta_prompt() {
   local story="$1"
-  local story_json="$2"
-  local failure_context="${3:-}"
+  local failure_context="${2:-}"
 
   echo ""
   echo "---"
@@ -716,8 +518,10 @@ _build_delta_prompt() {
   if [[ -n "$failure_context" ]]; then
     echo "## Retry: Fix the errors below"
     echo ""
+    echo "Read \`.ralph/last_failure.txt\` for full error details."
+    echo ""
     echo '```'
-    echo "$failure_context"
+    echo "$failure_context" | head -50
     echo '```'
     echo ""
   else
@@ -725,103 +529,79 @@ _build_delta_prompt() {
     local completed_count
     completed_count=$(jq '[.stories[] | select(.passes==true)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
     if [[ "$completed_count" -gt 0 ]]; then
-      echo "## Previous stories complete. Moving to next story."
+      echo "## Previous story complete. Moving to next."
       echo ""
-      # Suggest compact if we've done several stories
-      if [[ "$completed_count" -ge 3 ]]; then
-        echo "*Consider running /compact if context feels heavy.*"
-        echo ""
-      fi
     fi
   fi
 
-  echo "## Current Story"
+  echo "## Current Story: $story"
   echo ""
-  echo '```json'
-  echo "$story_json"
-  echo '```'
-
-  # Include file guidance for the new story
-  _inject_file_guidance "$story_json"
-  _inject_story_scale "$story_json"
-  _inject_styleguide "$story_json"
-  _inject_mcp_instructions "$story_json"
+  echo "Read full story details from \`.ralph/prd.json\`"
 }
 
-# Helper: Inject failure context from previous iteration
-_inject_failure_context() {
-  local failure_context="$1"
-  [[ -z "$failure_context" ]] && return
-
-  echo ""
-  echo "## Previous Iteration Failed"
-  echo ""
-  echo "Fix the errors below. If a PRD test step is broken, you can fix it in .ralph/prd.json."
-  echo ""
-  echo '```'
-  echo "$failure_context"
-  echo '```'
-}
-
-# Helper: Inject signs (learned patterns)
+# Helper: Inject signs (learned patterns) - ALWAYS inject these
 _inject_signs() {
+  [[ ! -f "$RALPH_DIR/signs.json" ]] && return
+
+  local sign_count
+  sign_count=$(jq '.signs | length' "$RALPH_DIR/signs.json" 2>/dev/null || echo "0")
+  [[ "$sign_count" == "0" ]] && return
+
   echo ""
-  echo "## Signs (Learned Patterns)"
+  echo "## Signs (Learned Patterns) - FOLLOW THESE"
   echo ""
-  echo "Apply these lessons from previous sessions:"
-  echo ""
-  if [[ -f "$RALPH_DIR/signs.json" ]]; then
-    jq -r '.signs[] | "- [\(.category)] \(.pattern)"' "$RALPH_DIR/signs.json" 2>/dev/null || echo "(none yet)"
-  else
-    echo "(none yet)"
-  fi
+  jq -r '.signs[] | "- [\(.category)] \(.pattern)"' "$RALPH_DIR/signs.json" 2>/dev/null
 }
 
-# Helper: Inject developer DNA
-_inject_developer_dna() {
-  [[ ! -f "$HOME/.claude/DNA.md" ]] && return
-
-  echo ""
-  echo "## Developer DNA"
-  echo ""
-  echo "The developer has these working preferences:"
-  echo ""
-  cat "$HOME/.claude/DNA.md"
-}
-
-# Build the prompt with story context injected
+# Build the prompt - LEAN version
+# Claude reads context from prd.json, we just provide the story ID and signs
 # Usage: build_prompt <story_id> [failure_context] [is_continuation]
 build_prompt() {
   local story="$1"
   local failure_context="${2:-}"
   local is_continuation="${3:-false}"
 
-  # Get story JSON once
-  local story_json
-  story_json=$(jq --arg id "$story" '.stories[] | select(.id==$id)' "$RALPH_DIR/prd.json")
-
   if [[ "$is_continuation" == "true" ]]; then
-    # Delta prompt for continuing session - just new story context
-    _build_delta_prompt "$story" "$story_json" "$failure_context"
+    # Delta prompt for continuing session
+    _build_delta_prompt "$story" "$failure_context"
     return
   fi
 
-  # Full prompt for fresh session
+  # Full prompt for fresh session - LEAN
   cat "$PROMPT_FILE"
 
-  # Inject all sections
-  _inject_story_context "$story_json"
-  _inject_file_guidance "$story_json"
-  _inject_story_scale "$story_json"
-  _inject_styleguide "$story_json"
-  _inject_mcp_instructions "$story_json"
-  _inject_original_context
-  _inject_feature_context
-  _inject_scalability
-  _inject_architecture
-  _inject_failure_context "$failure_context"
+  echo ""
+  echo "---"
+  echo ""
+  echo "## Current Story: $story"
+  echo ""
+  echo "Read full story details from \`.ralph/prd.json\` - it contains everything you need:"
+  echo "- \`story.files\` - which files to create/modify"
+  echo "- \`story.acceptanceCriteria\` - what must be true"
+  echo "- \`story.testSteps\` - verification commands"
+  echo "- \`story.contextFiles\` - idea files, styleguides to read"
+  echo "- \`story.mcp\` - browser tools for verification"
+  echo "- \`story.skills\` - relevant skills to reference"
+  echo ""
+  echo "Also read:"
+  echo "- \`prd.techStack\` - technologies in use"
+  echo "- \`prd.globalConstraints\` - rules for all stories"
+  echo "- \`prd.devServer\` - how to run the app"
+
+  # Failure context if retrying
+  if [[ -n "$failure_context" ]]; then
+    echo ""
+    echo "## Previous Iteration Failed"
+    echo ""
+    echo "Read \`.ralph/last_failure.txt\` for details. Key error:"
+    echo ""
+    echo '```'
+    echo "$failure_context" | head -30
+    echo '```'
+  fi
+
+  # Signs are critical - always inject to prevent repeated mistakes
   _inject_signs
-  _inject_developer_dna
 }
 
 # Print story completion summary

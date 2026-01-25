@@ -66,24 +66,52 @@ your-project/
 
 ---
 
-## Prompt Assembly
+## Prompt Model
 
-When Ralph runs a story, it builds a prompt by combining multiple sources:
+Inspired by [Anthropic's guidance on long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents), Ralph uses a **lean prompt** approach:
 
-| Source | What it provides |
-|--------|------------------|
-| `PROMPT.md` | Base coding instructions, verification checklist |
-| Story from `prd.json` | id, title, acceptanceCriteria, errorHandling, testSteps |
-| `story.files` | Which files to create, modify, reuse |
-| `story.mcp` | Which MCP tools to use (playwright, devtools) |
-| `prd.originalContext` | Full text of original idea file |
-| `prd.feature` | Feature name and metadata |
-| `prd.architecture` | Directory rules, doNotCreate |
+```
+┌─────────────────────────────────────────────────────────────────┐
+│   PROMPT.md = HOW to work (7-step framework, ~150 lines)       │
+│   prd.json  = WHAT to build (all context per story)            │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Why Lean Prompts?
+
+Instead of injecting thousands of tokens of context upfront, Claude **reads files during orientation**:
+
+| Old Approach | New Approach |
+|--------------|--------------|
+| Inject everything into prompt | Claude reads from prd.json |
+| ~4000 tokens of context | ~500 tokens of instructions |
+| Passive context (may be ignored) | Active reading (better comprehension) |
+
+### What Ralph Injects
+
+Only the essentials:
+
+| Injected | Purpose |
+|----------|---------|
+| `PROMPT.md` | 7-step framework (orient, implement, verify) |
+| Story ID | Which story to implement |
+| Signs | Learned patterns (prevent repeated mistakes) |
+| Failure context | What went wrong (if retrying) |
+
+### What Claude Reads
+
+Claude reads these during the Orient step:
+
+| File | What it provides |
+|------|------------------|
+| `.ralph/prd.json` | Full story details, techStack, globalConstraints |
+| `story.contextFiles[]` | Idea files, styleguides, ASCII mockups |
+| `CLAUDE.md` | Project conventions |
+| `~/.claude/DNA.md` | Personal coding preferences |
+| `.ralph/signs.json` | Learned patterns |
 | `.ralph/last_failure.txt` | Previous error (if retrying) |
-| `.ralph/signs.json` | Learned patterns from past failures |
-| `~/.claude/DNA.md` | Your personal coding preferences |
 
-The assembled prompt is piped to Claude:
+The prompt is piped to Claude:
 ```bash
 echo "$prompt" | claude -p --dangerously-skip-permissions
 ```
@@ -277,6 +305,10 @@ console.log('Server starting...'); // noqa: debug
 
 ## PRD Structure
 
+The PRD is the **single source of truth** - everything Claude needs is here.
+
+### PRD-Level Fields
+
 ```json
 {
   "feature": {
@@ -285,48 +317,119 @@ console.log('Server starting...'); // noqa: debug
     "status": "pending"
   },
 
-  "originalContext": "Full text of the idea file...",
+  "originalContext": "docs/ideas/dashboard.md",
 
-  "stories": [
-    {
-      "id": "TASK-001",
-      "type": "frontend",
-      "title": "Create dashboard layout",
-      "passes": false,
+  "techStack": {
+    "frontend": "React 18 + TypeScript",
+    "backend": "FastAPI + Python 3.11",
+    "database": "PostgreSQL",
+    "testing": "Vitest + Playwright"
+  },
 
-      "files": {
-        "create": ["src/components/Dashboard.tsx"],
-        "modify": ["src/App.tsx"],
-        "reuse": ["src/components/ui/Card.tsx"]
-      },
-
-      "acceptanceCriteria": [
-        "Shows user name in header",
-        "Responsive layout"
-      ],
-
-      "errorHandling": [
-        "Show loading state while fetching",
-        "Show error message if fetch fails"
-      ],
-
-      "testSteps": [
-        "npm test -- Dashboard",
-        "npm run build"
-      ],
-
-      "mcp": ["playwright", "devtools"],
-
-      "dependsOn": []
-    }
-  ],
+  "devServer": {
+    "command": "npm run dev",
+    "url": "http://localhost:3000",
+    "backend": "http://localhost:8000"
+  },
 
   "architecture": {
     "frontend": "src/components",
-    "doNotCreate": ["new API routes without backend story"]
-  }
+    "backend": "src/api",
+    "doNotCreate": ["new database tables without migration"]
+  },
+
+  "globalConstraints": [
+    "All API calls must have error handling",
+    "No console.log in production code",
+    "Use existing UI components from src/components/ui"
+  ],
+
+  "testUsers": {
+    "admin": {"email": "admin@test.com", "password": "test123"}
+  },
+
+  "stories": [...]
 }
 ```
+
+### Story-Level Fields
+
+```json
+{
+  "id": "TASK-001",
+  "type": "frontend",
+  "title": "Create dashboard layout",
+  "priority": 1,
+  "passes": false,
+
+  "files": {
+    "create": ["src/components/Dashboard.tsx"],
+    "modify": ["src/App.tsx"],
+    "reuse": ["src/components/ui/Card.tsx"]
+  },
+
+  "acceptanceCriteria": [
+    "Shows user name in header",
+    "Responsive layout"
+  ],
+
+  "errorHandling": [
+    "Show loading state while fetching",
+    "Show error message if fetch fails"
+  ],
+
+  "testSteps": [
+    "npm test -- Dashboard",
+    "npm run build"
+  ],
+
+  "testUrl": "http://localhost:3000/dashboard",
+
+  "mcp": ["playwright", "devtools"],
+
+  "contextFiles": [
+    "docs/ideas/dashboard.md",
+    "src/styles/styleguide.html"
+  ],
+
+  "skills": [
+    {"name": "styleguide", "usage": "Reference for UI components"},
+    {"name": "vibe-check", "usage": "Run after implementation"}
+  ],
+
+  "apiContract": {
+    "endpoint": "GET /api/dashboard",
+    "response": {"user": {"name": "string"}}
+  },
+
+  "prerequisites": ["Backend server running"],
+
+  "notes": "User prefers teal color scheme from styleguide",
+
+  "scale": "medium",
+
+  "architecture": {
+    "pattern": "React Query for data fetching",
+    "constraints": ["No Redux"]
+  },
+
+  "dependsOn": []
+}
+```
+
+### Field Reference
+
+| Field | Level | Purpose |
+|-------|-------|---------|
+| `techStack` | PRD | Technologies in use |
+| `devServer` | PRD | How to run the app |
+| `globalConstraints` | PRD | Rules for ALL stories |
+| `testUrl` | Story | Where to verify the feature |
+| `contextFiles` | Story | Idea files, styleguides to read |
+| `skills` | Story | Relevant skills with usage hints |
+| `apiContract` | Story | Expected request/response |
+| `prerequisites` | Story | What must be running |
+| `notes` | Story | Human guidance for Claude |
 
 ---
 

@@ -57,6 +57,8 @@ I'll now split this into {N} stories for Ralph. Continue?"
 If working from a direct description, first explore the codebase briefly:
 ```bash
 ls -la src/ app/ 2>/dev/null | head -20
+cat package.json 2>/dev/null | jq '{name, dependencies}' || true
+cat pyproject.toml 2>/dev/null | head -20 || true
 ```
 
 Then say: "I'll create a PRD for: **{description}**
@@ -77,7 +79,7 @@ cat .ralph/prd.json 2>/dev/null
 ```
 
 If it exists, read it and say:
-"📋 `.ralph/prd.json` exists with {N} stories ({M} completed, {P} pending).
+"`.ralph/prd.json` exists with {N} stories ({M} completed, {P} pending).
 
 Options:
 - **'append'** - Add new stories to the existing PRD (recommended)
@@ -111,7 +113,6 @@ Break the idea into small, executable stories:
 2. Write to `.ralph/prd.json`:
    - If **overwriting** or no existing PRD: Create new file with full structure
    - If **appending**: Read existing JSON, add new stories to the `stories` array, update `metadata.estimatedStories` count, write back
-   - **IMPORTANT**: Set `originalContext` to the full text of the idea file (if from file) or the user's description (if direct input). This preserves the original intent for Claude during implementation.
 
 3. Say: "I've {created|updated} the PRD with {N} stories ({X} new).
 
@@ -142,7 +143,7 @@ Ralph will work through each story, running tests and committing as it goes."
 
 ---
 
-## PRD JSON Structure
+## Complete PRD JSON Schema
 
 ```json
 {
@@ -152,17 +153,51 @@ Ralph will work through each story, running tests and committing as it goes."
     "branch": "feature/{feature-name}",
     "status": "pending"
   },
-  "originalContext": "Full text content of the idea file or user description that inspired this PRD. This gives Claude the original intent and nuance beyond the structured stories.",
+
+  "originalContext": "docs/ideas/{feature-name}.md",
+
+  "techStack": {
+    "frontend": "React 18 + TypeScript",
+    "backend": "FastAPI + Python 3.11",
+    "database": "PostgreSQL",
+    "testing": "Vitest + Playwright"
+  },
+
+  "devServer": {
+    "command": "npm run dev",
+    "url": "http://localhost:3000",
+    "backend": "http://localhost:8000"
+  },
+
+  "architecture": {
+    "frontend": "src/components",
+    "backend": "src/api",
+    "doNotCreate": ["new database tables without migration"]
+  },
+
+  "globalConstraints": [
+    "All API calls must have error handling",
+    "No console.log in production code",
+    "Use existing UI components from src/components/ui"
+  ],
+
+  "testUsers": {
+    "admin": {"email": "admin@test.com", "password": "test123"},
+    "user": {"email": "user@test.com", "password": "test123"}
+  },
+
   "metadata": {
     "createdAt": "ISO timestamp",
     "estimatedStories": 5,
     "complexity": "low|medium|high"
   },
+
   "stories": [
     {
       "id": "TASK-001",
-      "type": "frontend|backend",
+      "type": "frontend|backend|fullstack",
       "title": "Short description",
+      "priority": 1,
       "passes": false,
 
       "files": {
@@ -180,119 +215,187 @@ Ralph will work through each story, running tests and committing as it goes."
       ],
 
       "testSteps": [
-        "MUST be executable shell commands - see examples below"
+        "Executable shell commands - see examples below"
       ],
 
-      "dependsOn": [],
+      "testUrl": "http://localhost:3000/feature-page",
 
       "mcp": ["playwright", "devtools"],
 
-      "notes": ""
+      "contextFiles": [
+        "docs/ideas/feature.md",
+        "src/styles/styleguide.html"
+      ],
+
+      "skills": [
+        {"name": "styleguide", "usage": "Reference for UI components"},
+        {"name": "vibe-check", "usage": "Run after implementation"}
+      ],
+
+      "apiContract": {
+        "endpoint": "GET /api/resource",
+        "response": {"field": "type"}
+      },
+
+      "prerequisites": [
+        "Backend server running",
+        "Database seeded"
+      ],
+
+      "notes": "Human guidance - preferences, warnings, tips",
+
+      "scale": "small|medium|large",
+
+      "architecture": {
+        "pattern": "React Query for data fetching",
+        "constraints": ["No Redux"]
+      },
+
+      "dependsOn": []
     }
   ]
 }
 ```
 
-### MCP Tools
+---
+
+## Field Reference
+
+### PRD-Level Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `feature` | Yes | Feature name, branch, status |
+| `originalContext` | Yes | Path to idea file (Claude reads this for full context) |
+| `techStack` | Yes | Technologies in use (helps Claude make correct choices) |
+| `devServer` | Yes | How to run the app (command, URLs) |
+| `architecture` | Yes | Directory structure, patterns, constraints |
+| `globalConstraints` | Yes | Rules that apply to ALL stories |
+| `testUsers` | No | Test accounts for auth flows |
+| `metadata` | Yes | Created date, complexity estimate |
+
+### Story-Level Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `id` | Yes | Unique ID (TASK-001, TASK-002, etc.) |
+| `type` | Yes | frontend, backend, or fullstack |
+| `title` | Yes | Short description |
+| `priority` | No | Order of importance (1 = highest) |
+| `passes` | Yes | Always starts as `false` |
+| `files` | Yes | create, modify, reuse arrays |
+| `acceptanceCriteria` | Yes | What must be true when done |
+| `errorHandling` | Yes | How to handle failures |
+| `testSteps` | Yes | Executable shell commands |
+| `testUrl` | Frontend | URL to verify the feature |
+| `mcp` | Frontend | MCP tools for verification |
+| `contextFiles` | No | Files Claude should read (idea files, styleguides) |
+| `skills` | No | Relevant skills with usage hints |
+| `apiContract` | Fullstack | Expected request/response |
+| `prerequisites` | No | What must be running/ready |
+| `notes` | No | Human guidance for Claude |
+| `scale` | No | small, medium, large |
+| `architecture` | No | Story-specific patterns/constraints |
+| `dependsOn` | No | Story IDs that must complete first |
+
+---
+
+## MCP Tools
+
 Specify which MCP tools Claude should use for verification:
-- `playwright` - Browser automation, screenshots, form interactions, a11y testing
-- `devtools` - Console errors, network inspection, DOM debugging
-- Future: `postgres`, `redis`, etc.
 
-For frontend stories, default to `["playwright", "devtools"]`. Backend-only stories can omit or use `[]`.
+| Tool | When to Use |
+|------|-------------|
+| `playwright` | UI testing, screenshots, form interactions, a11y |
+| `devtools` | Console errors, network inspection, DOM debugging |
+| `postgres` | Database verification (future) |
 
-### Frontend stories also need:
-- `testUrl` - URL to test
-- `loadingState` - What shows during async operations
-- `a11y` - Accessibility requirements
-- `mobile` - How it works on mobile
+**Frontend stories** default to `["playwright", "devtools"]`.
+**Backend-only stories** can use `[]` or omit.
 
-### E2E Tests
-Add `"e2e": true` to **any frontend story where users interact** with the feature:
-- Forms, buttons, inputs, modals, wizards → e2e
-- Real-time features, drag & drop, file uploads → e2e
-- Multi-page flows, navigation → e2e
-- Static display-only components (no interaction) → skip e2e
+---
 
-When `e2e: true`, the story should:
-- Create a Playwright test file in `tests/e2e/{story-id}.spec.ts`
-- Include the test in `testSteps`: `"npx playwright test tests/e2e/{story-id}.spec.ts"`
-- **Skip in CI** (runs nightly instead): Add `test.skip(!!process.env.CI, 'Runs nightly');` at top of test
+## Skills Reference
 
-Don't ask - if users touch it, test it.
+Point Claude to relevant skills for guidance:
 
-### Backend stories also need:
-- `apiEndpoints` - Endpoints to test
-- `validation` - Input validation rules
-- `auth` - Authentication requirements
-- `scale` - Rate limiting, pagination (for list endpoints), caching
+| Skill | When to Use |
+|-------|-------------|
+| `styleguide` | Frontend stories - reference UI components |
+| `vibe-check` | Any story - check for AI anti-patterns after |
+| `review` | Security-sensitive stories - OWASP checks |
+| `explain` | Complex logic - document decisions |
+
+Example:
+```json
+"skills": [
+  {"name": "styleguide", "usage": "Use existing Card, Button components"},
+  {"name": "vibe-check", "usage": "Run after implementation to catch issues"}
+]
+```
+
+---
+
+## Test Steps - CRITICAL
+
+**Test steps MUST be executable shell commands.** Ralph runs them with bash.
+
+### Good Test Steps (executable)
+```json
+"testSteps": [
+  "curl -s http://localhost:3000/api/health | jq -e '.status == \"ok\"'",
+  "test -f frontend/src/components/Button.tsx",
+  "grep -q 'export function Button' frontend/src/components/Button.tsx",
+  "cd frontend && npx tsc --noEmit",
+  "npx playwright test tests/e2e/dashboard.spec.ts",
+  "cd frontend && npm test -- --testPathPattern=Button.test.tsx"
+]
+```
+
+### Bad Test Steps (will fail)
+```json
+"testSteps": [
+  "Visit http://localhost:3000/dashboard",
+  "User can see the dashboard",
+  "Click the submit button"
+]
+```
+
+**If a step can't be automated**, put it in `acceptanceCriteria` instead. Claude will verify it visually using MCP tools.
+
+---
+
+## Context Files
+
+Use `contextFiles` to point Claude to important reference material:
+
+```json
+"contextFiles": [
+  "docs/ideas/dashboard.md",
+  "src/styles/styleguide.html",
+  "docs/api-spec.md"
+]
+```
+
+This is where ASCII mockups, design specs, and detailed requirements live. Claude reads these during the Orient step.
 
 ---
 
 ## Guidelines
 
-- **Keep stories small** - If > 3-4 acceptance criteria, split it (~1000 tokens max)
+- **Keep stories small** - Max 3-4 acceptance criteria (~1000 tokens)
 - **Order by dependency** - Foundation stories first
-- **Specify files explicitly** - Every story says which files to create/modify (max 3-4 files)
+- **Specify files explicitly** - Max 3-4 files per story
 - **Define error handling** - Every story specifies failure behavior
-- **Notes field** - Claude fills this as it works (files created, decisions made)
+- **Include contextFiles** - Point to idea files with full context (ASCII art, mockups)
+- **Add relevant skills** - Help Claude find the right patterns
 
-### Context Size Limits
-Each story must be completable in ONE Claude session:
-- **Max ~1000 tokens** for story description
-- **Max 3-4 files** per story
-- If too big, split it
+### UI Stories Must Include
+- `testUrl` - Where to verify
+- `mcp: ["playwright", "devtools"]` - Browser tools
+- Acceptance criteria for: page loads, elements render, mobile works
 
-### UI Stories Must Include Browser Verification
-For frontend stories, acceptance criteria MUST include:
-- "Page loads without console errors"
-- "Required elements render" (specify which)
-- "Works on mobile viewport (375px)"
-
-These get verified by Playwright automatically.
-
-### Test Steps - CRITICAL
-**Test steps MUST be executable shell commands.** Ralph runs them with bash.
-
-✅ **GOOD test steps (executable):**
-```json
-"testSteps": [
-  "curl -s http://localhost:3000/api/health | jq -e '.status == \"ok\"'",
-  "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/api/users | grep 200",
-  "test -f frontend/src/components/Button.tsx",
-  "grep -q 'export function Button' frontend/src/components/Button.tsx",
-  "cd frontend && npx tsc --noEmit",
-  "docker compose exec -T web python manage.py test app.tests.TestUserAPI",
-  "npx playwright test tests/e2e/dashboard.spec.ts",
-  "npx playwright test --grep 'login flow'",
-  "cd frontend && npm test -- --testPathPattern=Button.test.tsx"
-]
-```
-
-**For UI/visual verification, use Playwright tests:**
-```json
-"testSteps": [
-  "npx playwright test tests/e2e/chat-panel.spec.ts"
-]
-```
-
-The Playwright test file can check:
-- Element visibility and positioning
-- Console errors (no errors in DevTools)
-- Network requests completing
-- Visual layout (screenshots, viewport checks)
-- Accessibility (axe-core integration)
-
-❌ **BAD test steps (not executable - will fail):**
-```json
-"testSteps": [
-  "Visit http://localhost:3000/dashboard",
-  "User can see the dashboard",
-  "Click the submit button",
-  "Form validates correctly",
-  "Chat panel renders in top 60%",
-  "Check DevTools for errors"
-]
-```
-
-**If a step can't be automated**, leave it out of testSteps and put it in acceptanceCriteria instead. Claude will verify acceptanceCriteria visually using MCP browser tools.
+### API Stories Must Include
+- `apiContract` - Expected request/response
+- `errorHandling` - What happens on 400, 401, 500, etc.
+- `testSteps` with curl commands to verify endpoints
