@@ -79,13 +79,7 @@ Inspired by [Anthropic's guidance on long-running agents](https://www.anthropic.
 
 ### Why Lean Prompts?
 
-Instead of injecting thousands of tokens of context upfront, Claude **reads files during orientation**:
-
-| Old Approach | New Approach |
-|--------------|--------------|
-| Inject everything into prompt | Claude reads from prd.json |
-| ~4000 tokens of context | ~500 tokens of instructions |
-| Passive context (may be ignored) | Active reading (better comprehension) |
+Claude **reads files during orientation** rather than receiving everything upfront. This leads to better comprehension - active reading beats passive context injection.
 
 ### What Ralph Injects
 
