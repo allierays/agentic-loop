@@ -159,8 +159,21 @@ Ralph will work through each story, running tests and committing as it goes."
   "techStack": {
     "frontend": "React 18 + TypeScript",
     "backend": "FastAPI + Python 3.11",
-    "database": "PostgreSQL",
-    "testing": "Vitest + Playwright"
+    "database": "PostgreSQL"
+  },
+
+  "testing": {
+    "approach": "TDD",
+    "unit": {
+      "frontend": "vitest",
+      "backend": "pytest"
+    },
+    "integration": "playwright",
+    "e2e": "playwright",
+    "coverage": {
+      "minimum": 80,
+      "enforced": false
+    }
   },
 
   "devServer": {
@@ -213,6 +226,16 @@ Ralph will work through each story, running tests and committing as it goes."
       "errorHandling": [
         "What happens when things fail"
       ],
+
+      "testing": {
+        "types": ["unit", "integration"],
+        "approach": "TDD",
+        "files": {
+          "unit": ["src/components/Dashboard.test.tsx"],
+          "integration": ["tests/integration/dashboard.test.ts"],
+          "e2e": ["tests/e2e/dashboard.spec.ts"]
+        }
+      },
 
       "testSteps": [
         "Executable shell commands - see examples below"
@@ -268,6 +291,7 @@ Ralph will work through each story, running tests and committing as it goes."
 | `feature` | Yes | Feature name, branch, status |
 | `originalContext` | Yes | Path to idea file (Claude reads this for full context) |
 | `techStack` | Yes | Technologies in use (helps Claude make correct choices) |
+| `testing` | Yes | Testing strategy, tools, coverage requirements |
 | `devServer` | Yes | How to run the app (command, URLs) |
 | `architecture` | Yes | Directory structure, patterns, constraints |
 | `globalConstraints` | Yes | Rules that apply to ALL stories |
@@ -286,6 +310,7 @@ Ralph will work through each story, running tests and committing as it goes."
 | `files` | Yes | create, modify, reuse arrays |
 | `acceptanceCriteria` | Yes | What must be true when done |
 | `errorHandling` | Yes | How to handle failures |
+| `testing` | Yes | Test types, approach, and files for this story |
 | `testSteps` | Yes | Executable shell commands |
 | `testUrl` | Frontend | URL to verify the feature |
 | `mcp` | Frontend | MCP tools for verification |
@@ -297,6 +322,135 @@ Ralph will work through each story, running tests and committing as it goes."
 | `scale` | No | small, medium, large |
 | `architecture` | No | Story-specific patterns/constraints |
 | `dependsOn` | No | Story IDs that must complete first |
+
+---
+
+## Testing Strategy
+
+### PRD-Level Testing Config
+
+Define the overall testing strategy for the feature:
+
+```json
+"testing": {
+  "approach": "TDD",
+  "unit": {
+    "frontend": "vitest",
+    "backend": "pytest"
+  },
+  "integration": "playwright",
+  "e2e": "playwright",
+  "coverage": {
+    "minimum": 80,
+    "enforced": false
+  }
+}
+```
+
+| Field | Values | Description |
+|-------|--------|-------------|
+| `approach` | `TDD`, `test-after` | Write tests first (TDD) or after implementation |
+| `unit.frontend` | `vitest`, `jest` | Frontend unit test runner |
+| `unit.backend` | `pytest`, `go test` | Backend unit test runner |
+| `integration` | `playwright`, `cypress` | Integration test tool |
+| `e2e` | `playwright`, `cypress` | End-to-end test tool |
+| `coverage.minimum` | `0-100` | Minimum coverage percentage |
+| `coverage.enforced` | `true/false` | Fail if coverage not met |
+
+### Story-Level Testing Config
+
+Specify what tests each story needs:
+
+```json
+"testing": {
+  "types": ["unit", "integration"],
+  "approach": "TDD",
+  "files": {
+    "unit": ["src/components/Dashboard.test.tsx"],
+    "integration": ["tests/integration/dashboard.test.ts"],
+    "e2e": ["tests/e2e/dashboard.spec.ts"]
+  }
+}
+```
+
+| Field | Description |
+|-------|-------------|
+| `types` | Required test types: `unit`, `integration`, `e2e` |
+| `approach` | Override PRD-level approach for this story |
+| `files.unit` | Unit test files to create |
+| `files.integration` | Integration test files to create |
+| `files.e2e` | E2E test files to create |
+
+### Test Types
+
+| Type | What it Tests | When to Use |
+|------|---------------|-------------|
+| **Unit** | Individual functions, components in isolation | Always - every new file needs unit tests |
+| **Integration** | How pieces work together (API + DB, Component + Hook) | When story involves multiple modules |
+| **E2E** | Full user flows in browser | User-facing features with interactions |
+
+### TDD Workflow
+
+When `approach: "TDD"`:
+
+1. **Write failing test first** - Define expected behavior
+2. **Implement minimum code** - Make the test pass
+3. **Refactor** - Clean up while tests stay green
+4. **Repeat** - Next acceptance criterion
+
+Example for a Dashboard component:
+```
+1. Write test: "renders user name in header"
+2. Run test → FAIL (component doesn't exist)
+3. Create Dashboard.tsx with user name
+4. Run test → PASS
+5. Write test: "shows loading state"
+6. Run test → FAIL
+7. Add loading state
+8. Run test → PASS
+```
+
+### Example Stories by Type
+
+**Frontend story:**
+```json
+"testing": {
+  "types": ["unit", "e2e"],
+  "approach": "TDD",
+  "files": {
+    "unit": ["src/components/Dashboard.test.tsx"],
+    "e2e": ["tests/e2e/dashboard.spec.ts"]
+  }
+}
+```
+
+**Backend API story:**
+```json
+"testing": {
+  "types": ["unit", "integration"],
+  "approach": "TDD",
+  "files": {
+    "unit": ["tests/test_users_api.py"],
+    "integration": ["tests/integration/test_users_flow.py"]
+  }
+}
+```
+
+**Fullstack story:**
+```json
+"testing": {
+  "types": ["unit", "integration", "e2e"],
+  "approach": "TDD",
+  "files": {
+    "unit": [
+      "src/components/UserForm.test.tsx",
+      "tests/test_users_api.py"
+    ],
+    "integration": ["tests/integration/test_user_creation.py"],
+    "e2e": ["tests/e2e/user-signup.spec.ts"]
+  }
+}
+```
 
 ---
 

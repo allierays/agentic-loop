@@ -49,6 +49,7 @@ Work on your story following these rules:
 ### From Your Story
 - **story.acceptanceCriteria** - What must be true when done
 - **story.files** - Which files to create, modify, reuse (don't touch others)
+- **story.testing** - Test types, approach (TDD/test-after), and test files to create
 - **story.errorHandling** - How to handle failures
 - **story.apiContract** - Expected request/response format (if applicable)
 - **story.notes** - Human guidance and preferences
@@ -57,6 +58,7 @@ Work on your story following these rules:
 ### From the PRD
 - **prd.globalConstraints** - Rules that apply to ALL stories
 - **prd.techStack** - Technologies in use
+- **prd.testing** - Testing strategy (TDD, tools, coverage)
 - **prd.architecture** - Directory structure and patterns
 
 ### Code Quality
@@ -77,11 +79,29 @@ try {
 }
 ```
 
-### Tests
-Every new code file MUST have a corresponding test file:
-- `foo.py` → `tests/test_foo.py`
-- `foo.go` → `foo_test.go`
-- `Foo.tsx` → `Foo.test.tsx`
+### Testing (Follow story.testing)
+
+**Check `story.testing.approach`:**
+- **TDD**: Write failing test FIRST, then implement to make it pass
+- **test-after**: Implement first, then write tests
+
+**Test Types** (from `story.testing.types`):
+| Type | What to Test |
+|------|--------------|
+| `unit` | Individual functions/components in isolation |
+| `integration` | How pieces work together (API + DB, Component + Hook) |
+| `e2e` | Full user flows in browser |
+
+**Test Files** (from `story.testing.files`):
+Create the exact test files specified in the story.
+
+**TDD Workflow:**
+```
+1. Write test for first acceptance criterion → FAIL
+2. Write minimum code to pass → PASS
+3. Refactor if needed
+4. Repeat for next criterion
+```
 
 ---
 

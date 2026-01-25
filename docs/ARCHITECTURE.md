@@ -322,8 +322,15 @@ The PRD is the **single source of truth** - everything Claude needs is here.
   "techStack": {
     "frontend": "React 18 + TypeScript",
     "backend": "FastAPI + Python 3.11",
-    "database": "PostgreSQL",
-    "testing": "Vitest + Playwright"
+    "database": "PostgreSQL"
+  },
+
+  "testing": {
+    "approach": "TDD",
+    "unit": {"frontend": "vitest", "backend": "pytest"},
+    "integration": "playwright",
+    "e2e": "playwright",
+    "coverage": {"minimum": 80, "enforced": false}
   },
 
   "devServer": {
@@ -378,6 +385,15 @@ The PRD is the **single source of truth** - everything Claude needs is here.
     "Show error message if fetch fails"
   ],
 
+  "testing": {
+    "types": ["unit", "e2e"],
+    "approach": "TDD",
+    "files": {
+      "unit": ["src/components/Dashboard.test.tsx"],
+      "e2e": ["tests/e2e/dashboard.spec.ts"]
+    }
+  },
+
   "testSteps": [
     "npm test -- Dashboard",
     "npm run build"
@@ -422,8 +438,10 @@ The PRD is the **single source of truth** - everything Claude needs is here.
 | Field | Level | Purpose |
 |-------|-------|---------|
 | `techStack` | PRD | Technologies in use |
+| `testing` | PRD | Testing strategy (TDD, tools, coverage) |
 | `devServer` | PRD | How to run the app |
 | `globalConstraints` | PRD | Rules for ALL stories |
+| `testing` | Story | Test types, approach, files to create |
 | `testUrl` | Story | Where to verify the feature |
 | `contextFiles` | Story | Idea files, styleguides to read |
 | `skills` | Story | Relevant skills with usage hints |
