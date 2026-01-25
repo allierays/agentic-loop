@@ -37,10 +37,44 @@ export RALPH_DIR PROMPT_FILE RALPH_LIB RALPH_TEMPLATES
 if [[ ! -d ".ralph" ]]; then
   mkdir -p ".ralph/archive" ".ralph/screenshots"
 fi
-# Always ensure config.json exists and run auto-detection if newly created
+# Check if config.json needs to be created (but don't create it yet - let init copy the template)
 if [[ ! -f ".ralph/config.json" ]]; then
-  echo '{}' > ".ralph/config.json"
-  # Run auto-detection (function is in init.sh, sourced below)
+  # Copy config template based on detected project type
+  _project_type="minimal"
+  if [[ -f "pyproject.toml" ]]; then
+    if grep -qE "(fastmcp|\"fastmcp\"|'fastmcp')" pyproject.toml 2>/dev/null; then
+      _project_type="fastmcp"
+    elif grep -qE "(fastapi|\"fastapi\"|'fastapi')" pyproject.toml 2>/dev/null; then
+      _project_type="fastapi"
+    elif grep -qE "(django|\"django\"|'django')" pyproject.toml 2>/dev/null || [[ -f "manage.py" ]]; then
+      _project_type="django"
+    else
+      _project_type="python"
+    fi
+  elif [[ -f "go.mod" ]]; then
+    _project_type="go"
+  elif [[ -f "Cargo.toml" ]]; then
+    _project_type="rust"
+  elif [[ -d "frontend" ]] && [[ -d "backend" || -d "core" || -d "apps" ]]; then
+    _project_type="fullstack"
+  elif [[ -f "package.json" ]]; then
+    _project_type="node"
+  fi
+
+  _config_template="$RALPH_TEMPLATES/config/${_project_type}.json"
+  if [[ -f "$_config_template" ]]; then
+    cp "$_config_template" ".ralph/config.json"
+  else
+    # Fall back to minimal config if template doesn't exist
+    _config_template="$RALPH_TEMPLATES/config/minimal.json"
+    if [[ -f "$_config_template" ]]; then
+      cp "$_config_template" ".ralph/config.json"
+    else
+      echo '{"projectType": "unknown"}' > ".ralph/config.json"
+    fi
+  fi
+  unset _project_type _config_template
+  # Run auto-detection to fill in project-specific values
   _ralph_needs_autoconfig=true
 fi
 [[ ! -f ".ralph/signs.json" ]] && echo '{"signs": []}' > ".ralph/signs.json"

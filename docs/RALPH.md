@@ -169,6 +169,50 @@ Project-specific configuration:
 }
 ```
 
+#### FastMCP Projects
+
+For FastMCP (MCP server) projects, Ralph auto-detects:
+
+- **Server module** from `[project.scripts]` in pyproject.toml
+- **MCP port** from `.env` or docker-compose.yml
+- **Subprojects** (directories with package.json like UI builders)
+
+```json
+{
+  "projectType": "fastmcp",
+  "mcp": {
+    "serverModule": "gopa",
+    "transport": "stdio",
+    "tools": [],
+    "resources": [],
+    "prompts": []
+  },
+  "commands": {
+    "dev": "python -m gopa.server",
+    "lint": "ruff check src/",
+    "test": "pytest"
+  },
+  "api": {
+    "baseUrl": "http://localhost:9847"
+  },
+  "checks": {
+    "lint": true,
+    "typecheck": true,
+    "test": true,
+    "fastmcp": true
+  },
+  "subprojects": {
+    "diagram-builder": {
+      "path": "diagram-builder",
+      "commands": {
+        "lint": "npm run lint",
+        "build": "npm run build"
+      }
+    }
+  }
+}
+```
+
 ### signs.json (Learned Patterns)
 
 Patterns Ralph learned from failures:

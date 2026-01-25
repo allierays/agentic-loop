@@ -1,0 +1,94 @@
+{
+  "projectType": "fastmcp",
+
+  "auth": {
+    "testUser": "",
+    "testPassword": "",
+    "loginEndpoint": "",
+    "loginMethod": "",
+    "tokenType": "",
+    "tokenHeader": "",
+    "tokenPrefix": ""
+  },
+
+  "docker": {
+    "enabled": true,
+    "composeFile": "docker-compose.yml",
+    "serviceName": "app",
+    "execPrefix": "docker compose exec -T"
+  },
+
+  "paths": {
+    "src": "src",
+    "tests": "tests",
+    "scripts": "scripts"
+  },
+
+  "commands": {
+    "dev": "python -m ${PROJECT_MODULE}.server",
+    "install": "uv pip install -e .",
+    "lint": "ruff check src/",
+    "format": "ruff format src/",
+    "typecheck": "mypy src/",
+    "test": "pytest",
+    "seed": "",
+    "resetDb": ""
+  },
+
+  "checks": {
+    "lint": true,
+    "typecheck": true,
+    "build": false,
+    "test": true,
+    "fastmcp": true
+  },
+
+  "api": {
+    "baseUrl": "http://localhost:8000",
+    "healthEndpoint": "/health",
+    "timeout": 30,
+    "transport": "sse"
+  },
+
+  "mcp": {
+    "transport": "stdio",
+    "serverModule": "",
+    "tools": [],
+    "resources": [],
+    "prompts": []
+  },
+
+  "playwright": {
+    "enabled": false,
+    "testDir": "tests/e2e",
+    "projects": ["chromium"],
+    "baseUrl": "http://localhost:8000"
+  },
+
+  "verification": {
+    "codeReviewEnabled": true,
+    "browserEnabled": false,
+    "mcpEnabled": true,
+    "screenshotOnFailure": false
+  },
+
+  "urls": {
+    "app": "http://localhost:8000",
+    "docs": ""
+  },
+
+  "env": {
+    "required": [],
+    "optional": []
+  },
+
+  "subprojects": {},
+
+  "maxIterations": 20,
+  "maxSessionSeconds": 600,
+
+  "contextRotThreshold": {
+    "maxStories": 10,
+    "maxFilesChanged": 20
+  }
+}

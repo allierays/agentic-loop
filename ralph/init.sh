@@ -145,8 +145,35 @@ detect_project_type() {
     project_type="rust"
   elif [[ -f "go.mod" ]]; then
     project_type="go"
-  elif [[ -f "pyproject.toml" || -f "requirements.txt" || -f "setup.py" ]]; then
-    project_type="python"
+  # Check for Python framework variants (more specific first)
+  elif [[ -f "pyproject.toml" ]]; then
+    # FastMCP detection (check for fastmcp in any quote style)
+    if grep -qiE "(fastmcp|\"fastmcp\"|'fastmcp')" pyproject.toml 2>/dev/null; then
+      project_type="fastmcp"
+    # Django detection
+    elif grep -qiE "(django|\"django\"|'django')" pyproject.toml 2>/dev/null || [[ -f "manage.py" ]]; then
+      project_type="django"
+    # FastAPI detection
+    elif grep -qiE "(fastapi|\"fastapi\"|'fastapi')" pyproject.toml 2>/dev/null; then
+      project_type="fastapi"
+    else
+      project_type="python"
+    fi
+  elif [[ -f "requirements.txt" || -f "setup.py" ]]; then
+    # Check requirements.txt for frameworks
+    if [[ -f "requirements.txt" ]]; then
+      if grep -qi 'fastmcp' requirements.txt 2>/dev/null; then
+        project_type="fastmcp"
+      elif grep -qi 'django' requirements.txt 2>/dev/null || [[ -f "manage.py" ]]; then
+        project_type="django"
+      elif grep -qi 'fastapi' requirements.txt 2>/dev/null; then
+        project_type="fastapi"
+      else
+        project_type="python"
+      fi
+    else
+      project_type="python"
+    fi
   elif [[ -f "package.json" ]]; then
     project_type="node"
   fi
@@ -370,6 +397,101 @@ auto_configure_project() {
       echo "  Auto-detected packageManager: $pkg_manager"
       updated=true
     fi
+  fi
+
+  # 6. FastMCP-specific detection
+  if [[ -f "pyproject.toml" ]] && grep -qiE "(fastmcp|\"fastmcp\"|'fastmcp')" pyproject.toml 2>/dev/null; then
+    # Detect MCP server module from entry points
+    local mcp_module=""
+    # Look for [project.scripts] section with pattern: name = "module.server:main"
+    mcp_module=$(grep -A 20 '^\[project\.scripts\]' pyproject.toml 2>/dev/null | \
+                 grep -E '^\w+\s*=\s*"[^"]+\.server:' | head -1 | \
+                 sed -E 's/.*"([^"]+)\.server:.*/\1/' || true)
+
+    # Fallback: detect from src directory structure
+    if [[ -z "$mcp_module" && -d "src" ]]; then
+      for dir in src/*/; do
+        if [[ -f "${dir}server.py" ]]; then
+          mcp_module=$(basename "${dir%/}")
+          break
+        fi
+      done
+    fi
+
+    if [[ -n "$mcp_module" ]]; then
+      if ! jq -e '.mcp.serverModule' "$tmpfile" >/dev/null 2>&1 || [[ "$(jq -r '.mcp.serverModule' "$tmpfile")" == "" ]]; then
+        jq --arg mod "$mcp_module" '.mcp.serverModule = $mod' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+        # Also update the dev command
+        jq --arg cmd "python -m ${mcp_module}.server" '.commands.dev = $cmd' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+        echo "  Auto-detected mcp.serverModule: $mcp_module"
+        updated=true
+      fi
+    fi
+
+    # Detect MCP port from .env or docker-compose
+    local mcp_port=""
+    if [[ -f ".env" ]]; then
+      mcp_port=$(grep -E '^[A-Z_]*PORT=' .env 2>/dev/null | grep -v '#' | head -1 | grep -oE '[0-9]+' || true)
+    fi
+    if [[ -z "$mcp_port" ]]; then
+      for compose_file in "docker-compose.yml" "docker-compose.yaml"; do
+        if [[ -f "$compose_file" ]]; then
+          # Look for port in main app service
+          mcp_port=$(grep -A 20 -E '^\s*(app|gopa|mcp|server):' "$compose_file" 2>/dev/null | \
+                     grep -E '^\s*-\s*"?[0-9]+:[0-9]+"?' | head -1 | \
+                     grep -oE '[0-9]+:' | head -1 | tr -d ':' || true)
+          [[ -n "$mcp_port" ]] && break
+        fi
+      done
+    fi
+
+    if [[ -n "$mcp_port" ]]; then
+      if ! jq -e '.api.baseUrl' "$tmpfile" >/dev/null 2>&1 || [[ "$(jq -r '.api.baseUrl' "$tmpfile")" == "http://localhost:8000" ]]; then
+        jq --arg url "http://localhost:$mcp_port" '.api.baseUrl = $url | .urls.app = $url' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+        echo "  Auto-detected MCP port: $mcp_port"
+        updated=true
+      fi
+    fi
+
+    # Detect MCP transport from .env
+    if [[ -f ".env" ]]; then
+      local transport=""
+      transport=$(grep -E '^[A-Z_]*TRANSPORT=' .env 2>/dev/null | grep -v '#' | head -1 | cut -d'=' -f2 | tr -d '"'"'" || true)
+      if [[ -n "$transport" ]]; then
+        jq --arg t "$transport" '.mcp.transport = $t' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+      fi
+    fi
+
+    # Detect subprojects (directories with their own package.json)
+    for subdir in */; do
+      local subdir_name="${subdir%/}"
+      if [[ -f "${subdir}package.json" && "$subdir_name" != "node_modules" ]]; then
+        # Check if subproject already configured
+        if ! jq -e ".subprojects[\"$subdir_name\"]" "$tmpfile" >/dev/null 2>&1; then
+          local sub_lint="" sub_build="" sub_dev=""
+          # Detect scripts from package.json
+          if grep -q '"lint"' "${subdir}package.json" 2>/dev/null; then
+            sub_lint="npm run lint"
+          fi
+          if grep -q '"build"' "${subdir}package.json" 2>/dev/null; then
+            sub_build="npm run build"
+          fi
+          if grep -q '"dev"' "${subdir}package.json" 2>/dev/null; then
+            sub_dev="npm run dev"
+          fi
+
+          jq --arg name "$subdir_name" \
+             --arg path "$subdir_name" \
+             --arg lint "$sub_lint" \
+             --arg build "$sub_build" \
+             --arg dev "$sub_dev" \
+             '.subprojects[$name] = {path: $path, commands: {lint: $lint, build: $build, dev: $dev}}' \
+             "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+          echo "  Auto-detected subproject: $subdir_name"
+          updated=true
+        fi
+      fi
+    done
   fi
 
   # Save if updated

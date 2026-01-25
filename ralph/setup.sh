@@ -129,32 +129,71 @@ setup_ralph_dir() {
   # Copy config template based on detected project type
   if [[ ! -f ".ralph/config.json" ]]; then
     local config_template=""
+    local detected_type=""
     # Check for Go projects
     if [[ -f "go.mod" ]]; then
       config_template="$pkg_root/templates/config/go.json"
+      detected_type="go"
     # Check for Rust projects
     elif [[ -f "Cargo.toml" ]]; then
       config_template="$pkg_root/templates/config/rust.json"
+      detected_type="rust"
     # Check for Hugo projects
     elif [[ -f "hugo.toml" || -f "hugo.yaml" || -f "config.toml" ]] && [[ -d "content" || -d "layouts" || -d "themes" ]]; then
       config_template="$pkg_root/templates/config/go.json"
-    # Check for Python projects
-    elif [[ -f "manage.py" ]] || [[ -f "pyproject.toml" ]]; then
+      detected_type="hugo"
+    # Check for Python framework variants (more specific first)
+    elif [[ -f "pyproject.toml" ]]; then
+      if grep -qiE "(fastmcp|\"fastmcp\"|'fastmcp')" pyproject.toml 2>/dev/null; then
+        config_template="$pkg_root/templates/config/fastmcp.json"
+        detected_type="fastmcp"
+      elif grep -qiE "(fastapi|\"fastapi\"|'fastapi')" pyproject.toml 2>/dev/null; then
+        config_template="$pkg_root/templates/config/python.json"
+        detected_type="fastapi"
+      elif grep -qiE "(django|\"django\"|'django')" pyproject.toml 2>/dev/null || [[ -f "manage.py" ]]; then
+        config_template="$pkg_root/templates/config/python.json"
+        detected_type="django"
+      else
+        config_template="$pkg_root/templates/config/python.json"
+        detected_type="python"
+      fi
+    elif [[ -f "requirements.txt" ]]; then
+      if grep -qi 'fastmcp' requirements.txt 2>/dev/null; then
+        config_template="$pkg_root/templates/config/fastmcp.json"
+        detected_type="fastmcp"
+      elif grep -qi 'fastapi' requirements.txt 2>/dev/null; then
+        config_template="$pkg_root/templates/config/python.json"
+        detected_type="fastapi"
+      elif grep -qi 'django' requirements.txt 2>/dev/null || [[ -f "manage.py" ]]; then
+        config_template="$pkg_root/templates/config/python.json"
+        detected_type="django"
+      else
+        config_template="$pkg_root/templates/config/python.json"
+        detected_type="python"
+      fi
+    elif [[ -f "manage.py" ]]; then
       config_template="$pkg_root/templates/config/python.json"
+      detected_type="django"
     # Check for fullstack projects
     elif [[ -d "frontend" ]] && [[ -d "backend" || -d "core" || -d "apps" ]]; then
       config_template="$pkg_root/templates/config/fullstack.json"
+      detected_type="fullstack"
     # Check for Node projects
     elif [[ -f "package.json" ]]; then
       config_template="$pkg_root/templates/config/node.json"
+      detected_type="node"
     fi
 
     if [[ -n "$config_template" ]] && [[ -f "$config_template" ]]; then
       cp "$config_template" ".ralph/config.json"
+      echo "  Created .ralph/config.json (detected: $detected_type)"
     else
       echo '{"checks": {"build": true, "lint": true, "test": true}}' > ".ralph/config.json"
+      echo "  Created .ralph/config.json"
     fi
-    echo "  Created .ralph/config.json"
+
+    # Store detected type for CLAUDE.md generation
+    export RALPH_DETECTED_TYPE="$detected_type"
   fi
 
   # Copy or merge signs template
@@ -347,6 +386,8 @@ setup_slash_commands() {
 # Generate CLAUDE.md with detected project info
 setup_claude_md() {
   local marker="<!-- agentic-loop-detected -->"
+  local pkg_root
+  pkg_root="$(cd "$RALPH_LIB/.." && pwd)"
 
   # Skip if we already added our section
   [[ -f "CLAUDE.md" ]] && grep -q "$marker" "CLAUDE.md" 2>/dev/null && return 0
@@ -354,6 +395,7 @@ setup_claude_md() {
   echo "Generating CLAUDE.md..."
 
   local runtime="" framework="" language="" styling="" testing="" structure=""
+  local framework_type=""  # For template selection
 
   # Detect runtime/language
   local fe_dir=""
@@ -368,18 +410,45 @@ setup_claude_md() {
   [[ -f "pyproject.toml" || -f "requirements.txt" || -f "manage.py" ]] && runtime="${runtime:+$runtime + }Python"
   [[ -f "Gemfile" ]] && runtime="Ruby"
 
-  # Detect framework
+  # Detect framework (with template type detection)
   local pkg="package.json"
   [[ -n "$fe_dir" && -f "${fe_dir}/package.json" ]] && pkg="${fe_dir}/package.json"
 
   if [[ -f "$pkg" ]]; then
     grep -q '"next"' "$pkg" 2>/dev/null && framework="Next.js"
-    grep -q '"react"' "$pkg" 2>/dev/null && [[ -z "$framework" ]] && framework="React"
+    grep -q '"react"' "$pkg" 2>/dev/null && [[ -z "$framework" ]] && framework="React" && framework_type="react"
     grep -q '"vue"' "$pkg" 2>/dev/null && framework="Vue"
     grep -q '"svelte"' "$pkg" 2>/dev/null && framework="Svelte"
     grep -q '"express"' "$pkg" 2>/dev/null && framework="${framework:+$framework + }Express"
   fi
-  [[ -f "manage.py" ]] && framework="${framework:+$framework + }Django"
+
+  # Detect Python frameworks (more specific detection)
+  if [[ -f "pyproject.toml" ]]; then
+    if grep -qiE "(fastmcp|\"fastmcp\"|'fastmcp')" pyproject.toml 2>/dev/null; then
+      framework="${framework:+$framework + }FastMCP"
+      framework_type="fastmcp"
+    elif grep -qiE "(fastapi|\"fastapi\"|'fastapi')" pyproject.toml 2>/dev/null; then
+      framework="${framework:+$framework + }FastAPI"
+      framework_type="fastapi"
+    elif grep -qiE "(django|\"django\"|'django')" pyproject.toml 2>/dev/null || [[ -f "manage.py" ]]; then
+      framework="${framework:+$framework + }Django"
+      framework_type="django"
+    fi
+  elif [[ -f "requirements.txt" ]]; then
+    if grep -qi 'fastmcp' requirements.txt 2>/dev/null; then
+      framework="${framework:+$framework + }FastMCP"
+      framework_type="fastmcp"
+    elif grep -qi 'fastapi' requirements.txt 2>/dev/null; then
+      framework="${framework:+$framework + }FastAPI"
+      framework_type="fastapi"
+    elif grep -qi 'django' requirements.txt 2>/dev/null || [[ -f "manage.py" ]]; then
+      framework="${framework:+$framework + }Django"
+      framework_type="django"
+    fi
+  elif [[ -f "manage.py" ]]; then
+    framework="${framework:+$framework + }Django"
+    framework_type="django"
+  fi
 
   # Detect Hugo (Go static site generator)
   for hugo_config in "hugo.toml" "hugo.yaml" "hugo.json" "config.toml"; do
@@ -400,6 +469,7 @@ setup_claude_md() {
   [[ -f "vitest.config.ts" || -f "vitest.config.js" ]] && testing="Vitest"
   [[ -f "jest.config.js" || -f "jest.config.ts" ]] && testing="Jest"
   [[ -f "playwright.config.ts" || -f "playwright.config.js" ]] && testing="${testing:+$testing + }Playwright"
+  [[ -f "pytest.ini" || -f "pyproject.toml" ]] && grep -q 'pytest' pyproject.toml 2>/dev/null && testing="${testing:+$testing + }pytest"
 
   # Detect Python package manager
   local python_runner=""
@@ -428,17 +498,46 @@ ${python_runner:+- Python: Use \`$python_runner\` (not bare \`python\`)}
 
 *Auto-detected by agentic-loop. Edit freely.*"
 
+  # Check for framework-specific template
+  local framework_template=""
+  if [[ -n "$framework_type" ]]; then
+    framework_template="$pkg_root/templates/examples/CLAUDE-${framework_type}.md"
+  fi
+
   if [[ -f "CLAUDE.md" ]]; then
+    # Append framework template if it exists and not already included
+    if [[ -n "$framework_template" && -f "$framework_template" ]]; then
+      local template_marker="<!-- CLAUDE-${framework_type} -->"
+      if ! grep -q "$template_marker" "CLAUDE.md" 2>/dev/null; then
+        echo "" >> CLAUDE.md
+        echo "$template_marker" >> CLAUDE.md
+        # Skip the first line (# CLAUDE.md - ...) of the template
+        tail -n +2 "$framework_template" >> CLAUDE.md
+        echo "  Appended ${framework_type} conventions to CLAUDE.md"
+      fi
+    fi
     echo "$detected_section" >> CLAUDE.md
     echo "  Updated CLAUDE.md"
   else
+    # Create new CLAUDE.md
     cat > CLAUDE.md << EOF
 # Project Guide for Claude
 
 ## Your Rules
 <!-- Add your project-specific rules, patterns, and conventions here -->
-$detected_section
 EOF
+
+    # Include framework template if available
+    if [[ -n "$framework_template" && -f "$framework_template" ]]; then
+      local template_marker="<!-- CLAUDE-${framework_type} -->"
+      echo "" >> CLAUDE.md
+      echo "$template_marker" >> CLAUDE.md
+      # Skip the first line (# CLAUDE.md - ...) of the template
+      tail -n +2 "$framework_template" >> CLAUDE.md
+      echo "  Included ${framework_type} conventions"
+    fi
+
+    echo "$detected_section" >> CLAUDE.md
     echo "  Created CLAUDE.md"
   fi
 }

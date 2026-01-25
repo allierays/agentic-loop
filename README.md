@@ -4,7 +4,25 @@
 
 You describe what you want to build. Claude Code writes a PRD (Product Requirements Document) with small, testable stories. Ralph executes each story automatically - coding, testing, and committing in a loop until everything passes.
 
-> **Optimized for:** Python, TypeScript, React, Go/Hugo, and Docker projects.
+> **Optimized for:** Python, TypeScript, React, Go/Hugo, FastMCP, and Docker projects.
+
+---
+
+## Supported Project Types
+
+Ralph auto-detects your project type and configures itself accordingly:
+
+| Type | Detection | Auto-Configured |
+|------|-----------|-----------------|
+| **FastMCP** | `fastmcp` in pyproject.toml | Server module, MCP port, transport, subprojects |
+| **FastAPI** | `fastapi` in pyproject.toml | uvicorn dev server, pytest, ruff |
+| **Django** | `django` in pyproject.toml or manage.py | migrations, pytest, ruff |
+| **Python** | pyproject.toml or requirements.txt | pytest, ruff, uv/poetry detection |
+| **Node.js** | package.json | npm/yarn/pnpm, vitest/jest, eslint |
+| **React** | `react` in package.json | Vite/Next.js, TypeScript, Tailwind |
+| **Go/Hugo** | go.mod or hugo.toml | Hugo server, Go build |
+| **Rust** | Cargo.toml | cargo build/test/clippy |
+| **Fullstack** | frontend + backend directories | Monorepo support, separate configs |
 
 ---
 
