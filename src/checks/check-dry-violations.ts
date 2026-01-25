@@ -5,13 +5,16 @@
 import type { Hook, HookResult, FileContext } from '../utils/types.js';
 
 // Minimum number of similar lines to consider a duplicate
-const MIN_DUPLICATE_LINES = 5;
+const MIN_DUPLICATE_LINES = 8;
 
 // Minimum similarity threshold (0-1)
-const SIMILARITY_THRESHOLD = 0.85;
+const SIMILARITY_THRESHOLD = 0.90;
 
-// Paths that indicate frontend component files (skip these - too many false positives)
-const FRONTEND_PATH_PATTERNS = [
+// Max duplicates to report per file (prevent noise)
+const MAX_DUPLICATES_PER_FILE = 5;
+
+// Paths to skip (too many false positives)
+const SKIP_PATH_PATTERNS = [
   /\/components\//i,
   /\/pages\//i,
   /\/views\//i,
@@ -20,7 +23,28 @@ const FRONTEND_PATH_PATTERNS = [
   /\.styled\./i,
   /\.styles\./i,
   /styleguide/i,
+  /\.test\./i,
+  /\.spec\./i,
+  /\/__tests__\//i,
+  /\/test\//i,
+  /\/tests\//i,
+  /\/fixtures?\//i,
 ];
+
+// Keywords that should NOT be normalized (keep them distinct)
+const KEYWORDS = new Set([
+  // JS/TS
+  'const', 'let', 'var', 'function', 'class', 'return', 'if', 'else', 'for', 'while',
+  'switch', 'case', 'break', 'continue', 'try', 'catch', 'finally', 'throw', 'new',
+  'this', 'super', 'import', 'export', 'default', 'from', 'as', 'async', 'await',
+  'typeof', 'instanceof', 'in', 'of', 'true', 'false', 'null', 'undefined',
+  'interface', 'type', 'enum', 'extends', 'implements', 'public', 'private', 'protected',
+  // Python
+  'def', 'class', 'return', 'if', 'elif', 'else', 'for', 'while', 'try', 'except',
+  'finally', 'raise', 'import', 'from', 'as', 'with', 'lambda', 'pass', 'True', 'False', 'None',
+  // Common test functions
+  'describe', 'it', 'test', 'expect', 'beforeAll', 'afterAll', 'beforeEach', 'afterEach',
+]);
 
 export const checkDryViolations: Hook = {
   id: 'dry',
@@ -33,8 +57,8 @@ export const checkDryViolations: Hook = {
   check(context: FileContext): HookResult[] {
     const results: HookResult[] = [];
 
-    // Skip frontend component files
-    if (FRONTEND_PATH_PATTERNS.some((pattern) => pattern.test(context.filePath))) {
+    // Skip files that tend to have false positives
+    if (SKIP_PATH_PATTERNS.some((pattern) => pattern.test(context.filePath))) {
       return results;
     }
 
@@ -49,19 +73,29 @@ export const checkDryViolations: Hook = {
 
     // Filter out empty/trivial lines
     const significantLines = normalizedLines.filter(
-      (l) => l.normalized.length > 10 && !isTrivialLine(l.normalized)
+      (l) => l.normalized.length > 15 && !isTrivialLine(l.normalized)
     );
+
+    // Need enough significant lines to compare
+    if (significantLines.length < MIN_DUPLICATE_LINES * 2) {
+      return results;
+    }
 
     // Find duplicate blocks using a sliding window approach
     const reportedBlocks = new Set<string>();
 
     for (let i = 0; i < significantLines.length - MIN_DUPLICATE_LINES; i++) {
+      // Stop if we've reported enough
+      if (results.length >= MAX_DUPLICATES_PER_FILE) break;
+
       // Create a "fingerprint" of the next N lines
       const block1 = significantLines.slice(i, i + MIN_DUPLICATE_LINES);
       const fingerprint1 = block1.map((l) => l.normalized).join('\n');
 
       // Look for similar blocks later in the file
       for (let j = i + MIN_DUPLICATE_LINES; j < significantLines.length - MIN_DUPLICATE_LINES; j++) {
+        if (results.length >= MAX_DUPLICATES_PER_FILE) break;
+
         const block2 = significantLines.slice(j, j + MIN_DUPLICATE_LINES);
         const fingerprint2 = block2.map((l) => l.normalized).join('\n');
 
@@ -69,8 +103,10 @@ export const checkDryViolations: Hook = {
         const similarity = calculateSimilarity(fingerprint1, fingerprint2);
 
         if (similarity >= SIMILARITY_THRESHOLD) {
-          // Create a unique key for this duplicate pair
-          const blockKey = `${block1[0].lineNum}-${block2[0].lineNum}`;
+          // Create a unique key for this duplicate pair (sorted to avoid A-B and B-A)
+          const key1 = Math.min(block1[0].lineNum, block2[0].lineNum);
+          const key2 = Math.max(block1[0].lineNum, block2[0].lineNum);
+          const blockKey = `${key1}-${key2}`;
 
           if (!reportedBlocks.has(blockKey)) {
             reportedBlocks.add(blockKey);
@@ -104,13 +140,23 @@ function normalizeLine(line: string, extension: string): string {
   // Normalize whitespace
   normalized = normalized.replace(/\s+/g, ' ').trim();
 
-  // Replace variable names with placeholders (simplified)
-  // This helps match similar code with different variable names
+  // Replace strings and numbers first
   normalized = normalized
-    .replace(/\b[a-z][a-zA-Z0-9]*\b/g, 'VAR')
     .replace(/"[^"]*"/g, 'STR')
     .replace(/'[^']*'/g, 'STR')
-    .replace(/\d+/g, 'NUM');
+    .replace(/`[^`]*`/g, 'STR')
+    .replace(/\b\d+\.?\d*\b/g, 'NUM');
+
+  // Replace variable/function names with placeholders, but preserve keywords
+  // Only replace identifiers that look like user-defined names (camelCase, snake_case)
+  normalized = normalized.replace(/\b([a-z][a-zA-Z0-9_]*)\b/g, (match) => {
+    // Keep keywords as-is
+    if (KEYWORDS.has(match)) {
+      return match;
+    }
+    // Replace user-defined identifiers
+    return 'VAR';
+  });
 
   return normalized;
 }
