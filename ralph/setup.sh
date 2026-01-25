@@ -340,7 +340,7 @@ EOF
   fi
 }
 
-# Configure MCP (Chrome DevTools)
+# Configure MCP (Browser tools for verification)
 setup_mcp() {
   local claude_json="$HOME/.claude.json"
 
@@ -350,17 +350,82 @@ setup_mcp() {
   # Create claude.json if it doesn't exist
   [[ ! -f "$claude_json" ]] && echo '{}' > "$claude_json"
 
-  # Skip if already configured
-  jq -e '.mcpServers["chrome-devtools"]' "$claude_json" > /dev/null 2>&1 && return 0
+  local added_any=false
 
-  echo "Configuring MCP servers..."
-  local tmp
-  tmp=$(mktemp)
-  jq '.mcpServers["chrome-devtools"] = {
-    "command": "npx",
-    "args": ["-y", "@anthropic-ai/mcp-server-chrome-devtools@0.0.5"]
-  }' "$claude_json" > "$tmp" && mv "$tmp" "$claude_json"
-  echo "  Added chrome-devtools MCP server"
+  # Add Playwright MCP if not configured
+  if ! jq -e '.mcpServers["playwright"]' "$claude_json" > /dev/null 2>&1; then
+    echo "Configuring MCP servers..."
+    local tmp
+    tmp=$(mktemp)
+    jq '.mcpServers["playwright"] = {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-server-playwright"]
+    }' "$claude_json" > "$tmp" && mv "$tmp" "$claude_json"
+    echo "  Added playwright MCP server (browser automation & testing)"
+    added_any=true
+  fi
+
+  # Add Chrome DevTools MCP if not configured
+  if ! jq -e '.mcpServers["chrome-devtools"]' "$claude_json" > /dev/null 2>&1; then
+    [[ "$added_any" == "false" ]] && echo "Configuring MCP servers..."
+    local tmp
+    tmp=$(mktemp)
+    jq '.mcpServers["chrome-devtools"] = {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-server-chrome-devtools@0.0.5"]
+    }' "$claude_json" > "$tmp" && mv "$tmp" "$claude_json"
+    echo "  Added chrome-devtools MCP server (debugging & inspection)"
+    added_any=true
+  fi
+
+  # Ask about test credentials
+  if [[ "$added_any" == "true" ]]; then
+    setup_test_credentials
+  fi
+}
+
+# Set up test credentials for browser automation
+setup_test_credentials() {
+  echo ""
+  echo "  Browser automation often needs login credentials for testing."
+  echo ""
+  read -r -p "  Do you have test user credentials to configure? [y/N] " response
+
+  if [[ "$response" =~ ^[Yy]$ ]]; then
+    echo ""
+    echo "  These will be stored in .env (already in .gitignore - never committed)"
+    echo ""
+
+    # Create .env if it doesn't exist
+    if [[ ! -f ".env" ]]; then
+      touch ".env"
+      echo "  Created .env file"
+    fi
+
+    # Get credentials
+    read -r -p "  Test user email: " test_email
+    read -r -s -p "  Test user password: " test_password
+    echo ""
+
+    # Add to .env (append or update)
+    if grep -q "^RALPH_TEST_USER=" .env 2>/dev/null; then
+      # Update existing
+      local tmp
+      tmp=$(mktemp)
+      sed "s/^RALPH_TEST_USER=.*/RALPH_TEST_USER=$test_email/" .env > "$tmp" && mv "$tmp" .env
+      sed "s/^RALPH_TEST_PASSWORD=.*/RALPH_TEST_PASSWORD=$test_password/" .env > "$tmp" && mv "$tmp" .env
+    else
+      # Append new
+      echo "" >> .env
+      echo "# Test credentials for browser automation (auto-added by agentic-loop)" >> .env
+      echo "RALPH_TEST_USER=$test_email" >> .env
+      echo "RALPH_TEST_PASSWORD=$test_password" >> .env
+    fi
+
+    echo "  Saved credentials to .env"
+    echo ""
+    echo "  Note: .env is gitignored - your password will never be committed to git."
+  fi
 }
 
 # Set up pre-commit hooks

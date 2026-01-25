@@ -14,36 +14,38 @@ Before writing any code, verify:
 
 For each story, you must:
 
-### 1. Write Tests First
+### 1. Implement the Feature
 
-**For frontend stories:**
-- Write a Playwright test that validates the acceptance criteria
-- Include tests for error handling (API fails, validation errors)
-- Include tests for empty/loading states
-- Include accessibility checks (axe-core)
-- Include mobile viewport test (375px)
-
-**For backend stories:**
-- Write unit tests for the business logic
-- Write API tests that validate all endpoints
-- Test error responses (400, 401, 500)
-- Test validation rules
-
-### 2. Implement the Feature
-
-- Write code to make all tests pass
 - Follow existing patterns in the codebase
 - Handle ALL error cases defined in the story
 - Implement loading states for async operations
 
+### 2. Write Tests
+
+- Write unit tests for the business logic
+- Write tests that validate acceptance criteria
+- Test error cases and edge cases
+
 ### 3. Verify It Actually Works
+
+**You have browser tools - USE THEM to verify your work:**
+
+**Playwright MCP** (testing & automation):
+- `browser_navigate` - Go to a URL and get page content
+- `browser_screenshot` - Take a screenshot to verify UI
+- `browser_click` - Click elements to test interactions
+- `browser_type` - Fill in forms to test inputs
+- `browser_snapshot` - Get accessibility tree for a11y testing
+
+**Chrome DevTools MCP** (debugging & inspection):
+- Inspect DOM, check console for errors
+- Debug network requests
+- Check element styles and computed properties
 
 **Do NOT say you're done until:**
 - All unit tests pass
-- All Playwright tests pass
-- You've opened the browser via MCP and visually verified
+- You've opened the browser and visually verified the feature works
 - Console has no errors
-- It works on mobile (375px viewport)
 - Error states are handled gracefully
 
 ## Rules
@@ -60,33 +62,14 @@ For each story, you must:
 
 Before considering any story complete:
 
-### Code
 - [ ] All acceptance criteria are met
 - [ ] All error handling from story is implemented
-- [ ] Loading states implemented (if frontend)
-- [ ] Validation implemented (if backend)
-- [ ] TypeScript compiles without errors
-
-### Tests
+- [ ] TypeScript/code compiles without errors
 - [ ] Unit tests written and passing
-- [ ] Playwright test written and passing (frontend)
-- [ ] API tests written and passing (backend)
-- [ ] Error cases tested
-- [ ] Edge cases tested (empty state, etc.)
-
-### Browser/API Validation
-- [ ] Browser check passes (frontend) - no console errors
-- [ ] Mobile viewport works (375px)
-- [ ] Accessibility passes (can Tab through, focus visible)
-- [ ] API returns correct responses (backend)
-
-### Documentation
-- [ ] Updated `.ralph/progress.txt` with files created/modified
-- [ ] Noted any key decisions or context for next story
-
-### Quality
+- [ ] **Browser verified** - used Playwright MCP to visually confirm it works
+- [ ] No console errors
 - [ ] Linting passes
-- [ ] Existing tests still pass
+- [ ] Updated `.ralph/progress.txt` with files created/modified
 
 ## If Verification Fails
 
