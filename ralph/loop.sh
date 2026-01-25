@@ -265,6 +265,7 @@ run_loop() {
     local failure_context=""
     if [[ -f "$RALPH_DIR/last_failure.txt" ]]; then
       failure_context=$(cat "$RALPH_DIR/last_failure.txt")
+      echo "  (Passing failure context: $(echo "$failure_context" | wc -l | tr -d ' ') lines)"
     fi
 
     # Temporarily disable errexit to capture build_prompt errors
