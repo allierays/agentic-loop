@@ -19,6 +19,7 @@ ralph_ci() {
       echo "Commands:"
       echo "  install  - Install GitHub Actions workflows"
       echo "  status   - Check CI status"
+      return 1
       ;;
   esac
 }

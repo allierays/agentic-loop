@@ -14,8 +14,6 @@ ralph_test() {
   echo ""
 
   local failed=0
-  local total=0
-  local passed=0
 
   case "$mode" in
     all)
@@ -76,11 +74,18 @@ run_full_test_suite() {
   echo "Running: $test_cmd"
   echo ""
 
-  if eval "$test_cmd"; then
+  local log_file
+  log_file=$(mktemp)
+
+  if safe_exec "$test_cmd" "$log_file"; then
     print_success "Unit tests passed"
+    rm -f "$log_file"
     return 0
   else
     print_error "Unit tests failed"
+    echo ""
+    tail -50 "$log_file"
+    rm -f "$log_file"
     return 1
   fi
 }
@@ -131,13 +136,16 @@ run_all_prd_tests() {
 
       echo -n "  $step... "
 
-      if eval "$step" >/dev/null 2>&1; then
+      local step_log
+      step_log=$(mktemp)
+      if safe_exec "$step" "$step_log"; then
         print_success "passed"
         ((passed++))
       else
         print_error "failed"
         ((failed++))
       fi
+      rm -f "$step_log"
     done <<< "$test_steps"
 
     echo ""

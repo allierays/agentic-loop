@@ -24,6 +24,8 @@ Ralph reads the PRD and implements each story autonomously. It spawns Claude, ru
 - `/vibe-check`, `/review` - On-demand quality and security checks
 - Pre-commit hooks - Block secrets, hardcoded URLs, debug statements
 - Claude Code hooks - Real-time warnings while coding
+- GitHub Actions CI/CD - Fast PR checks + comprehensive nightly tests
+- Test file enforcement - Fails if new code lacks corresponding tests
 
 ---
 

@@ -325,12 +325,12 @@ run_loop() {
     timeout_seconds=$(get_config '.maxSessionSeconds' "$DEFAULT_TIMEOUT_SECONDS")
 
     # Run Claude - first story gets fresh session, subsequent continue the session
-    local claude_cmd="claude -p --dangerously-skip-permissions --verbose"
+    local -a claude_args=(-p --dangerously-skip-permissions --verbose)
     if [[ "$session_started" == "true" ]]; then
-      claude_cmd="claude --continue -p --dangerously-skip-permissions --verbose"
+      claude_args=(--continue "${claude_args[@]}")
     fi
 
-    if ! cat "$prompt_file" | run_with_timeout "$timeout_seconds" $claude_cmd; then
+    if ! cat "$prompt_file" | run_with_timeout "$timeout_seconds" claude "${claude_args[@]}"; then
       print_warning "Claude session ended (timeout or error)"
       log_progress "$story" "TIMEOUT" "Claude session ended after ${timeout_seconds}s"
       rm -f "$prompt_file"

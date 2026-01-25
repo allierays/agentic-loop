@@ -79,7 +79,7 @@ jobs:
 
       # PRD testSteps (if ralph is set up)
       - name: Install ralph
-        run: npm install -g thrivekit 2>/dev/null || true
+        run: npm install -g agentic-loop 2>/dev/null || true
 
       - name: Run PRD tests
         if: hashFiles('.ralph/prd.json') != ''
