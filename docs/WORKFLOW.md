@@ -97,13 +97,13 @@ Ralph works through stories autonomously:
                             │                          │
                             ▼                          │
               ┌─────────────────────────┐               │
-              │  6-Step Verification    │               │
-              │  1. Code review         │               │
-              │  2. Lint/build          │               │
-              │  3. Unit tests          │               │
-              │  4. E2E/API tests       │               │
-              │  5. Browser/API check   │               │
-              │  6. PRD test steps      │               │
+              │  3-Step Verification    │               │
+              │  1. Lint/build          │               │
+              │  2. Unit tests          │               │
+              │  3. PRD test steps      │               │
+              │                         │               │
+              │  Claude uses MCP browser│               │
+              │  tools to verify UI     │               │
               └─────────────────────────┘               │
                             │                          │
                    ┌────────┴────────┐                 │

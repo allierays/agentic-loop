@@ -306,7 +306,7 @@ For frontend stories, acceptance criteria MUST include:
 - "Required elements render" (specify which: header, form, button, etc.)
 - "Works on mobile viewport (375px)"
 
-These get verified by Playwright, not just code review.
+These get verified by Playwright tests and MCP browser tools.
 
 ### Test Steps - CRITICAL
 **Test steps MUST be executable shell commands.** Ralph runs them with bash.
@@ -352,7 +352,7 @@ The Playwright test file can check:
 ]
 ```
 
-**If a step can't be automated**, leave it out of testSteps and put it in acceptanceCriteria instead. Ralph will verify acceptanceCriteria via code review, not by running commands.
+**If a step can't be automated**, leave it out of testSteps and put it in acceptanceCriteria instead. Claude will verify acceptanceCriteria visually using MCP browser tools.
 
 ### Architecture Guidelines
 - **Domain-driven directories** - Group by feature (`src/contact/`) not type (`src/components/`)

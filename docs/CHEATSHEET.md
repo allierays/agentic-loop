@@ -21,7 +21,6 @@ npx agentic-loop status        → Check progress
 |---------|---------|
 | `npx agentic-loop setup` | Set up hooks, commands, and config |
 | `npx agentic-loop run` | Execute stories autonomously |
-| `npx agentic-loop run --fast` | Skip code review (~2x faster) |
 | `npx agentic-loop run --max 10` | Limit iterations |
 | `npx agentic-loop stop` | Stop after current story |
 | `npx agentic-loop status` | Show progress |

@@ -45,8 +45,7 @@ claude --dangerously-skip-permissions
 
 **Terminal 2 - Ralph Loop:**
 ```bash
-npx agentic-loop run       # Execute PRDs autonomously
-npx agentic-loop run --fast  # Skip code review (~2x faster)
+npx agentic-loop run         # Execute PRDs autonomously
 ```
 
 > **Tip:** Use two terminals. Plan with Claude in one, run Ralph in the other.
@@ -61,8 +60,8 @@ npx agentic-loop run --fast  # Skip code review (~2x faster)
 ├─────────────────────────────────────────────────────────────┤
 │  1. Read prd.json → find next story where passes=false      │
 │  2. Build prompt (story + context + failures + signs)       │
-│  3. Spawn Claude with prompt                                │
-│  4. Run verification (lint, tests, browser, code review)    │
+│  3. Spawn Claude with prompt + MCP browser tools            │
+│  4. Run verification (lint, tests, testSteps)               │
 │  5. Pass? → commit, next story                              │
 │     Fail? → save error, retry with failure context          │
 │  6. Repeat until all stories pass                           │

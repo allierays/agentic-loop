@@ -283,4 +283,4 @@ The Playwright test file can check:
 ]
 ```
 
-**If a step can't be automated**, leave it out of testSteps and put it in acceptanceCriteria instead. Ralph will verify acceptanceCriteria via code review, not by running commands.
+**If a step can't be automated**, leave it out of testSteps and put it in acceptanceCriteria instead. Claude will verify acceptanceCriteria visually using MCP browser tools.

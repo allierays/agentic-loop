@@ -199,24 +199,18 @@ After Claude finishes, Ralph runs verification:
 │                   VERIFICATION PIPELINE                      │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
-│  1. Code Review (skipped in --fast mode)                     │
-│     └─ Claude reviews diff for security/patterns             │
-│     └─ Auto-skipped if last failure was lint/test            │
+│  1. Lint Checks                                              │
+│     └─ Build, lint, typecheck from config                    │
 │                                                              │
-│  2. Lint + Unit Tests (run in PARALLEL)                      │
-│     └─ Build/lint checks run simultaneously with tests       │
-│     └─ Saves 10-30s per iteration                            │
+│  2. Unit Tests                                               │
+│     └─ Runs test command from config                         │
 │                                                              │
-│  3. Playwright E2E / API Tests                               │
-│     └─ Frontend: tests/e2e/{story-id}.spec.ts                │
-│     └─ Backend: API endpoint validation                      │
-│                                                              │
-│  4. Browser / API Validation                                 │
-│     └─ Frontend: console errors, missing elements            │
-│     └─ Backend: response validation                          │
-│                                                              │
-│  5. PRD Test Steps                                           │
+│  3. PRD Test Steps                                           │
 │     └─ Custom commands from testSteps                        │
+│                                                              │
+│  Browser verification is done BY CLAUDE using MCP tools:     │
+│  - Playwright MCP for automation & testing                   │
+│  - Chrome DevTools MCP for debugging                         │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -258,7 +252,6 @@ Now every future story will see this pattern.
 | Command | What it does |
 |---------|--------------|
 | `npx agentic-loop run` | Start the loop |
-| `npx agentic-loop run --fast` | Fast mode: skip code review (~2x faster) |
 | `npx agentic-loop run --story TASK-001` | Run specific story only |
 | `npx agentic-loop run --max 5` | Limit to 5 iterations |
 | `npx agentic-loop stop` | Stop after current story |
@@ -379,30 +372,8 @@ npx ralph check
 
 ### Performance Tips
 
-1. **Use `--fast` mode** - Skip code review for ~2x faster iterations
-2. **Good PROMPT.md** - Clear instructions reduce iterations
-3. **Signs** - Teach patterns early to avoid repeated failures
-4. **Styleguide** - Consistent UI reduces review failures
-5. **Atomic stories** - Smaller scope = faster verification
-
-### Performance Modes
-
-| Mode | Time per Story | Best For |
-|------|----------------|----------|
-| Default | ~5-8 min | Production-quality code, full review |
-| `--fast` | ~2-3 min | Rapid iteration, known patterns |
-
-**What `--fast` mode does:**
-- Skips AI code review step (saves 30-120s)
-- Runs lint and tests in parallel (saves 10-30s)
-- Auto-skips review if last failure was lint/test
-
-**When to use `--fast`:**
-- Iterating on a story that keeps failing lint/tests
-- Working with well-established patterns
-- Time-sensitive development
-
-**When NOT to use `--fast`:**
-- First implementation of a new feature
-- Security-sensitive code
-- Before final merge to main
+1. **Good PROMPT.md** - Clear instructions reduce iterations
+2. **Signs** - Teach patterns early to avoid repeated failures
+3. **Styleguide** - Consistent UI reduces failures
+4. **Atomic stories** - Smaller scope = faster verification
+5. **MCP browser tools** - Claude verifies its own work in real-time
