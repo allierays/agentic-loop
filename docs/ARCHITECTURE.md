@@ -1,257 +1,250 @@
 # Agentic Loop - Technical Architecture
 
-Deep dive into how agentic-loop works under the hood.
+How agentic-loop works under the hood.
 
-## System Overview
+---
+
+## The Loop
+
+This is the core of everything:
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                           AGENTIC LOOP                                   │
+│                           RALPH LOOP                                     │
 ├─────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐          │
-│  │  setup   │───▶│   prd    │───▶│   loop   │───▶│  verify  │          │
-│  └──────────┘    └──────────┘    └──────────┘    └──────────┘          │
-│       │               │               │               │                  │
-│       ▼               ▼               ▼               ▼                  │
-│  ┌──────────┐    ┌──────────┐    ┌──────────┐    ┌──────────┐          │
-│  │ config/  │    │ prd.json │    │  Claude  │    │  lint/   │          │
-│  │ hooks/   │    │          │    │   CLI    │    │  test/   │          │
-│  │ commands │    │          │    │          │    │  browser │          │
-│  └──────────┘    └──────────┘    └──────────┘    └──────────┘          │
+│   1. Read .ralph/prd.json                                                │
+│      └─▶ Find next story where passes=false                             │
+│                                                                          │
+│   2. Build prompt                                                        │
+│      └─▶ PROMPT.md + story + signs + failure context + DNA              │
+│                                                                          │
+│   3. Run Claude                                                          │
+│      └─▶ First story: fresh session                                     │
+│      └─▶ Subsequent: --continue (preserves context)                     │
+│                                                                          │
+│   4. Verify                                                              │
+│      └─▶ Lint → Tests → testSteps from PRD                              │
+│                                                                          │
+│   5. Result                                                              │
+│      └─▶ Pass: mark passes=true, git commit, next story                 │
+│      └─▶ Fail: save error to last_failure.txt, retry same story         │
+│                                                                          │
+│   6. Repeat until all stories pass or max iterations                    │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-## Directory Structure
+---
+
+## File Structure
 
 ```
-ralph/
-├── utils.sh          # Shared constants, logging, config helpers
-├── loop.sh           # Main autonomous loop orchestrator
-├── verify.sh         # Verification pipeline coordinator
-├── verify/
-│   ├── lint.sh       # Linting and auto-fix
-│   ├── tests.sh      # Unit test runner
-│   ├── review.sh     # Code review (optional)
-│   └── browser.sh    # Browser validation (deprecated - MCP handles this)
-├── prd.sh            # PRD generation from ideas
-├── signs.sh          # Learned patterns management
-├── test.sh           # Nightly test runner
-├── ci.sh             # GitHub Actions generator
-├── setup.sh          # Project initialization
-├── init.sh           # Legacy init (calls setup)
-├── backup.sh         # Database backup/restore
-└── hooks/
-    ├── protect-prd.sh    # Block marking passes=true
-    ├── warn-debug.sh     # Warn on console.log
-    ├── warn-secrets.sh   # Warn on hardcoded secrets
-    ├── warn-urls.sh      # Warn on localhost URLs
-    ├── warn-empty-catch.sh
-    ├── inject-context.sh # Session start context
-    ├── log-tools.sh      # Tool usage logging
-    └── save-learnings.sh # Session end learnings
+your-project/
+├── .ralph/
+│   ├── config.json         # Project settings (paths, commands, checks)
+│   ├── prd.json            # Current PRD with stories
+│   ├── signs.json          # Learned patterns
+│   ├── progress.txt        # Activity log
+│   ├── last_failure.txt    # Last error (for retries)
+│   ├── hooks/              # Claude Code hooks (copied during setup)
+│   └── archive/            # Completed PRDs
+│
+├── .claude/
+│   ├── settings.json       # Claude hooks configuration
+│   └── commands/           # Slash commands (/idea, /review, etc.)
+│
+├── .github/
+│   └── workflows/
+│       ├── pr.yml          # Fast PR checks (lint, typecheck, build)
+│       └── nightly.yml     # Full tests + PRD testSteps
+│
+├── PROMPT.md               # Base instructions for Claude
+├── CLAUDE.md               # Project context
+└── .pre-commit-config.yaml # Pre-commit hooks
 ```
 
-## Core Loop (`loop.sh`)
+---
 
-### Execution Flow
+## Prompt Assembly
 
-```
-ralph_loop()
-    │
-    ├─▶ find_next_story()        # Query prd.json for passes=false
-    │       │
-    │       └─▶ Returns story JSON or empty
-    │
-    ├─▶ build_prompt()           # Assemble full prompt
-    │       │
-    │       ├─▶ cat PROMPT.md              # Base instructions
-    │       ├─▶ _inject_story_context()    # Current story details
-    │       ├─▶ _inject_file_guidance()    # files.create/modify/reuse
-    │       ├─▶ _inject_story_scale()      # Scale requirements
-    │       ├─▶ _inject_styleguide()       # UI styleguide reference
-    │       ├─▶ _inject_mcp_instructions() # MCP tools for story
-    │       ├─▶ _inject_original_context() # Original idea file
-    │       ├─▶ _inject_feature_context()  # Feature metadata
-    │       ├─▶ _inject_scalability()      # Scalability rules
-    │       ├─▶ _inject_architecture()     # Architecture guidelines
-    │       ├─▶ _inject_failure_context()  # Last failure (if retry)
-    │       ├─▶ _inject_signs()            # Learned patterns
-    │       └─▶ _inject_developer_dna()    # Personal preferences
-    │
-    ├─▶ run_claude()             # Execute Claude CLI
-    │       │
-    │       ├─▶ First story: claude -p --dangerously-skip-permissions
-    │       └─▶ Subsequent:  claude --continue -p ...
-    │
-    ├─▶ run_verification()       # Verification pipeline
-    │       │
-    │       ├─▶ verify/lint.sh   # Build + lint + typecheck
-    │       ├─▶ verify/tests.sh  # Unit tests + test file check
-    │       └─▶ testSteps[]      # PRD-defined commands
-    │
-    ├─▶ handle_result()
-    │       │
-    │       ├─▶ Pass: mark_story_passed(), git commit, next story
-    │       └─▶ Fail: save_failure(), increment retry, same story
-    │
-    └─▶ Loop until all stories pass or max iterations
-```
+When Ralph runs a story, it builds a prompt by combining multiple sources:
 
-### Session Continuity
+| Source | What it provides |
+|--------|------------------|
+| `PROMPT.md` | Base coding instructions, verification checklist |
+| Story from `prd.json` | id, title, acceptanceCriteria, errorHandling, testSteps |
+| `story.files` | Which files to create, modify, reuse |
+| `story.mcp` | Which MCP tools to use (playwright, devtools) |
+| `prd.originalContext` | Full text of original idea file |
+| `prd.feature` | Feature name and metadata |
+| `prd.architecture` | Directory rules, doNotCreate |
+| `.ralph/last_failure.txt` | Previous error (if retrying) |
+| `.ralph/signs.json` | Learned patterns from past failures |
+| `~/.claude/DNA.md` | Your personal coding preferences |
 
-The loop maintains Claude session context across stories:
-
+The assembled prompt is piped to Claude:
 ```bash
-# First story - fresh session
-local -a claude_args=(-p --dangerously-skip-permissions --verbose)
-
-# Subsequent stories - continue session
-if [[ "$session_started" == "true" ]]; then
-  claude_args=(--continue "${claude_args[@]}")
-fi
-
-# Build prompt
-prompt=$(build_prompt "$story_json" "$failure_context" "$is_continuation")
-echo "$prompt" | claude "${claude_args[@]}"
+echo "$prompt" | claude -p --dangerously-skip-permissions
 ```
 
-For continuing sessions, `build_delta_prompt()` sends only:
-- New story context
-- File guidance for new story
-- Any failure context from previous attempt
+---
 
-This preserves Claude's memory of previous stories while reducing token usage.
+## Session Continuity
 
-### Prompt Assembly
+Stories within a single Ralph run share Claude's context:
 
-The full prompt structure:
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│ PROMPT.md                                                        │
-│ - Session startup checklist                                      │
-│ - Implementation requirements                                    │
-│ - Testing requirements                                           │
-│ - Verification checklist                                         │
-│ - Code quality standards                                         │
-├─────────────────────────────────────────────────────────────────┤
-│ ## Current Story                                                 │
-│ {id, title, type, acceptanceCriteria, errorHandling, testSteps} │
-├─────────────────────────────────────────────────────────────────┤
-│ ## File Guidance                                                 │
-│ Create: [...], Modify: [...], Reuse: [...]                      │
-├─────────────────────────────────────────────────────────────────┤
-│ ## MCP Tools (if story.mcp defined)                             │
-│ Playwright MCP instructions, DevTools MCP instructions          │
-├─────────────────────────────────────────────────────────────────┤
-│ ## Original Idea Context                                         │
-│ {full text of idea file that inspired this PRD}                 │
-├─────────────────────────────────────────────────────────────────┤
-│ ## Feature Context                                               │
-│ {feature name, metadata from prd.json}                          │
-├─────────────────────────────────────────────────────────────────┤
-│ ## Architecture Guidelines                                       │
-│ {directories, doNotCreate rules from prd.json}                  │
-├─────────────────────────────────────────────────────────────────┤
-│ ## Previous Iteration Failed (if retrying)                      │
-│ {error output from .ralph/last_failure.txt}                     │
-├─────────────────────────────────────────────────────────────────┤
-│ ## Signs (Learned Patterns)                                      │
-│ - [backend] Always use camelCase...                             │
-│ - [frontend] Import Button from...                              │
-├─────────────────────────────────────────────────────────────────┤
-│ ## Developer DNA (if ~/.claude/DNA.md exists)                   │
-│ {personal coding preferences}                                    │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-## Verification Pipeline (`verify.sh`)
-
-### Pipeline Stages
-
-```
-run_verification()
-    │
-    ├─▶ Stage 1: Lint
-    │   └─▶ verify/lint.sh
-    │       ├─▶ run_auto_fix()     # ESLint --fix, ruff --fix
-    │       ├─▶ run_build()        # npm run build / cargo build
-    │       ├─▶ run_lint()         # npm run lint / ruff check
-    │       └─▶ run_typecheck()    # tsc --noEmit / mypy
-    │
-    ├─▶ Stage 2: Tests
-    │   └─▶ verify/tests.sh
-    │       ├─▶ verify_test_files_exist()  # Check test files for new code
-    │       └─▶ run_unit_tests()           # pytest / npm test / go test
-    │
-    └─▶ Stage 3: PRD testSteps
-        └─▶ Execute each command in story.testSteps[]
-```
-
-### Story Type Detection
-
+**First story:** Fresh session with full prompt
 ```bash
-get_story_type() {
-  local story_json="$1"
-  echo "$story_json" | jq -r '.type // "frontend"'
-}
-
-# Used to skip irrelevant checks
-# Backend stories skip: ESLint, TypeScript
-# Frontend stories skip: Python lint, pytest
+claude -p --dangerously-skip-permissions
 ```
 
-### Test File Verification
-
-When `checks.requireTests: true`:
-
+**Subsequent stories:** Continue with delta prompt (just new story info)
 ```bash
-verify_test_files_exist() {
-  # Python: foo.py → tests/test_foo.py
-  # Go: foo.go → foo_test.go (same directory)
+claude --continue -p --dangerously-skip-permissions
+```
 
-  local new_files=$(git diff --name-only --diff-filter=A HEAD~1)
+This means Claude remembers what it built in TASK-001 when working on TASK-002.
 
-  for file in $new_files; do
-    case "$file" in
-      *.py)
-        test_file="tests/test_$(basename "$file")"
-        [[ ! -f "$test_file" ]] && fail
-        ;;
-      *.go)
-        test_file="${file%.go}_test.go"
-        [[ ! -f "$test_file" ]] && fail
-        ;;
-    esac
-  done
+---
+
+## Verification Pipeline
+
+After Claude finishes coding, Ralph runs verification:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  1. LINT                                                │
+│     └─▶ Auto-fix (eslint --fix, ruff --fix)            │
+│     └─▶ Build check (npm run build)                    │
+│     └─▶ Lint check (npm run lint, ruff check)          │
+│     └─▶ Type check (tsc --noEmit, mypy)                │
+├─────────────────────────────────────────────────────────┤
+│  2. TESTS                                               │
+│     └─▶ Check test files exist (if requireTests=true)  │
+│     └─▶ Run unit tests (pytest, npm test, go test)     │
+├─────────────────────────────────────────────────────────┤
+│  3. PRD TEST STEPS                                      │
+│     └─▶ Execute each command in story.testSteps[]      │
+│     └─▶ All must pass for story to pass                │
+└─────────────────────────────────────────────────────────┘
+```
+
+If any step fails, error is saved to `last_failure.txt` and Claude retries with that context.
+
+---
+
+## Skills (Slash Commands)
+
+Skills are markdown files in `.claude/commands/` that expand into full prompts.
+
+| Skill | File | Purpose |
+|-------|------|---------|
+| `/idea` | `idea.md` | Brainstorm feature → generate PRD |
+| `/prd` | `prd.md` | Generate PRD from idea file |
+| `/review` | `review.md` | Security-focused code review |
+| `/vibe-check` | `vibe-check.md` | Code quality audit |
+| `/sign` | `sign.md` | Add a learned pattern |
+| `/explain` | `explain.md` | Explain code line by line |
+| `/styleguide` | `styleguide.md` | Generate UI component reference |
+| `/my-dna` | `my-dna.md` | Set up personal preferences |
+| `/tour` | `tour.md` | Interactive walkthrough |
+
+When you type `/idea`, Claude reads `.claude/commands/idea.md` and follows those instructions.
+
+---
+
+## Claude Code Hooks
+
+Hooks run during Claude's operation. Defined in `.claude/settings.json`:
+
+### PreToolUse Hooks
+Run BEFORE Claude uses a tool. Can block the operation.
+
+| Hook | Trigger | Purpose |
+|------|---------|---------|
+| `protect-prd.sh` | Edit\|Write | Blocks marking `passes: true` |
+
+### PostToolUse Hooks
+Run AFTER Claude uses a tool. Can warn but not block.
+
+| Hook | Trigger | Purpose |
+|------|---------|---------|
+| `warn-debug.sh` | Edit\|Write | Warns on console.log, debugger |
+| `warn-secrets.sh` | Edit\|Write | Warns on hardcoded API keys |
+| `warn-urls.sh` | Edit\|Write | Warns on localhost URLs |
+| `warn-empty-catch.sh` | Edit\|Write | Warns on empty catch blocks |
+| `log-tools.sh` | * | Logs all tool usage |
+
+### Session Hooks
+
+| Hook | When | Purpose |
+|------|------|---------|
+| `inject-context.sh` | SessionStart | Inject context at start |
+| `save-learnings.sh` | Stop | Save learnings at end |
+
+### Hook Input/Output
+
+Hooks receive JSON on stdin:
+```json
+{
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "/path/to/file",
+    "new_string": "..."
+  }
 }
 ```
 
-## Configuration System
-
-### Config File Location
-
+Hooks output:
+```json
+{"continue": true}                    // Allow
+{"continue": true, "message": "..."}  // Allow with warning
+// Exit code 2 = Block
 ```
-.ralph/config.json    # Project-specific config
+
+---
+
+## Pre-commit Hooks
+
+Git hooks that run before each commit. Defined in `.pre-commit-config.yaml`:
+
+| Hook | What it catches |
+|------|-----------------|
+| `check-secrets` | API keys, passwords, tokens in code |
+| `check-hardcoded-urls` | localhost URLs, hardcoded domains |
+| `check-debug` | console.log, print(), debugger statements |
+| `backup-db` | Backs up database before commit |
+
+Run manually:
+```bash
+pre-commit run --all-files
 ```
 
-### Config Schema
+Suppress a warning with inline comment:
+```typescript
+console.log('Server starting...'); // noqa: debug
+```
+
+---
+
+## Configuration
+
+### .ralph/config.json
 
 ```json
 {
   "directories": {
-    "frontend": "apps/web",      // Frontend source directory
-    "backend": "apps/api"        // Backend source directory
+    "frontend": "apps/web",
+    "backend": "apps/api"
   },
 
   "checks": {
-    "build": true,               // Run build check
-    "lint": true,                // Run linter
-    "test": true | false | "final",  // Test mode
-    "testCommand": "pytest -x",  // Custom test command
-    "requireTests": false        // Require test files for new code
+    "build": true,
+    "lint": true,
+    "test": true,
+    "testCommand": "cd apps/api && uv run pytest -x -q",
+    "requireTests": false
   },
 
   "playwright": {
@@ -269,203 +262,81 @@ verify_test_files_exist() {
 }
 ```
 
-### Config Helper
+### Key Settings
 
-```bash
-# Usage: get_config '.path.to.value' 'default'
-get_config() {
-  local path="$1"
-  local default="$2"
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `directories.frontend` | `.` | Frontend source directory |
+| `directories.backend` | `.` | Backend source directory |
+| `checks.test` | `true` | `true`, `false`, or `"final"` (only last story) |
+| `checks.testCommand` | auto-detect | Custom test command |
+| `checks.requireTests` | `false` | Fail if new Python/Go files lack tests |
+| `maxIterations` | `20` | Max retries before giving up |
 
-  if [[ -f "$RALPH_DIR/config.json" ]]; then
-    local value
-    value=$(jq -r "$path // empty" "$RALPH_DIR/config.json" 2>/dev/null)
-    [[ -n "$value" && "$value" != "null" ]] && echo "$value" || echo "$default"
-  else
-    echo "$default"
-  fi
-}
-```
+---
 
-## PRD Schema
-
-### Full Structure
+## PRD Structure
 
 ```json
 {
   "feature": {
-    "name": "Feature Name",
-    "ideaFile": "docs/ideas/feature.md",
-    "branch": "feature/feature-name",
+    "name": "User Dashboard",
+    "branch": "feature/user-dashboard",
     "status": "pending"
   },
 
-  "originalContext": "Full text of idea file...",
-
-  "metadata": {
-    "createdAt": "ISO timestamp",
-    "estimatedStories": 5,
-    "complexity": "low|medium|high"
-  },
+  "originalContext": "Full text of the idea file...",
 
   "stories": [
     {
       "id": "TASK-001",
-      "type": "frontend|backend",
-      "title": "Short description",
+      "type": "frontend",
+      "title": "Create dashboard layout",
       "passes": false,
 
       "files": {
-        "create": ["paths to new files"],
-        "modify": ["paths to existing files"],
-        "reuse": ["existing files to import from"]
+        "create": ["src/components/Dashboard.tsx"],
+        "modify": ["src/App.tsx"],
+        "reuse": ["src/components/ui/Card.tsx"]
       },
 
-      "acceptanceCriteria": ["What it should do"],
-      "errorHandling": ["What happens when things fail"],
+      "acceptanceCriteria": [
+        "Shows user name in header",
+        "Responsive layout"
+      ],
 
-      "testSteps": ["shell commands to verify"],
-      "testUrl": "/path/to/test",
+      "errorHandling": [
+        "Show loading state while fetching",
+        "Show error message if fetch fails"
+      ],
+
+      "testSteps": [
+        "npm test -- Dashboard",
+        "npm run build"
+      ],
 
       "mcp": ["playwright", "devtools"],
 
-      "dependsOn": ["TASK-000"],
-      "notes": ""
+      "dependsOn": []
     }
   ],
 
   "architecture": {
     "frontend": "src/components",
-    "backend": "src/api",
-    "doNotCreate": ["rules about what not to create"]
-  },
-
-  "scalability": {
-    "pagination": "cursor-based",
-    "caching": "Redis with 5min TTL"
+    "doNotCreate": ["new API routes without backend story"]
   }
 }
 ```
 
-### Story Lifecycle
+---
 
-```
-passes: false  ──▶  Claude implements  ──▶  Verification
-                                               │
-                          ┌────────────────────┴────────────────────┐
-                          │                                         │
-                          ▼                                         ▼
-                    PASS: passes: true                        FAIL: retry
-                    git commit                                save error
-                    next story                                same story
-```
+## MCP Tools
 
-## Hooks System
+MCP (Model Context Protocol) tools give Claude browser access.
 
-### Claude Code Hooks
-
-Hooks are shell scripts that run at specific points in Claude's execution:
+### Configuration (~/.claude.json)
 
 ```json
-// .claude/settings.json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {"type": "command", "command": ".ralph/hooks/protect-prd.sh"}
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {"type": "command", "command": ".ralph/hooks/warn-debug.sh"},
-          {"type": "command", "command": ".ralph/hooks/warn-secrets.sh"}
-        ]
-      }
-    ],
-    "SessionStart": [...],
-    "Stop": [...]
-  }
-}
-```
-
-### Hook Input/Output
-
-Hooks receive JSON on stdin:
-
-```json
-{
-  "tool_name": "Edit",
-  "tool_input": {
-    "file_path": "/path/to/file",
-    "old_string": "...",
-    "new_string": "..."
-  }
-}
-```
-
-Hooks output JSON:
-
-```json
-{"continue": true}           // Allow the operation
-{"continue": true, "message": "Warning: ..."}  // Allow with warning
-// Exit code 2 = block the operation
-```
-
-### protect-prd.sh Logic
-
-```bash
-# Only blocks edits that mark passes=true
-if echo "$NEW_STRING" | grep -qE '"passes"\s*:\s*true'; then
-  echo "BLOCKED: Cannot mark stories as passed." >&2
-  exit 2
-fi
-
-# All other prd.json edits allowed
-echo '{"continue": true}'
-```
-
-## CI/CD Integration
-
-### Dynamic Workflow Generation
-
-`npx agentic-loop ci install` generates workflows from config:
-
-```bash
-generate_pr_workflow() {
-  local backend_dir="$1"    # From config.directories.backend
-  local frontend_dir="$2"   # From config.directories.frontend
-
-  # Generate YAML with correct paths
-  cat >> .github/workflows/pr.yml << EOF
-      - name: Python tests
-        run: cd $backend_dir && pytest
-EOF
-}
-```
-
-### Nightly Test Command
-
-```bash
-# Run locally
-npx agentic-loop test        # Full suite + PRD testSteps
-npx agentic-loop test unit   # Just unit tests
-npx agentic-loop test prd    # Just PRD testSteps
-
-# In CI
-npx agentic-loop test prd    # Verifies all testSteps still pass
-```
-
-## MCP Integration
-
-### MCP Tools Configuration
-
-```json
-// ~/.claude.json
 {
   "mcpServers": {
     "playwright": {
@@ -480,201 +351,144 @@ npx agentic-loop test prd    # Verifies all testSteps still pass
 }
 ```
 
-### Per-Story MCP Config
+### Per-Story MCP
+
+Stories can specify which MCP tools to use:
 
 ```json
 {
   "id": "TASK-001",
   "type": "frontend",
-  "mcp": ["playwright", "devtools"],  // Tools to use for this story
-  ...
+  "mcp": ["playwright", "devtools"]
 }
 ```
 
-Injected as:
+This injects instructions telling Claude to use those tools for verification.
 
-```markdown
-## MCP Tools - USE THESE FOR VERIFICATION
-
-**Playwright MCP** (browser automation & testing):
-- Navigate to URLs and verify page content
-- Take screenshots to verify UI renders correctly
-...
-
-**Do NOT mark this story complete until you have verified with these tools.**
-```
+---
 
 ## Signs (Learned Patterns)
 
-### Storage
+Signs are patterns Ralph learns from failures.
+
+### Storage (.ralph/signs.json)
 
 ```json
-// .ralph/signs.json
 {
   "signs": [
     {
       "id": "sign-001",
       "pattern": "Always use camelCase for API response fields",
       "category": "backend",
-      "learnedFrom": "TASK-003",
-      "createdAt": "2024-01-15T10:30:00Z"
+      "learnedFrom": "TASK-003"
     }
   ]
 }
 ```
 
-### Injection
-
-Signs are injected into every prompt:
-
-```markdown
-## Signs (Learned Patterns)
-
-These patterns were learned from previous iterations. Follow them:
-
-- [backend] Always use camelCase for API response fields
-- [frontend] Import Button from @/components/ui, not shadcn directly
-```
-
-### CLI Management
+### Usage
 
 ```bash
-npx agentic-loop signs              # List all signs
-npx agentic-loop sign "pattern" category  # Add a sign
-npx agentic-loop unsign "pattern"   # Remove a sign
+npx agentic-loop signs                          # List all
+npx agentic-loop sign "Use camelCase" backend   # Add
+npx agentic-loop unsign "Use camelCase"         # Remove
 ```
 
-## Error Handling
+Signs are injected into every prompt so Claude learns from past mistakes.
 
-### Failure Context
+---
 
-When verification fails, the error is saved:
+## CI/CD
+
+### Dynamic Workflow Generation
+
+`npx agentic-loop ci install` generates workflows from your config:
+
+- Reads `directories.backend` and `directories.frontend`
+- Reads `checks.testCommand`
+- Generates YAML with correct paths for your project
+
+### PR Workflow (.github/workflows/pr.yml)
+
+Fast checks on pull requests:
+- Lint (ruff, eslint)
+- Type check (mypy, tsc)
+- Build
+
+### Nightly Workflow (.github/workflows/nightly.yml)
+
+Comprehensive tests at 3am UTC:
+- Full unit test suite
+- All PRD testSteps
+- Coverage report
+
+### Run Locally
 
 ```bash
-# verify.sh
-save_failure() {
-  local error="$1"
-  echo "$error" > "$RALPH_DIR/last_failure.txt"
-  log_progress "Verification failed: ${error:0:200}..."
-}
+npx agentic-loop test        # Full suite + PRD testSteps
+npx agentic-loop test unit   # Just unit tests
+npx agentic-loop test prd    # Just PRD testSteps
+npx agentic-loop coverage    # Coverage report
 ```
 
-On retry, this is injected into the prompt:
+---
 
-```markdown
-## Previous Iteration Failed
+## CLI Commands
 
-The last attempt failed with this error:
+| Command | Description |
+|---------|-------------|
+| `npx agentic-loop setup` | Initialize project |
+| `npx agentic-loop run` | Start the loop |
+| `npx agentic-loop run --max 5` | Limit iterations |
+| `npx agentic-loop run --story TASK-001` | Run specific story |
+| `npx agentic-loop stop` | Stop after current story |
+| `npx agentic-loop status` | Show progress |
+| `npx agentic-loop check` | Run verification only |
+| `npx agentic-loop verify TASK-001` | Verify specific story |
+| `npx agentic-loop test` | Run nightly tests locally |
+| `npx agentic-loop ci install` | Generate GitHub workflows |
+| `npx agentic-loop signs` | List learned patterns |
+| `npx agentic-loop sign "..." cat` | Add a pattern |
+| `npx agentic-loop progress` | Show recent log |
+
+---
+
+## Source Files
 
 ```
-Error: Cannot find module '@/lib/utils'
-  at Module._resolveFilename (node:internal/modules/cjs/loader:1048:15)
+ralph/
+├── utils.sh        # Constants, logging, config helpers
+├── loop.sh         # Main loop orchestrator
+├── verify.sh       # Verification coordinator
+├── verify/
+│   ├── lint.sh     # Build, lint, typecheck
+│   └── tests.sh    # Unit tests, test file check
+├── prd.sh          # PRD generation
+├── signs.sh        # Signs management
+├── test.sh         # Nightly test runner
+├── ci.sh           # GitHub Actions generator
+├── setup.sh        # Project setup
+└── hooks/          # Claude Code hooks
 ```
 
-Fix this issue before proceeding.
-```
-
-### Max Retries
-
-```bash
-MAX_RETRIES=3  # Per story
-
-if [[ $retry_count -ge $MAX_RETRIES ]]; then
-  log_progress "SKIP: $story_id failed after $MAX_RETRIES attempts"
-  # Move to next story, don't block forever
-fi
-```
+---
 
 ## Logging
 
-### Progress File
+### Progress Log (.ralph/progress.txt)
 
-```bash
-# .ralph/progress.txt
-2024-01-15 10:30:00 | START | TASK-001 | Create user dashboard
+```
+2024-01-15 10:30:00 | START  | TASK-001 | Create dashboard
 2024-01-15 10:35:00 | CLAUDE | TASK-001 | Session started
 2024-01-15 10:40:00 | VERIFY | TASK-001 | Running verification
-2024-01-15 10:41:00 | PASS | TASK-001 | All checks passed
-2024-01-15 10:41:00 | COMMIT | TASK-001 | feat(TASK-001): Create user dashboard
+2024-01-15 10:41:00 | PASS   | TASK-001 | All checks passed
+2024-01-15 10:41:00 | COMMIT | TASK-001 | feat(TASK-001): Create dashboard
 ```
 
-### Tool Log
+### Tool Log (.ralph/tool-log.txt)
 
-```bash
-# .ralph/tool-log.txt
-2024-01-15 10:35:15 | Edit | src/components/Dashboard.tsx
+```
+2024-01-15 10:35:15 | Edit  | src/components/Dashboard.tsx
 2024-01-15 10:35:20 | Write | src/components/Dashboard.test.tsx
-2024-01-15 10:36:00 | Bash | npm test
-```
-
-## Performance Considerations
-
-### Token Usage
-
-- Fresh session: ~2000-5000 tokens for full prompt
-- Continuation: ~500-1000 tokens for delta prompt
-- Signs add ~50 tokens per pattern
-- Original context can add 1000+ tokens
-
-### Parallelization
-
-Stories are executed sequentially (dependency order), but within verification:
-
-```bash
-# These could run in parallel but don't currently
-run_lint &
-run_typecheck &
-wait
-```
-
-### Caching
-
-- Config is read once per loop iteration
-- PRD is re-read each iteration (may have changed)
-- Signs are read once per story
-
-## Extension Points
-
-### Custom Verification
-
-Add to `verify/`:
-
-```bash
-# verify/custom.sh
-run_custom_check() {
-  # Your custom verification logic
-  return 0  # or 1 for failure
-}
-```
-
-### Custom Hooks
-
-Add to `.ralph/hooks/`:
-
-```bash
-# .ralph/hooks/my-hook.sh
-INPUT=$(cat)
-# Process input
-echo '{"continue": true}'
-```
-
-Register in `.claude/settings.json`.
-
-### Custom Config
-
-Add fields to `.ralph/config.json`:
-
-```json
-{
-  "myFeature": {
-    "enabled": true,
-    "setting": "value"
-  }
-}
-```
-
-Access with:
-
-```bash
-my_setting=$(get_config '.myFeature.setting' 'default')
+2024-01-15 10:36:00 | Bash  | npm test
 ```
