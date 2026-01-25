@@ -436,6 +436,8 @@ repos:
   - repo: https://github.com/allthriveai/agentic-loop
     rev: v1.0.0
     hooks:
+      - id: backup-db
+        name: Backup database before commit
       - id: check-secrets
         name: Check for hardcoded secrets
       - id: check-hardcoded-urls
