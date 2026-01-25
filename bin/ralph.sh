@@ -57,6 +57,7 @@ source "$RALPH_LIB/verify.sh"
 source "$RALPH_LIB/prd.sh"
 source "$RALPH_LIB/signs.sh"
 source "$RALPH_LIB/test.sh"
+source "$RALPH_LIB/ci.sh"
 
 # Run auto-config if config.json was just created
 if [[ "${_ralph_needs_autoconfig:-}" == "true" ]]; then
@@ -110,6 +111,9 @@ main() {
       ;;
     coverage)
       ralph_test_coverage "$@"
+      ;;
+    ci)
+      ralph_ci "$@"
       ;;
     sign)
       ralph_sign "$@"
