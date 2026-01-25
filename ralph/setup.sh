@@ -157,7 +157,7 @@ setup_ralph_dir() {
     echo "  Created .ralph/config.json"
   fi
 
-  # Copy signs template
+  # Copy or merge signs template
   if [[ ! -f ".ralph/signs.json" ]]; then
     if [[ -f "$pkg_root/templates/signs.json" ]]; then
       cp "$pkg_root/templates/signs.json" ".ralph/signs.json"
@@ -165,6 +165,30 @@ setup_ralph_dir() {
       echo '{"signs": []}' > ".ralph/signs.json"
     fi
     echo "  Created .ralph/signs.json"
+  else
+    # Merge new default signs into existing file
+    if [[ -f "$pkg_root/templates/signs.json" ]] && command -v jq &>/dev/null; then
+      local existing_ids new_signs_added=0
+      existing_ids=$(jq -r '.signs[].id // empty' ".ralph/signs.json" 2>/dev/null | tr '\n' '|')
+
+      # Add signs from template that don't exist locally
+      while IFS= read -r sign; do
+        local sign_id
+        sign_id=$(echo "$sign" | jq -r '.id // empty')
+        if [[ -n "$sign_id" && ! "$existing_ids" =~ "$sign_id" ]]; then
+          # Add this sign to local file
+          local tmp_file
+          tmp_file=$(mktemp)
+          jq --argjson new_sign "$sign" '.signs += [$new_sign]' ".ralph/signs.json" > "$tmp_file"
+          mv "$tmp_file" ".ralph/signs.json"
+          ((new_signs_added++))
+        fi
+      done < <(jq -c '.signs[]' "$pkg_root/templates/signs.json" 2>/dev/null)
+
+      if [[ $new_signs_added -gt 0 ]]; then
+        echo "  Merged $new_signs_added new sign(s) into .ralph/signs.json"
+      fi
+    fi
   fi
 
   # Create or update PROMPT.md
