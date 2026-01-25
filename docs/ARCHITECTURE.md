@@ -22,7 +22,11 @@ Complete technical breakdown of the agentic-loop codebase.
 
 ## Overview
 
-Agentic-loop is a Bash-based orchestration system that runs Claude Code in an autonomous loop. It reads stories from a PRD, spawns Claude sessions, verifies the output, and commits on success.
+Agentic-loop is a system that lets you describe a feature in plain English, have Claude Code break it into small tasks, then execute those tasks autonomously in a loop until everything works.
+
+**The problem it solves:** Writing code with AI is great, but you still have to manually verify it works, fix errors, and iterate. Agentic-loop automates this entire cycle - Claude writes code, the system verifies it (builds, tests, linting), and if something fails, Claude automatically retries with the error context.
+
+**How it's built:**
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -39,110 +43,107 @@ Agentic-loop is a Bash-based orchestration system that runs Claude Code in an au
 ```
 
 **Languages:**
-- Bash (core loop, verification, CLI)
-- TypeScript (vibe-check static analysis)
-- Markdown (slash commands, templates)
-- JSON (configuration, PRD, signs)
+- **Bash** - Core loop, verification, CLI (ralph/ directory)
+- **TypeScript** - Static analysis tool called "vibe-check" (src/ directory)
+- **Markdown** - Slash commands that Claude reads for instructions (.claude/commands/)
+- **JSON** - Configuration, PRD (Product Requirements Document), learned patterns
 
 ---
 
 ## Idea to Execution Flow
 
-The complete workflow from idea to shipped code:
+This is the main user journey - from a rough idea to shipped, working code.
+
+**Why this matters:** Most AI coding tools are single-shot - you prompt, get code, manually test it, prompt again. Agentic-loop creates a structured pipeline with checkpoints and automated verification.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         /idea "feature"                                  │
+│  PHASE 1: BRAINSTORM (/idea command)                                    │
+│                                                                          │
+│  User types: /idea "add user authentication"                             │
 │                              │                                           │
 │                              ▼                                           │
-│                    Brainstorm & Explore                                  │
-│                    - Ask clarifying questions                            │
-│                    - Explore codebase with Glob/Grep                     │
-│                    - Understand existing patterns                        │
+│  Claude asks clarifying questions, explores your codebase to understand  │
+│  existing patterns, then writes a structured idea file.                  │
 │                              │                                           │
 │                              ▼                                           │
-│                    Write docs/ideas/{feature}.md                         │
-│                    - Problem statement                                   │
-│                    - Solution overview                                   │
-│                    - Scope (in/out)                                      │
-│                    - Architecture hints                                  │
+│  Output: docs/ideas/user-authentication.md                               │
+│  (Contains: problem, solution, scope, architecture hints)                │
 │                              │                                           │
 │                              ▼                                           │
-│                    User approves idea file                               │
-│                              │                                           │
+│  User reviews and says "approved"                                        │
 ├─────────────────────────────────────────────────────────────────────────┤
-│                         /prd (called by /idea)                           │
+│  PHASE 2: PLANNING (/prd command, called automatically by /idea)         │
+│                                                                          │
+│  Claude reads the idea file and splits it into small, testable stories.  │
+│  Each story is either "frontend" or "backend" (never both).              │
 │                              │                                           │
 │                              ▼                                           │
-│                    Read idea file + explore codebase                     │
-│                    - Detect techStack from package.json/pyproject.toml   │
-│                    - Identify testing tools                              │
+│  Claude detects your tech stack (reads package.json, pyproject.toml)     │
+│  and generates appropriate test commands for each story.                 │
 │                              │                                           │
 │                              ▼                                           │
-│                    Split into atomic stories                             │
-│                    - Each story: frontend OR backend                     │
-│                    - Max 3-4 acceptance criteria per story               │
-│                    - Include testSteps with {config.urls.*}              │
+│  Output: .ralph/prd.json                                                 │
+│  (Contains: stories with acceptance criteria, test steps, file lists)    │
 │                              │                                           │
 │                              ▼                                           │
-│                    Write .ralph/prd.json                                 │
-│                    - feature, techStack, testing config                  │
-│                    - globalConstraints                                   │
-│                    - stories[] with testSteps                            │
-│                              │                                           │
-│                              ▼                                           │
-│                    User approves PRD                                     │
-│                              │                                           │
+│  User reviews PRD and says "approved"                                    │
 ├─────────────────────────────────────────────────────────────────────────┤
-│                         npx agentic-loop run                             │
+│  PHASE 3: EXECUTION (npx agentic-loop run)                               │
+│                                                                          │
+│  Ralph (the autonomous loop) takes over:                                 │
+│  1. Picks next incomplete story from PRD                                 │
+│  2. Gives Claude instructions + story ID                                 │
+│  3. Claude writes the code                                               │
+│  4. Ralph runs verification (build, lint, tests, custom test steps)      │
+│  5. If pass: commit and move to next story                               │
+│     If fail: save error, give Claude the error, retry                    │
 │                              │                                           │
 │                              ▼                                           │
-│                    Ralph loop executes stories                           │
-│                    - Build prompt with PROMPT.md + story ID              │
-│                    - Claude implements story                             │
-│                    - Verify (lint, tests, testSteps)                     │
-│                    - Commit on pass, retry on fail                       │
-│                              │                                           │
-│                              ▼                                           │
-│                    All stories pass → Feature complete                   │
+│  All stories pass → Feature complete, code committed                     │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### /idea Flow (.claude/commands/idea.md)
+### /idea Command (.claude/commands/idea.md)
 
-1. **Brainstorm** - Claude asks questions, explores codebase
-2. **Write idea file** - Creates `docs/ideas/{feature}.md`
-3. **User approval** - Wait for "approved"
-4. **Delegate to /prd** - Calls `/prd docs/ideas/{feature}.md`
+The `/idea` command is a markdown file that Claude reads as instructions. When you type `/idea "feature"`, Claude follows these steps:
 
-### /prd Flow (.claude/commands/prd.md)
+1. **Brainstorm** - Ask clarifying questions about scope, edge cases, UX
+2. **Explore** - Use Glob/Grep to understand existing code patterns
+3. **Write** - Create `docs/ideas/{feature}.md` with structured documentation
+4. **Wait** - Stop and ask user to review and approve
+5. **Delegate** - Call `/prd` command to generate the PRD
 
-1. **Read input** - Idea file path or direct description
-2. **Detect stack** - Read package.json, pyproject.toml, go.mod
-3. **Split stories** - Break into atomic tasks (frontend OR backend)
-4. **Generate testSteps** - Curl for backend, tsc + playwright for frontend
+### /prd Command (.claude/commands/prd.md)
+
+The `/prd` command generates the actual task list (PRD = Product Requirements Document). This is where the "single source of truth" lives - all schema definitions, testing requirements, and story format are defined here.
+
+1. **Read input** - Either an idea file path or a direct description
+2. **Detect tech stack** - Scan package.json, pyproject.toml, go.mod, Cargo.toml
+3. **Split into stories** - Each story is atomic (frontend OR backend, not both)
+4. **Generate testSteps** - Backend stories get `curl` commands, frontend gets `tsc --noEmit` + playwright
 5. **Write PRD** - Output to `.ralph/prd.json`
-6. **User approval** - Wait for "approved"
 
-### PRD Schema (defined in prd.md)
+### PRD Schema
+
+The PRD is a JSON file that contains everything Claude needs to implement the feature:
 
 ```json
 {
-  "feature": {"name": "...", "branch": "...", "status": "pending"},
-  "techStack": {"frontend": "...", "backend": "..."},
-  "testing": {"approach": "TDD", "unit": {...}, "e2e": "playwright"},
-  "globalConstraints": ["..."],
+  "feature": {"name": "User Auth", "branch": "feature/user-auth", "status": "pending"},
+  "techStack": {"frontend": "React 19, TypeScript", "backend": "Python, FastAPI"},
+  "testing": {"approach": "TDD", "unit": {"backend": "pytest"}, "e2e": "playwright"},
+  "globalConstraints": ["All API calls must have error handling"],
   "stories": [
     {
       "id": "TASK-001",
-      "type": "frontend|backend",
-      "title": "...",
+      "type": "backend",
+      "title": "Add login endpoint",
       "passes": false,
-      "files": {"create": [], "modify": [], "reuse": []},
-      "acceptanceCriteria": ["..."],
-      "testing": {"types": ["unit", "e2e"], "files": {...}},
-      "testSteps": ["curl {config.urls.backend}/...", "npx tsc --noEmit"],
-      "contextFiles": ["docs/ideas/feature.md"]
+      "files": {"create": ["src/api/auth.py"], "modify": ["src/api/routes.py"]},
+      "acceptanceCriteria": ["POST /auth/login returns JWT on valid credentials"],
+      "testSteps": ["curl -X POST {config.urls.backend}/auth/login -d '...' | jq .token"],
+      "contextFiles": ["docs/ideas/user-auth.md"]
     }
   ]
 }
@@ -150,325 +151,359 @@ The complete workflow from idea to shipped code:
 
 ### Key Design Decisions
 
-- **Single source of truth**: PRD schema lives only in `/prd` command
-- **Atomic stories**: Each story is frontend OR backend, not both
-- **URL placeholders**: testSteps use `{config.urls.backend}` expanded at runtime
-- **Lean prompts**: Claude reads prd.json during Orient, not injected upfront
-- **Two approval gates**: Idea file approval, then PRD approval
+- **Two approval gates**: User approves idea file, then approves PRD. Nothing runs without explicit approval.
+- **Atomic stories**: Each story is frontend OR backend, never both. This makes testing clearer.
+- **URL placeholders**: testSteps use `{config.urls.backend}` which gets replaced with actual URLs at runtime from config.json.
+- **Lean prompts**: Instead of stuffing everything into the prompt, Claude reads files during execution. This improves comprehension.
 
 ---
 
 ## System Flow
 
+Once you run `npx agentic-loop run`, here's what happens inside the system:
+
 ```
 User runs: npx agentic-loop run
                 │
                 ▼
-        bin/agentic-loop.sh
+        bin/agentic-loop.sh          ← CLI entry point, routes to subcommands
                 │
                 ▼
-        ralph/loop.sh ◄─────────────────────┐
-                │                           │
-                ▼                           │
-        Read .ralph/prd.json                │
-        Find next story (passes=false)      │
-                │                           │
-                ▼                           │
-        Build prompt (ralph/loop.sh)        │
-        - PROMPT.md                         │
-        - Story ID                          │
-        - Signs                             │
-        - Failure context                   │
-                │                           │
-                ▼                           │
-        Spawn Claude CLI                    │
-        claude -p --dangerously-skip...     │
-                │                           │
-                ▼                           │
-        ralph/verify.sh                     │
-        ├── verify/lint.sh                  │
-        ├── verify/tests.sh                 │
-        └── testSteps from PRD              │
-                │                           │
-        ┌───────┴───────┐                   │
-        ▼               ▼                   │
-      PASS            FAIL                  │
-        │               │                   │
-        ▼               ▼                   │
-   git commit     Save error to             │
-   Mark passes    last_failure.txt          │
-   =true          ─────────────────────────►┘
-        │
-        ▼
-   Next story or done
+        ralph/loop.sh                ← Main orchestrator
+                │
+                ▼
+        Read .ralph/prd.json         ← Find story where passes=false
+                │
+                ▼
+        build_prompt()               ← Assemble what to send to Claude
+        - templates/PROMPT.md        ← "How to work" instructions
+        - Story ID (e.g., TASK-001)  ← "What to build" (Claude reads full details)
+        - Signs from signs.json      ← Patterns to follow
+        - Failure context            ← If this is a retry, include the error
+                │
+                ▼
+        Spawn Claude CLI             ← Actually run Claude
+        echo "$prompt" | claude -p --dangerously-skip-permissions
+                │
+                ▼
+        Claude writes code...        ← Claude reads prd.json, implements story
+                │
+                ▼
+        ralph/verify.sh              ← Run verification pipeline
+        ├── verify/lint.sh           ← Build, lint, typecheck
+        ├── verify/tests.sh          ← Unit tests
+        └── testSteps from PRD       ← Custom commands (curl, playwright, etc.)
+                │
+        ┌───────┴───────┐
+        ▼               ▼
+      PASS            FAIL
+        │               │
+        ▼               ▼
+   git commit     Save error to last_failure.txt
+   Set passes=true     │
+   Next story    ──────┘ Loop back with error context
 ```
 
 ---
 
 ## Entry Points
 
+These are the files that get executed when you run commands.
+
 ### bin/agentic-loop.sh
 
-Main CLI entry point. Dispatches to subcommands.
+The main CLI. When you run `npx agentic-loop <command>`, this script routes to the right handler:
 
-```bash
-npx agentic-loop <command> [args]
-```
-
-| Command | Handler | Description |
-|---------|---------|-------------|
-| `setup` | `ralph/setup.sh` | Initialize project |
-| `run` | `ralph/loop.sh` | Start autonomous loop |
-| `stop` | Sets stop flag | Stop after current story |
-| `status` | `ralph/loop.sh` | Show PRD progress |
-| `check` | `ralph/verify.sh` | Run verification only |
-| `verify` | `ralph/verify.sh` | Verify specific story |
-| `test` | `ralph/test.sh` | Run full test suite |
-| `signs` | `ralph/signs.sh` | List/add/remove signs |
-| `ci` | `ralph/ci.sh` | Generate GitHub Actions |
-
-### bin/ralph.sh
-
-Symlink to `agentic-loop.sh`. Allows `npx ralph run`.
+| Command | Handler | What it does |
+|---------|---------|--------------|
+| `setup` | `ralph/setup.sh` | First-time project setup (copies hooks, config, etc.) |
+| `run` | `ralph/loop.sh` | Start the autonomous coding loop |
+| `stop` | Sets a flag file | Gracefully stop after current story finishes |
+| `status` | `ralph/loop.sh` | Show which stories have passed/failed |
+| `check` | `ralph/verify.sh` | Run verification without Claude (useful for debugging) |
+| `verify TASK-001` | `ralph/verify.sh` | Verify a specific story |
+| `test` | `ralph/test.sh` | Run full test suite (like CI would) |
+| `signs` | `ralph/signs.sh` | List/add/remove learned patterns |
+| `ci install` | `ralph/ci.sh` | Generate GitHub Actions workflow files |
 
 ### bin/vibe-check.js
 
-Standalone vibe-check runner. Calls TypeScript checks.
+Standalone code quality checker. Can be run independently of the main loop:
 
 ```bash
-npx vibe-check [path] [--json]
+npx vibe-check              # Check current directory
+npx vibe-check src/         # Check specific path
+npx vibe-check --json       # Output as JSON (for CI)
 ```
 
 ---
 
 ## Core Loop
 
+The heart of the system - the code that actually runs Claude in a loop.
+
 ### ralph/loop.sh
 
-Main orchestrator. Key functions:
+This is the main orchestrator (~600 lines of Bash). Key functions:
 
-| Function | Purpose |
-|----------|---------|
-| `run_loop()` | Main loop - iterate through stories |
-| `process_story()` | Handle single story execution |
-| `build_prompt()` | Assemble prompt for Claude |
-| `run_claude()` | Spawn Claude CLI with prompt |
-| `handle_result()` | Process pass/fail, commit if pass |
+| Function | What it does |
+|----------|--------------|
+| `run_loop()` | Main loop that iterates through stories until all pass or max iterations hit |
+| `process_story()` | Handle one story: build prompt, run Claude, verify, handle result |
+| `build_prompt()` | Assemble the text that gets piped to Claude |
+| `run_claude()` | Actually spawn the Claude CLI process |
+| `handle_result()` | If pass: commit + mark done. If fail: save error for retry |
 
-**Session continuity:** First story uses fresh session. Subsequent stories use `--continue` to preserve context.
+**Session continuity**: Claude has context windows. For the first story, we start fresh. For subsequent stories, we use `--continue` so Claude remembers what it built:
 
 ```bash
-# First story
+# First story - fresh session
 echo "$prompt" | claude -p --dangerously-skip-permissions
 
-# Subsequent stories
+# Story 2, 3, etc. - continue existing session
 echo "$delta_prompt" | claude --continue -p --dangerously-skip-permissions
 ```
 
 ### ralph/utils.sh
 
-Shared utilities sourced by all scripts.
+Shared utilities that all scripts source. Includes:
 
 | Function | Purpose |
 |----------|---------|
-| `get_config()` | Read from config.json with default |
-| `log_progress()` | Write to progress.txt |
-| `create_temp_file()` | Create temp file with cleanup |
-| `safe_exec()` | Execute command with timeout |
-| `print_success/error()` | Colored output |
-
-**Constants:**
-```bash
-RALPH_DIR=".ralph"
-MAX_LOG_LINES=50
-DEFAULT_TIMEOUT_SECONDS=120
-```
+| `get_config "key" "default"` | Read value from config.json, with fallback |
+| `log_progress "message"` | Append timestamped entry to progress.txt |
+| `create_temp_file ".ext"` | Create temp file that auto-cleans on exit |
+| `safe_exec "command" log_file` | Run command with timeout, capture output |
+| `print_success/error/warning` | Colored terminal output |
 
 ---
 
 ## Verification Pipeline
 
+After Claude finishes coding, we need to verify the code actually works. This is crucial - without verification, Claude might write plausible-looking code that doesn't actually run.
+
 ### ralph/verify.sh
 
-Orchestrates verification steps in order.
+Orchestrates the verification steps in order. If any step fails, the whole verification fails:
 
 ```bash
 run_verification() {
-    verify_lint || return 1      # Build, lint, typecheck
-    verify_tests || return 1     # Unit tests
-    verify_prd_criteria || return 1  # testSteps from PRD
+    verify_lint "$story" || return 1      # Must pass before continuing
+    verify_tests "$story" || return 1     # Must pass before continuing
+    verify_prd_criteria "$story" || return 1  # Custom test steps
 }
 ```
 
 ### ralph/verify/lint.sh
 
-Build and lint checks.
+Build and lint checks. Auto-detects your tooling:
 
 | Function | What it runs |
 |----------|--------------|
-| `run_auto_fix()` | `eslint --fix`, `ruff --fix` |
-| `run_build()` | `npm run build`, `cargo build` |
-| `run_lint()` | `npm run lint`, `ruff check` |
-| `run_typecheck()` | `tsc --noEmit`, `mypy` |
+| `run_auto_fix()` | `eslint --fix`, `ruff --fix`, `gofmt` - auto-fix simple issues |
+| `run_build()` | `npm run build`, `cargo build`, etc. - must compile |
+| `run_lint()` | `npm run lint`, `ruff check` - code style |
+| `run_typecheck()` | `tsc --noEmit`, `mypy` - type errors |
 
 ### ralph/verify/tests.sh
 
-Test execution and PRD testSteps.
+Test execution. The key function is `verify_prd_criteria()` which runs the testSteps from the PRD:
 
-| Function | Purpose |
-|----------|---------|
-| `run_unit_tests()` | Auto-detect and run test command |
-| `verify_test_files_exist()` | Check new code has tests |
-| `verify_prd_criteria()` | Execute story.testSteps[] |
-| `_expand_config_vars()` | Expand `{config.urls.backend}` |
+```bash
+verify_prd_criteria() {
+    # Read testSteps from prd.json for this story
+    # Expand URL placeholders: {config.urls.backend} → http://localhost:8000
+    # Run each step, fail if any fails
+}
+```
 
-**URL Expansion:** testSteps can use `{config.urls.backend}` which gets expanded from config.json before execution.
+**URL expansion**: testSteps can use `{config.urls.backend}` and `{config.urls.frontend}` which get replaced with actual values from config.json. This keeps the PRD portable across environments.
 
 ---
 
 ## Prompt Assembly
 
+When we run Claude, we need to tell it what to do. But we don't want to dump thousands of tokens of context - that leads to Claude ignoring important details.
+
+### The "Lean Prompt" Approach
+
+Instead of injecting everything into the prompt, we give Claude minimal instructions and let it read files during execution. This is inspired by [Anthropic's guidance on long-running agents](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents).
+
+**What we inject** (small, ~500 tokens):
+- `templates/PROMPT.md` - The 7-step framework ("how to work")
+- Story ID (e.g., "TASK-001") - Just the ID, not the full story
+- Signs - Learned patterns to follow
+- Failure context - If retrying, include the error
+
+**What Claude reads during Orient step** (Claude actively reads these):
+- `.ralph/prd.json` - Full story details, tech stack, constraints
+- `story.contextFiles[]` - Idea files, styleguides, mockups
+- `CLAUDE.md` - Project conventions
+- `.ralph/signs.json` - Full list of patterns
+
 ### build_prompt() in ralph/loop.sh
 
-Assembles the prompt sent to Claude.
+This function assembles the prompt text:
 
 ```
 ┌─────────────────────────────────────┐
-│ templates/PROMPT.md                 │  ← 7-step framework
+│ [Contents of templates/PROMPT.md]   │  ← 7-step framework
 ├─────────────────────────────────────┤
-│ ## Current Story: TASK-001          │  ← Story ID only
+│ ## Current Story: TASK-001          │  ← Just the ID
+│ Read full details from prd.json     │
 ├─────────────────────────────────────┤
-│ ## Previous Iteration Failed        │  ← If retrying
-│ [error output]                      │
+│ ## Previous Iteration Failed        │  ← Only if retrying
+│ [Error output from last attempt]    │
 ├─────────────────────────────────────┤
-│ ## Signs                            │  ← From signs.json
-│ - [backend] Use camelCase...        │
+│ ## Signs (Learned Patterns)         │
+│ - [backend] Use camelCase for API   │  ← From signs.json
+│ - [frontend] Add data-testid attrs  │
 └─────────────────────────────────────┘
 ```
 
-**Lean prompt model:** Claude reads full story details from prd.json during Orient step rather than receiving them in the prompt.
-
 ### templates/PROMPT.md
 
-7-step framework Claude follows:
+The 7-step framework Claude follows:
 
-1. **Orient** - Read prd.json, CLAUDE.md, contextFiles
-2. **Check for Failures** - Read last_failure.txt
-3. **Read Learned Patterns** - Read signs.json
-4. **Verify Prerequisites** - Check servers running
-5. **Implement** - Write code following story specs
-6. **Verify** - Run testSteps, browser checks
-7. **End Clean** - Update progress.txt, clean up
+1. **Orient** - Read prd.json, find your story, read contextFiles
+2. **Check for Failures** - If last_failure.txt exists, read it and understand what went wrong
+3. **Read Learned Patterns** - Read signs.json, follow these strictly
+4. **Verify Prerequisites** - Make sure servers are running, dependencies installed
+5. **Implement** - Write code according to acceptanceCriteria
+6. **Verify** - Run the testSteps, use browser tools if specified
+7. **End Clean** - Update progress.txt, no debug statements left behind
 
 ---
 
 ## Slash Commands
 
-Located in `.claude/commands/`. Claude reads these when user types `/command`.
+Claude Code has a feature called "slash commands" - markdown files in `.claude/commands/` that Claude reads as instructions when you type `/commandname`.
 
-### Command Files
+### How They Work
 
-| File | Command | Purpose |
-|------|---------|---------|
-| `idea.md` | `/idea` | Brainstorm → idea file → calls /prd |
-| `prd.md` | `/prd` | Generate PRD from idea file |
-| `review.md` | `/review` | Security-focused code review |
-| `vibe-check.md` | `/vibe-check` | Code quality audit |
-| `sign.md` | `/sign` | Add learned pattern |
+When you type `/idea "add auth"` in Claude Code:
+1. Claude looks for `.claude/commands/idea.md`
+2. Claude reads the entire file as instructions
+3. Claude follows those instructions with your input ("add auth")
+
+### Available Commands
+
+| File | Command | What it does |
+|------|---------|--------------|
+| `idea.md` | `/idea` | Brainstorm feature → write idea file → call /prd |
+| `prd.md` | `/prd` | Generate PRD from idea file (single source of truth for schema) |
+| `review.md` | `/review` | Security-focused code review (OWASP top 10) |
+| `vibe-check.md` | `/vibe-check` | Quick code quality audit |
+| `sign.md` | `/sign` | Add a learned pattern |
 | `explain.md` | `/explain` | Explain code line by line |
-| `styleguide.md` | `/styleguide` | Generate UI component reference |
-| `my-dna.md` | `/my-dna` | Set personal preferences |
-| `tour.md` | `/tour` | Interactive walkthrough |
-
-### /idea → /prd Flow
-
-`/idea` handles brainstorming and creates `docs/ideas/{feature}.md`, then delegates to `/prd` for PRD generation. Single source of truth for PRD schema is in `prd.md`.
+| `styleguide.md` | `/styleguide` | Generate UI component reference page |
+| `my-dna.md` | `/my-dna` | Set up personal coding preferences |
+| `tour.md` | `/tour` | Interactive walkthrough of the system |
 
 ---
 
 ## Claude Code Hooks
 
-Located in `ralph/hooks/`. Installed to `.ralph/hooks/` during setup.
+Hooks are shell scripts that run during Claude's operation. They can warn about issues or block problematic changes.
+
+### Why Hooks?
+
+Claude sometimes does things you don't want:
+- Writes `console.log` everywhere
+- Hardcodes API keys
+- Marks a story as "passed" when it shouldn't
+
+Hooks catch these in real-time as Claude works.
 
 ### Hook Types
 
-**PreToolUse** - Run before Claude uses a tool. Can block.
+**PreToolUse** - Runs BEFORE Claude uses a tool. Can block the action.
 
-| Hook | Trigger | Purpose |
-|------|---------|---------|
-| `protect-prd.sh` | Edit, Write | Block marking passes=true |
+| Hook | Triggers on | What it does |
+|------|-------------|--------------|
+| `protect-prd.sh` | Edit, Write | Blocks Claude from marking `passes: true` in prd.json |
 
-**PostToolUse** - Run after Claude uses a tool. Can warn.
+**PostToolUse** - Runs AFTER Claude uses a tool. Can warn but not block.
 
-| Hook | Trigger | Purpose |
-|------|---------|---------|
-| `warn-debug.sh` | Edit, Write | Warn on console.log |
-| `warn-secrets.sh` | Edit, Write | Warn on API keys |
-| `warn-urls.sh` | Edit, Write | Warn on localhost URLs |
-| `warn-empty-catch.sh` | Edit, Write | Warn on empty catch |
-| `log-tools.sh` | * | Log all tool usage |
+| Hook | Triggers on | What it does |
+|------|-------------|--------------|
+| `warn-debug.sh` | Edit, Write | Warns if code contains console.log, debugger, print() |
+| `warn-secrets.sh` | Edit, Write | Warns if code contains API keys, passwords |
+| `warn-urls.sh` | Edit, Write | Warns if code contains hardcoded localhost URLs |
+| `warn-empty-catch.sh` | Edit, Write | Warns on empty catch blocks |
+| `log-tools.sh` | Any tool | Logs all tool usage to tool-log.txt |
 
 ### Hook Protocol
 
-Hooks receive JSON on stdin:
+Hooks receive JSON on stdin describing what Claude is trying to do:
+
 ```json
 {
   "tool_name": "Edit",
-  "tool_input": {"file_path": "...", "new_string": "..."}
+  "tool_input": {
+    "file_path": "/path/to/file.ts",
+    "old_string": "...",
+    "new_string": "..."
+  }
 }
 ```
 
-Output:
+Hooks output JSON:
 ```json
-{"continue": true}                     // Allow
-{"continue": true, "message": "..."}   // Allow with warning
-// Exit code 2 = Block
+{"continue": true}                     // Allow the action
+{"continue": true, "message": "..."}   // Allow with warning shown to Claude
+// Exit code 2 = Block the action entirely
 ```
 
 ---
 
 ## Vibe-Check Engine
 
-TypeScript-based static analysis tool.
+A TypeScript-based static analysis tool that scans code for common AI-generated issues.
+
+### Why TypeScript?
+
+Bash is great for orchestration but painful for parsing code. The vibe-check engine is written in TypeScript for:
+- Proper regex support
+- Easy pattern matching
+- JSON output for CI integration
 
 ### Source Structure
 
 ```
 src/
-├── cli.ts              # CLI entry point
-├── index.ts            # Programmatic API
+├── cli.ts              # Command-line interface
+├── index.ts            # Programmatic API (can be imported)
 ├── checks/
-│   ├── index.ts        # Check registry
+│   ├── index.ts        # Registry of all checks
 │   ├── check-secrets.ts
 │   ├── check-debug-statements.ts
 │   ├── check-hardcoded-urls.ts
-│   ├── check-empty-catch.ts
-│   ├── check-any-types.ts
 │   └── ... (16 checks total)
 └── utils/
-    ├── file-reader.ts  # File parsing
-    ├── patterns.ts     # Regex patterns
-    ├── reporters.ts    # Output formatting
-    └── types.ts        # TypeScript types
+    ├── file-reader.ts  # Read and parse files
+    ├── patterns.ts     # Regex patterns for detection
+    ├── reporters.ts    # Format output (text, JSON)
+    └── types.ts        # TypeScript type definitions
 ```
 
 ### Check Interface
 
-Each check implements:
+Each check is a module that exports:
 
 ```typescript
 interface Check {
-  name: string;
-  description: string;
+  name: string;           // e.g., "check-secrets"
+  description: string;    // Human-readable description
   run(files: FileContent[]): CheckResult[];
 }
 
 interface CheckResult {
-  file: string;
-  line: number;
-  message: string;
+  file: string;           // Which file
+  line: number;           // Which line
+  message: string;        // What's wrong
   severity: 'error' | 'warning';
-  code: string;
+  code: string;           // The problematic code snippet
 }
 ```
 
@@ -476,15 +511,15 @@ interface CheckResult {
 
 | Check | Severity | What it catches |
 |-------|----------|-----------------|
-| `check-secrets` | error | API keys, passwords, tokens |
-| `check-hardcoded-urls` | error | localhost URLs |
-| `check-debug-statements` | warning | console.log, print() |
-| `check-empty-catch` | warning | Empty catch blocks |
-| `check-any-types` | warning | TypeScript `any` |
-| `check-todo-fixme` | warning | TODO/FIXME comments |
-| `check-unsafe-html` | error | innerHTML with user data |
-| `check-function-length` | warning | Functions > 50 lines |
-| `check-deep-nesting` | warning | Nesting > 4 levels |
+| `check-secrets` | error | API keys, passwords, tokens in code |
+| `check-hardcoded-urls` | error | localhost URLs that should be env vars |
+| `check-debug-statements` | warning | console.log, print(), debugger |
+| `check-empty-catch` | warning | catch blocks that swallow errors |
+| `check-any-types` | warning | TypeScript `any` usage |
+| `check-todo-fixme` | warning | TODO/FIXME comments left behind |
+| `check-unsafe-html` | error | innerHTML with user-provided data (XSS risk) |
+| `check-function-length` | warning | Functions longer than 50 lines |
+| `check-deep-nesting` | warning | Code nested more than 4 levels deep |
 
 ---
 
@@ -492,33 +527,33 @@ interface CheckResult {
 
 ### .ralph/config.json
 
-Project-specific settings.
+Project-specific settings. Created during `npx agentic-loop setup`.
 
 ```json
 {
   "directories": {
-    "frontend": "apps/web",
-    "backend": "apps/api"
+    "frontend": "apps/web",      // Where frontend code lives
+    "backend": "apps/api"        // Where backend code lives
   },
   "urls": {
-    "frontend": "http://localhost:3000",
-    "backend": "http://localhost:8000"
+    "frontend": "http://localhost:3000",  // For {config.urls.frontend}
+    "backend": "http://localhost:8000"    // For {config.urls.backend}
   },
   "checks": {
-    "build": true,
-    "lint": true,
-    "test": true,
-    "testCommand": "pytest -x -q",
-    "requireTests": false
+    "build": true,               // Run build check?
+    "lint": true,                // Run lint check?
+    "test": true,                // Run tests? (true, false, or "final")
+    "testCommand": "pytest -x",  // Custom test command (or auto-detect)
+    "requireTests": false        // Fail if new files don't have tests?
   },
-  "maxIterations": 20,
-  "maxSessionSeconds": 600
+  "maxIterations": 20,           // Give up after this many retries
+  "maxSessionSeconds": 600       // Timeout per story (10 minutes)
 }
 ```
 
 ### .claude/settings.json
 
-Claude Code hook configuration.
+Configures Claude Code hooks:
 
 ```json
 {
@@ -527,7 +562,8 @@ Claude Code hook configuration.
       {"matcher": "Edit|Write", "command": ".ralph/hooks/protect-prd.sh"}
     ],
     "PostToolUse": [
-      {"matcher": "Edit|Write", "command": ".ralph/hooks/warn-debug.sh"}
+      {"matcher": "Edit|Write", "command": ".ralph/hooks/warn-debug.sh"},
+      {"matcher": "Edit|Write", "command": ".ralph/hooks/warn-secrets.sh"}
     ]
   }
 }
@@ -537,77 +573,108 @@ Claude Code hook configuration.
 
 ## Templates
 
+Files that get copied to projects during setup.
+
 ### templates/config/
 
-Project-type specific configs copied during setup.
+Different default configs for different project types:
 
-| Template | For |
-|----------|-----|
-| `node.json` | Node.js/TypeScript projects |
-| `python.json` | Python projects |
-| `go.json` | Go projects |
-| `rust.json` | Rust projects |
-| `fullstack.json` | Frontend + backend |
-| `minimal.json` | Minimal config |
+| Template | When it's used |
+|----------|----------------|
+| `node.json` | Detected package.json with no Python |
+| `python.json` | Detected pyproject.toml or requirements.txt |
+| `go.json` | Detected go.mod |
+| `rust.json` | Detected Cargo.toml |
+| `fullstack.json` | Detected both frontend and backend |
+| `minimal.json` | Fallback if nothing detected |
 
 ### templates/examples/
 
-Example CLAUDE.md files for different stacks:
+Example CLAUDE.md files showing coding conventions for different stacks:
 
-- `CLAUDE-react.md` - React/TypeScript
+- `CLAUDE-react.md` - React/TypeScript frontend
 - `CLAUDE-node.md` - Node.js backend
 - `CLAUDE-fastapi.md` - Python FastAPI
 - `CLAUDE-django.md` - Python Django
-- `CLAUDE-fullstack.md` - Full stack
+- `CLAUDE-fullstack.md` - Combined frontend + backend
 
 ### templates/signs.json
 
-Default signs copied to new projects:
+Default learned patterns every project starts with:
 
 ```json
 {
   "signs": [
-    {"pattern": "Never hardcode AI model names", "category": "backend"},
+    {"pattern": "Never hardcode AI model names - use config", "category": "backend"},
     {"pattern": "Use environment variables for secrets", "category": "general"},
-    {"pattern": "Handle loading, error, empty states", "category": "frontend"},
-    {"pattern": "Add data-testid for e2e tests", "category": "frontend"},
-    {"pattern": "Update tests when removing UI", "category": "testing"}
+    {"pattern": "Handle loading, error, and empty states in UI", "category": "frontend"},
+    {"pattern": "Add data-testid attributes for e2e testing", "category": "frontend"},
+    {"pattern": "When removing UI elements, update related tests", "category": "testing"}
   ]
 }
 ```
+
+### templates/PROMPT.md
+
+The 7-step framework that Claude follows. This is the "how to work" instructions.
 
 ---
 
 ## Data Files
 
+Files that get created/modified during operation.
+
 ### .ralph/prd.json
 
-Current PRD with stories. Schema defined in `.claude/commands/prd.md`.
+The PRD (Product Requirements Document). Contains:
+- Feature metadata (name, branch, status)
+- Tech stack (auto-detected)
+- Testing configuration
+- Global constraints (rules for all stories)
+- Stories array (the actual tasks)
 
-Key fields:
-- `feature` - Name, branch, status
-- `techStack` - Auto-detected technologies
-- `testing` - TDD approach, tools, coverage
-- `globalConstraints` - Rules for all stories
-- `stories[]` - Individual tasks with testSteps
+Schema is defined in `.claude/commands/prd.md`.
 
 ### .ralph/signs.json
 
-Learned patterns injected into every prompt.
+Learned patterns. These get injected into every prompt so Claude doesn't repeat mistakes:
+
+```json
+{
+  "signs": [
+    {
+      "id": "sign-001",
+      "pattern": "Always use camelCase for API response fields",
+      "category": "backend",
+      "learnedFrom": "TASK-003"
+    }
+  ]
+}
+```
+
+Add new signs: `npx agentic-loop sign "pattern" category`
 
 ### .ralph/progress.txt
 
-Activity log with timestamps.
+Activity log with timestamps:
 
 ```
 2024-01-15 10:30:00 | START  | TASK-001 | Create dashboard
+2024-01-15 10:35:00 | CLAUDE | TASK-001 | Session started
 2024-01-15 10:41:00 | PASS   | TASK-001 | All checks passed
+2024-01-15 10:41:00 | COMMIT | TASK-001 | feat(TASK-001): Create dashboard
 ```
 
 ### .ralph/last_failure.txt
 
-Error output from last failed verification. Included in retry prompt.
+When verification fails, the error output is saved here. On retry, this gets included in the prompt so Claude knows what went wrong.
 
 ### .ralph/tool-log.txt
 
-Log of all Claude tool usage (if log-tools.sh hook enabled).
+If the `log-tools.sh` hook is enabled, logs every tool Claude uses:
+
+```
+2024-01-15 10:35:15 | Read   | src/components/Dashboard.tsx
+2024-01-15 10:35:20 | Edit   | src/components/Dashboard.tsx
+2024-01-15 10:36:00 | Bash   | npm test
+```
