@@ -4,7 +4,7 @@
 
 A toolkit for implementing [RALPH](https://ghuntley.com/ralph/) with [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that helps you go from idea to shipped code.
 
-> **Optimized for:** Python, TypeScript, React, Go/Hugo, and Docker projects. Auto-detects ports from `docker-compose.yml`, Vite, Next.js, Hugo, FastAPI, and more.
+> **Optimized for:** Python, TypeScript, React, Go/Hugo, and Docker projects.
 
 ---
 
@@ -19,8 +19,7 @@ A toolkit for implementing [RALPH](https://ghuntley.com/ralph/) with [Claude Cod
 - `npx agentic-loop run --fast` - Skip code review (~2x faster)
 
 **Built-in guardrails:**
-- `/vibe-check` - Run quality checks on demand
-- `/review` - Security-focused code review with OWASP checks
+- `/vibe-check`, `/review` - On-demand quality checks
 - Pre-commit hooks - Block secrets, URLs, debug statements
 - Claude Code hooks - Real-time warnings while coding
 
@@ -30,7 +29,6 @@ A toolkit for implementing [RALPH](https://ghuntley.com/ralph/) with [Claude Cod
 
 **Prerequisites:** Node.js 18+, [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI, `jq` (`brew install jq`)
 
-**Install:**
 ```bash
 npm install agentic-loop
 npx agentic-loop setup
@@ -67,50 +65,12 @@ npx agentic-loop run --fast  # Skip code review (~2x faster)
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Flags:**
-| Flag | Effect |
-|------|--------|
-| `--fast` | Skip code review, parallel lint+tests |
-| `--max N` | Limit to N iterations |
+---
+
+## Docs
+
+[How Ralph Works](docs/RALPH.md) · [Cheatsheet](docs/CHEATSHEET.md) · [Hooks](docs/HOOKS.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) · [Contributing](docs/CONTRIBUTING.md)
 
 ---
 
-## Documentation
-
-| Doc | Description |
-|-----|-------------|
-| [How Ralph Works](docs/RALPH.md) | Architecture, config, troubleshooting |
-| [Cheatsheet](docs/CHEATSHEET.md) | All commands, quick reference |
-| [Hooks Reference](docs/HOOKS.md) | Pre-commit and Claude Code hooks |
-| [Styleguide](docs/STYLEGUIDE.md) | Creating UI component references |
-| [Contributing](docs/CONTRIBUTING.md) | How to contribute |
-
----
-
-## Troubleshooting
-
-**"SessionStart: startup hook error"**
-```bash
-npx agentic-loop setup   # Reinstall hooks
-```
-
-**Hooks not working after moving project**
-```bash
-npx agentic-loop setup   # Hooks use absolute paths, need reinstall
-```
-
-**jq not installed**
-```bash
-# macOS
-brew install jq
-
-# Linux
-sudo apt install jq
-
-# Then reinstall
-npx agentic-loop setup
-```
-
----
-
-MIT License - Built by [AllThrive AI](https://allthrive.ai)
+MIT License - [AllThrive AI](https://allthrive.ai)
