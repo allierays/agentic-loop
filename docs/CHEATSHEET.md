@@ -1,6 +1,6 @@
-# Vibe and Thrive Cheatsheet
+# Agentic Loop Cheatsheet
 
-Extended reference for AI-assisted coding. For quick reference, use `/vibe-help` in Claude Code.
+All commands at a glance. For quick reference in Claude Code, use `/vibe-help`.
 
 ---
 
@@ -8,8 +8,8 @@ Extended reference for AI-assisted coding. For quick reference, use `/vibe-help`
 
 ```
 /idea "your feature"     Brainstorm & generate PRD
-ralph run                Autonomous coding, commits when done
-ralph status             Check progress
+npx agentic-loop run                Autonomous coding, commits when done
+npx agentic-loop status             Check progress
 /vibe-check              Audit before shipping
 ```
 
@@ -57,8 +57,8 @@ Hooks that fire during Claude sessions for immediate feedback:
 
 **Install:**
 ```bash
-ralph hooks              # Project-level
-ralph hooks --global     # All projects
+npx agentic-loop hooks              # Project-level
+npx agentic-loop hooks --global     # All projects
 ```
 
 ---
@@ -79,20 +79,22 @@ ralph hooks --global     # All projects
 
 ---
 
-## Ralph Commands (terminal)
+## CLI Commands (terminal)
 
 | Command | Purpose |
 |---------|---------|
-| `ralph run` | Execute stories autonomously |
-| `ralph run --max 10` | Limit iterations |
-| `ralph status` | Show progress |
-| `ralph check` | Run verification only |
-| `ralph verify TASK-001` | Verify specific task |
-| `ralph signs` | List learned patterns |
-| `ralph sign "pattern"` | Teach Ralph a pattern |
-| `ralph prd "idea"` | Generate PRD from description |
-| `ralph hooks` | Install Claude Code hooks (project) |
-| `ralph hooks --global` | Install Claude Code hooks (global) |
+| `npx agentic-loop setup` | Set up hooks, commands, and config |
+| `npx agentic-loop run` | Execute stories autonomously |
+| `npx agentic-loop run --fast` | Skip code review (~2x faster) |
+| `npx agentic-loop run --max 10` | Limit iterations |
+| `npx agentic-loop status` | Show progress |
+| `npx agentic-loop check` | Run verification only |
+| `npx agentic-loop verify TASK-001` | Verify specific task |
+| `npx agentic-loop signs` | List learned patterns |
+| `npx agentic-loop sign "pattern"` | Teach Ralph a pattern |
+| `npx agentic-loop prd "idea"` | Generate PRD from description |
+| `npx agentic-loop hooks` | Install Claude Code hooks (project) |
+| `npx agentic-loop hooks --global` | Install Claude Code hooks (global) |
 
 ---
 
@@ -164,8 +166,8 @@ Before committing AI code:
 2. APPROVE   - Review idea file, approve or edit
 3. PRD       - Auto-split into small stories
 4. APPROVE   - Review PRD, approve or edit
-5. RUN       - ralph run (autonomous execution)
-6. CHECK     - ralph status (monitor progress)
+5. RUN       - npx agentic-loop run (autonomous execution)
+6. CHECK     - npx agentic-loop status (monitor progress)
 7. AUDIT     - /vibe-check (before shipping)
 ```
 
@@ -200,7 +202,7 @@ That's it. The postinstall sets up everything automatically.
 | Slash commands | `.claude/commands/` | /idea, /tour, /vibe-check, etc. |
 | Ralph config | `.ralph/config.json` | Project settings for verification |
 | Pre-commit hooks | `.pre-commit-config.yaml` | Block secrets and security issues |
-| Claude Code hooks | `ralph hooks` to install | Real-time warnings while coding |
+| Claude Code hooks | `npx agentic-loop hooks` to install | Real-time warnings while coding |
 | Project guide | `CLAUDE.md` | Auto-detected project info for Claude |
 | Gitignore entries | `.gitignore` | Ignore Ralph temp files |
 

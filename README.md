@@ -77,20 +77,6 @@ Patterns Ralph learns from failures. If Ralph keeps making the same mistake, add
 
 ---
 
-## Commands
-
-| Command | Description |
-|---------|-------------|
-| `npx agentic-loop setup` | Set up hooks, commands, and config |
-| `npx agentic-loop run` | Start the autonomous loop |
-| `npx agentic-loop run --fast` | Skip code review (~2x faster) |
-| `npx agentic-loop run --max 5` | Limit to 5 iterations |
-| `npx agentic-loop status` | Show story progress |
-| `npx agentic-loop verify TASK-001` | Verify a specific story |
-| `npx agentic-loop sign "pattern" category` | Add a learned pattern |
-
----
-
 ## Docs
 
 - [How Ralph Works](docs/RALPH.md) - Architecture, config, verification pipeline
