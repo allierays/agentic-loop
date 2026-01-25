@@ -81,6 +81,7 @@ Patterns Ralph learns from failures. If Ralph keeps making the same mistake, add
 ## Docs
 
 - [How Ralph Works](docs/RALPH.md) - Architecture, config, verification pipeline
+- [Technical Architecture](docs/ARCHITECTURE.md) - Deep dive for developers
 - [Cheatsheet](docs/CHEATSHEET.md) - All commands at a glance
 - [Hooks Reference](docs/HOOKS.md) - Pre-commit and Claude Code hooks
 - [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and fixes
