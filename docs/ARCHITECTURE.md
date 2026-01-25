@@ -5,17 +5,18 @@ Complete technical breakdown of the agentic-loop codebase.
 ## Table of Contents
 
 1. [Overview](#overview)
-2. [System Flow](#system-flow)
-3. [Entry Points](#entry-points)
-4. [Core Loop](#core-loop)
-5. [Verification Pipeline](#verification-pipeline)
-6. [Prompt Assembly](#prompt-assembly)
-7. [Slash Commands](#slash-commands)
-8. [Claude Code Hooks](#claude-code-hooks)
-9. [Vibe-Check Engine](#vibe-check-engine)
-10. [Configuration](#configuration)
-11. [Templates](#templates)
-12. [Data Files](#data-files)
+2. [Idea to Execution Flow](#idea-to-execution-flow)
+3. [System Flow](#system-flow)
+4. [Entry Points](#entry-points)
+5. [Core Loop](#core-loop)
+6. [Verification Pipeline](#verification-pipeline)
+7. [Prompt Assembly](#prompt-assembly)
+8. [Slash Commands](#slash-commands)
+9. [Claude Code Hooks](#claude-code-hooks)
+10. [Vibe-Check Engine](#vibe-check-engine)
+11. [Configuration](#configuration)
+12. [Templates](#templates)
+13. [Data Files](#data-files)
 
 ---
 
@@ -42,6 +43,118 @@ Agentic-loop is a Bash-based orchestration system that runs Claude Code in an au
 - TypeScript (vibe-check static analysis)
 - Markdown (slash commands, templates)
 - JSON (configuration, PRD, signs)
+
+---
+
+## Idea to Execution Flow
+
+The complete workflow from idea to shipped code:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         /idea "feature"                                  │
+│                              │                                           │
+│                              ▼                                           │
+│                    Brainstorm & Explore                                  │
+│                    - Ask clarifying questions                            │
+│                    - Explore codebase with Glob/Grep                     │
+│                    - Understand existing patterns                        │
+│                              │                                           │
+│                              ▼                                           │
+│                    Write docs/ideas/{feature}.md                         │
+│                    - Problem statement                                   │
+│                    - Solution overview                                   │
+│                    - Scope (in/out)                                      │
+│                    - Architecture hints                                  │
+│                              │                                           │
+│                              ▼                                           │
+│                    User approves idea file                               │
+│                              │                                           │
+├─────────────────────────────────────────────────────────────────────────┤
+│                         /prd (called by /idea)                           │
+│                              │                                           │
+│                              ▼                                           │
+│                    Read idea file + explore codebase                     │
+│                    - Detect techStack from package.json/pyproject.toml   │
+│                    - Identify testing tools                              │
+│                              │                                           │
+│                              ▼                                           │
+│                    Split into atomic stories                             │
+│                    - Each story: frontend OR backend                     │
+│                    - Max 3-4 acceptance criteria per story               │
+│                    - Include testSteps with {config.urls.*}              │
+│                              │                                           │
+│                              ▼                                           │
+│                    Write .ralph/prd.json                                 │
+│                    - feature, techStack, testing config                  │
+│                    - globalConstraints                                   │
+│                    - stories[] with testSteps                            │
+│                              │                                           │
+│                              ▼                                           │
+│                    User approves PRD                                     │
+│                              │                                           │
+├─────────────────────────────────────────────────────────────────────────┤
+│                         npx agentic-loop run                             │
+│                              │                                           │
+│                              ▼                                           │
+│                    Ralph loop executes stories                           │
+│                    - Build prompt with PROMPT.md + story ID              │
+│                    - Claude implements story                             │
+│                    - Verify (lint, tests, testSteps)                     │
+│                    - Commit on pass, retry on fail                       │
+│                              │                                           │
+│                              ▼                                           │
+│                    All stories pass → Feature complete                   │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### /idea Flow (.claude/commands/idea.md)
+
+1. **Brainstorm** - Claude asks questions, explores codebase
+2. **Write idea file** - Creates `docs/ideas/{feature}.md`
+3. **User approval** - Wait for "approved"
+4. **Delegate to /prd** - Calls `/prd docs/ideas/{feature}.md`
+
+### /prd Flow (.claude/commands/prd.md)
+
+1. **Read input** - Idea file path or direct description
+2. **Detect stack** - Read package.json, pyproject.toml, go.mod
+3. **Split stories** - Break into atomic tasks (frontend OR backend)
+4. **Generate testSteps** - Curl for backend, tsc + playwright for frontend
+5. **Write PRD** - Output to `.ralph/prd.json`
+6. **User approval** - Wait for "approved"
+
+### PRD Schema (defined in prd.md)
+
+```json
+{
+  "feature": {"name": "...", "branch": "...", "status": "pending"},
+  "techStack": {"frontend": "...", "backend": "..."},
+  "testing": {"approach": "TDD", "unit": {...}, "e2e": "playwright"},
+  "globalConstraints": ["..."],
+  "stories": [
+    {
+      "id": "TASK-001",
+      "type": "frontend|backend",
+      "title": "...",
+      "passes": false,
+      "files": {"create": [], "modify": [], "reuse": []},
+      "acceptanceCriteria": ["..."],
+      "testing": {"types": ["unit", "e2e"], "files": {...}},
+      "testSteps": ["curl {config.urls.backend}/...", "npx tsc --noEmit"],
+      "contextFiles": ["docs/ideas/feature.md"]
+    }
+  ]
+}
+```
+
+### Key Design Decisions
+
+- **Single source of truth**: PRD schema lives only in `/prd` command
+- **Atomic stories**: Each story is frontend OR backend, not both
+- **URL placeholders**: testSteps use `{config.urls.backend}` expanded at runtime
+- **Lean prompts**: Claude reads prd.json during Orient, not injected upfront
+- **Two approval gates**: Idea file approval, then PRD approval
 
 ---
 
