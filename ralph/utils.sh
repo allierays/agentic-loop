@@ -12,7 +12,7 @@ readonly MAX_LINT_ERROR_LINES=20
 readonly MAX_PROGRESS_FILE_LINES=1000
 
 # Constants - Timeouts (centralized to avoid magic numbers)
-readonly ITERATION_DELAY_SECONDS=2
+readonly ITERATION_DELAY_SECONDS=0
 readonly DEFAULT_TIMEOUT_SECONDS=600
 readonly DEFAULT_MAX_ITERATIONS=20
 readonly CODE_REVIEW_TIMEOUT_SECONDS=120
