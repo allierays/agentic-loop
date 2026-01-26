@@ -145,6 +145,8 @@ detect_project_type() {
     project_type="rust"
   elif [[ -f "go.mod" ]]; then
     project_type="go"
+  elif [[ -f "mix.exs" ]]; then
+    project_type="elixir"
   # Check for Python framework variants (more specific first)
   elif [[ -f "pyproject.toml" ]]; then
     # FastMCP detection (check for fastmcp in any quote style)

@@ -103,7 +103,29 @@ Break the idea into small, executable stories:
 - Max 10 stories (suggest phases if more needed)
 - If appending, start IDs from the next available number
 
-### Step 5: Write PRD
+### Step 5: Validate Test Steps (CRITICAL)
+
+**Before writing the PRD, validate EVERY story's testSteps:**
+
+For each story, check:
+- ❌ **REJECT** if testSteps only use `grep` to check code exists
+- ❌ **REJECT** if testSteps are human instructions ("Visit the page", "User can see")
+- ✅ **REQUIRE** curl commands for backend stories that verify actual API behavior
+- ✅ **REQUIRE** `npx tsc --noEmit` for TypeScript frontend stories
+- ✅ **REQUIRE** playwright/test commands for UI stories
+
+**Common mistake to catch:**
+```json
+// ❌ This will pass but the feature is broken!
+"testSteps": ["grep -q 'myFunction' src/api/users.ts"]
+
+// ✅ This actually verifies behavior
+"testSteps": ["curl -s {config.urls.backend}/users | jq -e '.data | length >= 0'"]
+```
+
+If a story's testSteps won't catch a broken implementation, FIX THEM before proceeding.
+
+### Step 6: Write PRD
 
 1. Ensure .ralph directory exists and allow PRD edit:
    ```bash
@@ -123,7 +145,7 @@ Break the idea into small, executable stories:
 
 **STOP and wait for user response.**
 
-### Step 6: Final Instructions
+### Step 7: Final Instructions
 
 Once approved, say:
 
@@ -232,7 +254,8 @@ Ralph will work through each story, running tests and committing as it goes."
       },
 
       "testSteps": [
-        "Executable shell commands - see examples below"
+        "curl -s {config.urls.backend}/endpoint | jq -e '.expected == true'",
+        "npx playwright test tests/e2e/feature.spec.ts"
       ],
 
       "testUrl": "{config.urls.frontend}/feature-page",
@@ -412,19 +435,6 @@ Example for a Dashboard component:
 
 ### Testing Anti-Patterns (AVOID THESE)
 
-**The "grep for code" trap:**
-```json
-// ❌ BAD - verifies code exists, not that it works
-"testSteps": [
-  "grep -q 'astream_events' app/domains/chat/agent/graph.py"
-]
-
-// ✅ GOOD - verifies actual behavior
-"testSteps": [
-  "curl -N {config.urls.backend}/chat -d '{\"message\":\"test\"}' | grep -q 'progress'"
-]
-```
-
 **Missing integration points:**
 ```json
 // ❌ BAD - creates function but doesn't verify callers use it
@@ -442,6 +452,8 @@ Example for a Dashboard component:
   ]
 }
 ```
+
+**(See "The Grep for Code Trap" section above for the #1 anti-pattern)**
 
 ### Removing/Modifying UI - Update Tests!
 
@@ -572,7 +584,27 @@ Example:
 
 ## Test Steps - CRITICAL
 
+⚠️ **THE #1 CAUSE OF FALSE PASSES: grep-only test steps that verify code exists but not behavior.**
+
 **Test steps MUST be executable shell commands.** Ralph runs them with bash.
+
+### The "Grep for Code" Trap - NEVER DO THIS
+
+```json
+// ❌ BAD - This will PASS even when the feature is completely broken!
+"testSteps": [
+  "grep -q 'astream_events' app/domains/chat/agent/graph.py",
+  "grep -q 'export function' src/api/users.ts"
+]
+
+// ✅ GOOD - This actually tests if the feature works
+"testSteps": [
+  "curl -N {config.urls.backend}/chat -d '{\"message\":\"test\"}' | grep -q 'progress'",
+  "curl -s {config.urls.backend}/users | jq -e '.data | length >= 0'"
+]
+```
+
+**Why is grep bad?** Ralph runs `grep -q 'function' file.py` → returns 0 → marks story as PASSED. But the function could be completely broken, have wrong parameters, or never get called. The test passed but the feature doesn't work.
 
 ### Backend Stories MUST Have Curl Tests
 
@@ -591,15 +623,7 @@ Use `{config.urls.backend}` - Ralph expands this from `.ralph/config.json`:
 
 Ralph reads `.ralph/config.json` and expands `{config.urls.backend}` before running.
 
-**Why?** Grep tests verify code exists. Curl tests verify the feature works.
-
-```json
-// ❌ NEVER DO THIS for backend stories
-"testSteps": [
-  "grep -q 'astream_events' app/domains/chat/agent/graph.py"
-]
-// This passed but the feature was broken!
-```
+**Why?** Grep tests verify code exists. Curl tests verify the feature works. (See "The Grep for Code Trap" above.)
 
 ### Test Steps by Story Type
 
@@ -640,14 +664,18 @@ Ralph reads `.ralph/config.json` and expands `{config.urls.backend}` before runn
 ]
 ```
 
-### Bad Test Steps (will fail or miss bugs)
+### Bad Test Steps (will PASS but miss bugs)
 ```json
 "testSteps": [
-  "grep -q 'function createUser' app/services/user.py",  // ❌ Just checks code exists
+  "grep -q 'function createUser' app/services/user.py",  // ❌ PASSES if code exists, even if broken
+  "grep -q 'export default' src/components/Dashboard.tsx", // ❌ PASSES even if component crashes
+  "test -f src/api/users.ts",                            // ❌ PASSES if file exists, even if empty
   "Visit http://localhost:3000/dashboard",                // ❌ Not executable
   "User can see the dashboard"                            // ❌ Not executable
 ]
 ```
+
+**NEVER use grep/test to verify behavior.** These will mark stories as PASSED when the feature is broken.
 
 **If a step can't be automated**, put it in `acceptanceCriteria` instead. Claude will verify it visually using MCP tools.
 

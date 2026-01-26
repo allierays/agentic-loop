@@ -9,6 +9,7 @@
 VERIFY_DIR="${RALPH_LIB:-$(dirname "${BASH_SOURCE[0]}")}"
 source "$VERIFY_DIR/verify/lint.sh"
 source "$VERIFY_DIR/verify/tests.sh"
+source "$VERIFY_DIR/verify/api.sh"
 
 run_verification() {
   local story="$1"
@@ -27,7 +28,7 @@ run_verification() {
   # ========================================
   # STEP 1: Run lint checks
   # ========================================
-  echo "  [1/3] Running lint checks..."
+  echo "  [1/5] Running lint checks..."
   if ! run_configured_checks "$story_type"; then
     failed=1
   fi
@@ -37,7 +38,7 @@ run_verification() {
   # ========================================
   if [[ $failed -eq 0 ]]; then
     echo ""
-    echo "  [2/3] Running tests..."
+    echo "  [2/5] Running tests..."
     # First check that test files exist for new code
     if ! verify_test_files_exist; then
       failed=1
@@ -51,8 +52,26 @@ run_verification() {
   # ========================================
   if [[ $failed -eq 0 ]]; then
     echo ""
-    echo "  [3/3] Running PRD test steps..."
+    echo "  [3/5] Running PRD test steps..."
     if ! verify_prd_criteria "$story"; then
+      failed=1
+    fi
+  fi
+
+  # ========================================
+  # STEP 4: API smoke test (if configured)
+  # ========================================
+  if [[ $failed -eq 0 ]]; then
+    if ! run_api_smoke_test "$story"; then
+      failed=1
+    fi
+  fi
+
+  # ========================================
+  # STEP 5: Frontend smoke test (if configured)
+  # ========================================
+  if [[ $failed -eq 0 ]]; then
+    if ! run_frontend_smoke_test "$story"; then
       failed=1
     fi
   fi

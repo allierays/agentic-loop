@@ -17,33 +17,33 @@
   },
 
   "paths": {
-    "src": "src",
-    "tests": "tests",
-    "e2e": "tests/e2e"
+    "src": "lib",
+    "tests": "test",
+    "e2e": "test/e2e"
   },
 
   "commands": {
-    "dev": "uvicorn main:app --reload",
-    "install": "pip install -r requirements.txt",
-    "seed": "",
-    "resetDb": ""
+    "dev": "mix phx.server",
+    "install": "mix deps.get",
+    "seed": "mix run priv/repo/seeds.exs",
+    "resetDb": "mix ecto.reset"
   },
 
   "migrations": {
-    "command": "alembic upgrade head",
-    "pattern": "alembic/versions/.*\\.py$"
+    "command": "mix ecto.migrate",
+    "pattern": "priv/repo/migrations/.*\\.exs$"
   },
 
   "checks": {
     "lint": true,
     "typecheck": false,
-    "build": false,
+    "build": true,
     "test": true,
-    "fastapi": true
+    "fastapi": false
   },
 
   "api": {
-    "baseUrl": "http://localhost:8000",
+    "baseUrl": "http://localhost:4000",
     "healthEndpoint": "/api/health",
     "smokeEndpoints": [],
     "timeout": 30
@@ -51,9 +51,9 @@
 
   "playwright": {
     "enabled": false,
-    "testDir": "tests/e2e",
+    "testDir": "test/e2e",
     "projects": ["chromium"],
-    "baseUrl": "http://localhost:8000"
+    "baseUrl": "http://localhost:4000"
   },
 
   "verification": {
@@ -65,13 +65,13 @@
   },
 
   "urls": {
-    "app": "http://localhost:8000",
-    "docs": "http://localhost:8000/docs"
+    "app": "http://localhost:4000",
+    "docs": "http://localhost:4000/dev/dashboard"
   },
 
   "env": {
     "required": ["DATABASE_URL"],
-    "optional": ["REDIS_URL", "SENTRY_DSN"]
+    "optional": ["SECRET_KEY_BASE", "PHX_HOST"]
   },
 
   "maxIterations": 20,

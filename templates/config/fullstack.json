@@ -47,6 +47,7 @@
   "api": {
     "baseUrl": "http://localhost:8000",
     "healthEndpoint": "/api/health",
+    "smokeEndpoints": [],
     "timeout": 30
   },
 
@@ -69,6 +70,10 @@
     "frontend": "http://localhost:3000",
     "backend": "http://localhost:8000",
     "docs": "http://localhost:8000/api/docs"
+  },
+
+  "frontend": {
+    "smokePages": ["/", "/login"]
   },
 
   "env": {

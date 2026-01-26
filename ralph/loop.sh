@@ -336,7 +336,43 @@ run_loop() {
       claude_args=(--continue "${claude_args[@]}")
     fi
 
-    if ! cat "$prompt_file" | run_with_timeout "$timeout_seconds" claude "${claude_args[@]}"; then
+    # Run Claude with crash detection and retry logic
+    local claude_output_log claude_exit_code max_crash_retries=3 crash_attempt=0
+    claude_output_log=$(create_temp_file ".log") || { rm -f "$prompt_file"; return 1; }
+
+    while [[ $crash_attempt -lt $max_crash_retries ]]; do
+      claude_exit_code=0
+      # Use pipefail to capture Claude's exit code, not tee's
+      set -o pipefail
+      cat "$prompt_file" | run_with_timeout "$timeout_seconds" claude "${claude_args[@]}" 2>&1 | tee "$claude_output_log" || claude_exit_code=$?
+      set +o pipefail
+
+      # Check for recoverable CLI crashes
+      if grep -qE "(No messages returned|unhandled.*promise.*rejection)" "$claude_output_log" 2>/dev/null; then
+        ((crash_attempt++))
+        print_warning "Claude CLI crashed (attempt $crash_attempt/$max_crash_retries) - retrying..."
+        log_progress "$story" "CLI_CRASH" "Claude crashed, retry $crash_attempt"
+        session_started=false  # Reset session on crash
+        sleep 2  # Brief pause before retry
+        continue
+      fi
+
+      # Not a crash - exit retry loop
+      break
+    done
+
+    rm -f "$claude_output_log"
+
+    if [[ $crash_attempt -ge $max_crash_retries ]]; then
+      print_error "Claude CLI crashed $max_crash_retries times - stopping loop"
+      log_progress "$story" "CLI_CRASH" "Gave up after $max_crash_retries crashes"
+      rm -f "$prompt_file"
+      echo ""
+      echo "Claude CLI is unstable. Try again with: ralph run $story"
+      return 1
+    fi
+
+    if [[ $claude_exit_code -ne 0 ]]; then
       print_warning "Claude session ended (timeout or error)"
       log_progress "$story" "TIMEOUT" "Claude session ended after ${timeout_seconds}s"
       rm -f "$prompt_file"

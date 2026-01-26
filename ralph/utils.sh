@@ -181,6 +181,7 @@ run_with_timeout() {
   fi
 }
 
+
 # Safely update JSON file atomically
 # Usage: update_json <file> [jq args...] <filter>
 # Example: update_json file.json --arg id "TASK-001" '.stories[] | select(.id==$id)'
@@ -191,12 +192,25 @@ update_json() {
   tmpfile=$(mktemp)
   lockdir="${file}.lock"
 
+  # Remove stale locks (from crashed processes)
+  if [[ -d "$lockdir" ]]; then
+    local lock_age=0
+    local now=$(date +%s)
+    # Cross-platform: macOS uses -f %m, Linux uses -c %Y
+    local lock_mtime=$(stat -f %m "$lockdir" 2>/dev/null || stat -c %Y "$lockdir" 2>/dev/null || echo "$now")
+    lock_age=$((now - lock_mtime))
+    if [[ $lock_age -gt 30 ]]; then
+      print_warning "Removing stale lock (${lock_age}s old): $lockdir"
+      rm -rf "$lockdir"
+    fi
+  fi
+
   # Acquire lock (mkdir is atomic)
   local attempts=0
   while ! mkdir "$lockdir" 2>/dev/null; do
     ((attempts++))
     if [[ $attempts -gt 50 ]]; then
-      print_error "Could not acquire lock on $file"
+      print_error "Could not acquire lock on $file (locked for 5s+)"
       rm -f "$tmpfile"
       return 1
     fi
@@ -495,6 +509,26 @@ validate_prd() {
     print_warning "PRD is missing feature name (will show as 'unnamed')"
   fi
 
+  # Check for grep-only testSteps (the #1 cause of false passes)
+  # Matches: grep, test -f/-e/-d, [ -f file ], [[ -f file ]]
+  local grep_only_stories
+  grep_only_stories=$(jq -r '
+    .stories[] |
+    select(.testSteps != null and (.testSteps | length > 0)) |
+    select(.testSteps | all(test("^(grep|test\\s+-[fed]|\\[\\[?\\s+-[fed])"; "x"))) |
+    .id
+  ' "$prd_file" 2>/dev/null)
+
+  if [[ -n "$grep_only_stories" ]]; then
+    print_warning "These stories have grep-only testSteps (may cause false passes):"
+    echo "$grep_only_stories" | while read -r story_id; do
+      [[ -n "$story_id" ]] && echo "  - $story_id"
+    done
+    echo ""
+    echo "Grep verifies code exists, not that it works. Add curl/playwright tests."
+    echo ""
+  fi
+
   return 0
 }
 
@@ -534,6 +568,12 @@ detect_migration_tool() {
   # Alembic (Python/FastAPI/SQLAlchemy)
   if [[ -f "$search_dir/alembic.ini" ]] || [[ -d "$search_dir/alembic" ]]; then
     echo "cd $search_dir && ${py_runner}${py_runner:+ }alembic upgrade head"
+    return 0
+  fi
+
+  # Ecto (Elixir/Phoenix)
+  if [[ -f "$search_dir/mix.exs" ]] && [[ -d "$search_dir/priv/repo/migrations" ]]; then
+    echo "cd $search_dir && mix ecto.migrate"
     return 0
   fi
 

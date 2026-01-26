@@ -200,6 +200,8 @@ run_unit_tests() {
       test_cmd="cargo test"
     elif [[ -f "go.mod" ]]; then
       test_cmd="go test ./..."
+    elif [[ -f "mix.exs" ]]; then
+      test_cmd="mix test"
     else
       echo "    (no test command found, skipping)"
       return 0

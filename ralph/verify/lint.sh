@@ -355,6 +355,46 @@ verify_go() {
   return 0
 }
 
+# Verify Elixir code with mix credo
+verify_elixir() {
+  local elixir_log="$RALPH_DIR/last_elixir_failure.log"
+
+  # Skip if not an Elixir project
+  [[ ! -f "mix.exs" ]] && return 0
+  command -v mix &>/dev/null || return 0
+
+  # Clear previous failure log
+  rm -f "$elixir_log"
+
+  # Mix credo (Elixir's static analysis tool)
+  echo -n "    Mix credo... "
+  local credo_output
+  if credo_output=$(mix credo --strict 2>&1); then
+    print_success "passed"
+    return 0
+  fi
+
+  # Check if credo is installed
+  if echo "$credo_output" | grep -qi "could not find.*credo\|mix credo.*not found"; then
+    echo -n "not installed, trying mix compile... "
+    if credo_output=$(mix compile --warnings-as-errors 2>&1); then
+      print_success "passed"
+      return 0
+    fi
+  fi
+
+  # Failed
+  print_error "failed"
+  echo ""
+  echo "    Elixir errors:"
+  echo "$credo_output" | head -"$MAX_LINT_ERROR_LINES" | sed 's/^/      /'
+  {
+    echo "Elixir errors:"
+    echo "$credo_output"
+  } >> "$elixir_log"
+  return 1
+}
+
 # Verify Rust code with clippy
 verify_rust() {
   local rust_log="$RALPH_DIR/last_rust_failure.log"
@@ -503,6 +543,9 @@ run_configured_checks() {
       return 1
     fi
     if ! verify_rust; then
+      return 1
+    fi
+    if ! verify_elixir; then
       return 1
     fi
   fi
