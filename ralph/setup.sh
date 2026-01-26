@@ -636,7 +636,7 @@ setup_precommit_hooks() {
   if [[ ! -f ".pre-commit-config.yaml" ]]; then
     cat > .pre-commit-config.yaml << 'EOF'
 repos:
-  - repo: https://github.com/allthriveai/agentic-loop
+  - repo: https://github.com/allierays/agentic-loop
     rev: v1.0.0
     hooks:
       - id: backup-db

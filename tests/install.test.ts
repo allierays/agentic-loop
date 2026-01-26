@@ -161,7 +161,7 @@ describe('simulated install', () => {
 
   it('quick-setup creates .pre-commit-config.yaml', () => {
     const precommitConfig = `repos:
-  - repo: https://github.com/allthriveai/agentic-loop
+  - repo: https://github.com/allierays/agentic-loop
     rev: v1.0.0
     hooks:
       - id: check-secrets

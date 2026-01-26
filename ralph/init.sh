@@ -632,6 +632,6 @@ Environment:
   RALPH_DIR       Override .ralph directory location (default: .ralph)
   PROMPT_FILE     Override PROMPT.md location (default: PROMPT.md)
 
-For more information, see: https://github.com/allthriveai/agentic-loop
+For more information, see: https://github.com/allierays/agentic-loop
 EOF
 }

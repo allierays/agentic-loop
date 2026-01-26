@@ -142,7 +142,7 @@ These hooks warn but allow commits to proceed.
 
 ```yaml
 repos:
-  - repo: https://github.com/allthriveai/agentic-loop
+  - repo: https://github.com/allierays/agentic-loop
     rev: v0.2.0
     hooks:
       # Security (blocks commits)
@@ -235,6 +235,6 @@ npx vibe-check . --format compact  # One line per issue
 ## Updating
 
 ```bash
-pre-commit autoupdate --repo https://github.com/allthriveai/agentic-loop
+pre-commit autoupdate --repo https://github.com/allierays/agentic-loop
 pre-commit install
 ```

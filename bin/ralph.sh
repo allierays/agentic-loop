@@ -3,7 +3,7 @@
 # ralph.sh - Autonomous AI Development Loop
 #
 # A CLI tool that orchestrates Claude CLI for autonomous development loops.
-# Part of agentic-loop: https://github.com/allthriveai/agentic-loop
+# Part of agentic-loop: https://github.com/allierays/agentic-loop
 
 set -euo pipefail
 

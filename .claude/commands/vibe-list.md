@@ -200,4 +200,4 @@ docs/ideas/          # Brainstorm outputs from /idea
 
 ---
 
-*https://github.com/allthriveai/agentic-loop*
+*https://github.com/allierays/agentic-loop*

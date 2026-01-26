@@ -44,4 +44,4 @@ npx ralph signs          view learned patterns
 
 ---
 
-*https://github.com/allthriveai/agentic-loop*
+*https://github.com/allierays/agentic-loop*
