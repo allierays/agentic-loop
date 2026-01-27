@@ -44,13 +44,25 @@ Help the user flesh out the idea through conversation:
 
 1. **Understand the goal** - What problem does this solve? Who benefits?
 2. **Explore the codebase** - Use Glob/Grep/Read to understand what exists and what patterns to follow
-3. **Ask clarifying questions** - Up to 5 questions about:
-   - Scope boundaries (what's in/out)
-   - User experience (what does the user see/do)
-   - Edge cases (what could go wrong)
-   - Dependencies (what does this touch)
-   - Security/permissions (who can do what)
-   - Scale (how many users/items/requests?)
+3. **Ask clarifying questions** about:
+
+**Scope & UX:**
+- What's in scope vs out of scope?
+- What does the user see/do? (ask for mockup if UI)
+- What are the edge cases?
+
+**Security (IMPORTANT - ask if feature involves):**
+- Authentication: Who can access this? Login required?
+- Passwords: How stored? (must be hashed, never plain text)
+- User input: What validation needed? (prevent injection)
+- Sensitive data: What should NEVER be in API responses?
+- Rate limiting: Should this be rate limited? (login attempts, API calls)
+
+**Scale (IMPORTANT - ask if feature involves lists/data):**
+- How many items expected? (10s, 1000s, millions?)
+- Pagination needed? What's the max per page?
+- Caching needed? How fresh must data be?
+- Database indexes: What will be queried/sorted frequently?
 
 ### Step 3: Summarize Before Writing
 
@@ -107,9 +119,25 @@ Once the user confirms, write the idea file:
    ### Do NOT Create
    - List things that already exist (avoid duplication)
 
-   ## Technical Notes
-   - Dependencies
-   - Security considerations
+   ## Security Requirements
+   - **Authentication**: Who can access? Login required?
+   - **Password handling**: Must be hashed with bcrypt (cost 10+), never in responses
+   - **Input validation**: What must be validated/sanitized?
+   - **Rate limiting**: What should be rate limited?
+   - **Sensitive data**: What must NEVER appear in logs/responses?
+
+   ## Scale Requirements
+   - **Expected volume**: How many users/items/requests?
+   - **Pagination**: Max items per page (recommend 100)
+   - **Caching**: What can be cached? For how long?
+   - **Database**: What indexes are needed?
+
+   ## UI Mockup (if applicable)
+   ```
+   ┌─────────────────────────────────┐
+   │  [ASCII mockup of the UI]       │
+   └─────────────────────────────────┘
+   ```
 
    ## Open Questions
    - Any unresolved decisions

@@ -124,29 +124,50 @@ Write the initial PRD to `.ralph/prd.json`:
 cat .ralph/prd.json
 ```
 
-For EACH story, ask yourself:
+For EACH story, check:
 
-1. **"Is this testable?"** - Can the testSteps actually run?
-   - ❌ `grep -q 'function' file.py` → Only checks code exists, not behavior
-   - ❌ `test -f src/component.tsx` → Only checks file exists
-   - ❌ "Visit the page and verify" → Not executable
-   - ✅ `curl ... | jq -e` → Tests actual API response
-   - ✅ `npm test` / `pytest` → Runs real tests
-   - ✅ `npx playwright test` → Runs real tests
+#### 6a. Testability
+- ❌ `grep -q 'function' file.py` → Only checks code exists, not behavior
+- ❌ `test -f src/component.tsx` → Only checks file exists
+- ❌ `npm test` alone for backend → Mocks can pass without real behavior
+- ✅ `curl ... | jq -e` → Tests actual API response
+- ✅ `npx playwright test` → Real browser tests
+- ✅ `npx tsc --noEmit` → Real type checking
 
-2. **"Is this passable?"** - Given prior stories completed, can this story's tests pass?
-   - If TASK-003 needs a user to exist, does TASK-001 or TASK-002 create one?
-   - If TASK-004 tests a login flow, does a prior story create the auth endpoint?
+#### 6b. Dependencies
+- Can this story's tests pass given prior stories completed?
+- If TASK-003 needs a user, does TASK-001/002 create one?
+
+#### 6c. Security (for auth/input stories)
+Does acceptanceCriteria include:
+- Password handling → "Passwords hashed with bcrypt (cost 10+)"
+- Auth responses → "Password/tokens NEVER in response body"
+- User input → "Input sanitized to prevent SQL injection/XSS"
+- Login endpoints → "Rate limited to N attempts per minute"
+- Token expiry → "JWT expires after N hours"
+
+#### 6d. Scale (for list/data stories)
+Does acceptanceCriteria include:
+- List endpoints → "Returns paginated results (max 100 per page)"
+- Query params → "Accepts ?page=N&limit=N"
+- Large datasets → "Database query uses index on [column]"
+
+#### 6e. Context (for frontend stories)
+- Does `contextFiles` include the idea file (has ASCII mockups)?
+- Does `contextFiles` include styleguide (if exists)?
+- Is `testUrl` set?
 
 **Fix any issues you find:**
 
 | Problem | Fix |
 |---------|-----|
-| testSteps use grep/test only | Replace with curl, pytest, npm test, playwright |
-| Story depends on something not yet created | Reorder stories or add missing dependency story |
-| testSteps would pass on current code | Strengthen tests to verify NEW behavior |
-| No testSteps for backend story | Add `curl -s {config.urls.backend}/endpoint \| jq -e '.field'` |
-| No testSteps for frontend story | Add `npx tsc --noEmit` + `npm test` |
+| testSteps use grep/test only | Replace with curl, playwright |
+| Backend story has only `npm test` | Add curl commands that hit real endpoints |
+| Story depends on something not created | Reorder or add missing dependency |
+| Auth story missing security criteria | Add password hashing, rate limiting to acceptanceCriteria |
+| List endpoint missing pagination | Add pagination criteria to acceptanceCriteria |
+| Frontend missing contextFiles | Add idea file + styleguide paths |
+| Frontend missing testUrl | Add URL from config |
 
 ### Step 7: Reorder if Needed
 

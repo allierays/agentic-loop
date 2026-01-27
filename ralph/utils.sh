@@ -509,27 +509,210 @@ validate_prd() {
     print_warning "PRD is missing feature name (will show as 'unnamed')"
   fi
 
-  # Check for grep-only testSteps (the #1 cause of false passes)
-  # Matches: grep, test -f/-e/-d, [ -f file ], [[ -f file ]]
-  local grep_only_stories
-  grep_only_stories=$(jq -r '
-    .stories[] |
-    select(.testSteps != null and (.testSteps | length > 0)) |
-    select(.testSteps | all(test("^(grep|test\\s+-[fed]|\\[\\[?\\s+-[fed])"; "x"))) |
-    .id
-  ' "$prd_file" 2>/dev/null)
+  # Validate and fix individual stories
+  validate_and_fix_stories "$prd_file" || return 1
 
-  if [[ -n "$grep_only_stories" ]]; then
-    print_warning "These stories have grep-only testSteps (may cause false passes):"
-    echo "$grep_only_stories" | while read -r story_id; do
-      [[ -n "$story_id" ]] && echo "  - $story_id"
+  return 0
+}
+
+# Validate individual stories and auto-fix with Claude if needed
+# Checks: testSteps quality, apiContract, testUrl, contextFiles, security, scale
+validate_and_fix_stories() {
+  local prd_file="$1"
+  local needs_fix=false
+  local issues=""
+
+  echo "  Validating story quality..."
+
+  # Get all story IDs
+  local story_ids
+  story_ids=$(jq -r '.stories[].id' "$prd_file" 2>/dev/null)
+
+  while IFS= read -r story_id; do
+    [[ -z "$story_id" ]] && continue
+
+    local story_issues=""
+    local story_type
+    story_type=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .type // "unknown"' "$prd_file")
+    local story_title
+    story_title=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .title // ""' "$prd_file")
+
+    # Check 1: testSteps quality
+    local test_steps
+    test_steps=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .testSteps // [] | join(" ")' "$prd_file")
+
+    if [[ -z "$test_steps" ]]; then
+      story_issues+="no testSteps, "
+    elif [[ "$story_type" == "backend" ]]; then
+      # Backend must have curl, not just npm test/pytest
+      if ! echo "$test_steps" | grep -q "curl "; then
+        story_issues+="backend needs curl tests (npm test alone uses mocks), "
+      fi
+    elif [[ "$story_type" == "frontend" ]]; then
+      # Frontend must have tsc or playwright
+      if ! echo "$test_steps" | grep -qE "(tsc --noEmit|playwright)"; then
+        story_issues+="frontend needs tsc --noEmit or playwright tests, "
+      fi
+    fi
+
+    # Check 2: Backend needs apiContract
+    if [[ "$story_type" == "backend" ]]; then
+      local has_contract
+      has_contract=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .apiContract // empty' "$prd_file")
+      if [[ -z "$has_contract" || "$has_contract" == "null" ]]; then
+        story_issues+="backend missing apiContract, "
+      fi
+    fi
+
+    # Check 3: Frontend needs testUrl and contextFiles
+    if [[ "$story_type" == "frontend" ]]; then
+      local has_url
+      has_url=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .testUrl // empty' "$prd_file")
+      if [[ -z "$has_url" || "$has_url" == "null" ]]; then
+        story_issues+="frontend missing testUrl, "
+      fi
+
+      local context_files
+      context_files=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .contextFiles // [] | length' "$prd_file")
+      if [[ "$context_files" == "0" ]]; then
+        story_issues+="frontend missing contextFiles (idea file + styleguide), "
+      fi
+    fi
+
+    # Check 4: Auth stories need security criteria
+    if echo "$story_title" | grep -qiE "(login|auth|password|register|signup|sign.?up)"; then
+      local criteria
+      criteria=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .acceptanceCriteria // [] | join(" ")' "$prd_file")
+      if ! echo "$criteria" | grep -qiE "(hash|bcrypt|sanitiz|inject|rate.?limit)"; then
+        story_issues+="auth story missing security criteria (password hashing/rate limiting), "
+      fi
+    fi
+
+    # Check 5: List endpoints need scale criteria
+    if echo "$story_title" | grep -qiE "(list|get all|fetch all|index|search)"; then
+      local criteria
+      criteria=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .acceptanceCriteria // [] | join(" ")' "$prd_file")
+      if ! echo "$criteria" | grep -qiE "(pagina|limit|page=|per.?page)"; then
+        story_issues+="list endpoint missing pagination criteria, "
+      fi
+    fi
+
+    # Report issues for this story
+    if [[ -n "$story_issues" ]]; then
+      needs_fix=true
+      issues+="$story_id: ${story_issues%%, }
+"
+    fi
+  done <<< "$story_ids"
+
+  # If issues found, attempt to fix with Claude
+  if [[ "$needs_fix" == "true" ]]; then
+    print_warning "Story quality issues found:"
+    echo "$issues" | while IFS= read -r line; do
+      [[ -n "$line" ]] && echo "    $line"
     done
     echo ""
-    echo "Grep verifies code exists, not that it works. Add curl/playwright tests."
-    echo ""
+
+    # Check if Claude is available for auto-fix
+    if command -v claude &>/dev/null; then
+      echo "  Attempting auto-fix with Claude..."
+      fix_stories_with_claude "$prd_file" "$issues"
+    else
+      echo "  Claude CLI not found - fix these issues manually or regenerate PRD."
+      echo ""
+      return 1
+    fi
+  else
+    print_success "All stories validated"
   fi
 
   return 0
+}
+
+# Fix story issues using Claude
+fix_stories_with_claude() {
+  local prd_file="$1"
+  local issues="$2"
+
+  local fix_prompt="Fix the following issues in this PRD. Output the COMPLETE fixed prd.json.
+
+ISSUES FOUND:
+$issues
+
+RULES FOR FIXING:
+1. Backend stories MUST have testSteps with curl commands that hit real endpoints
+   Example: curl -s -X POST {config.urls.backend}/api/users -d '...' | jq -e '.id'
+2. Backend stories MUST have apiContract with endpoint, request, response
+3. Frontend stories MUST have testUrl set to {config.urls.frontend}/page
+4. Frontend stories MUST have contextFiles array (include idea file path from originalContext)
+5. Auth stories MUST have security acceptanceCriteria:
+   - Passwords hashed with bcrypt (cost 10+)
+   - Passwords NEVER in API responses
+   - Rate limiting on login attempts
+6. List endpoints MUST have pagination acceptanceCriteria:
+   - Returns paginated results (max 100 per page)
+   - Accepts ?page=N&limit=N query params
+
+CURRENT PRD:
+$(cat "$prd_file")
+
+Output ONLY the fixed JSON, no explanation."
+
+  local fixed_prd
+  fixed_prd=$(echo "$fix_prompt" | claude -p 2>/dev/null)
+
+  # Validate the response is valid JSON
+  if echo "$fixed_prd" | jq -e . >/dev/null 2>&1; then
+    # Backup original
+    cp "$prd_file" "${prd_file}.bak"
+
+    # Write fixed PRD
+    echo "$fixed_prd" > "$prd_file"
+    print_success "PRD auto-fixed (backup at ${prd_file}.bak)"
+
+    # Re-validate to confirm fixes
+    echo "  Re-validating..."
+    local remaining_issues
+    remaining_issues=$(validate_stories_quick "$prd_file")
+    if [[ -n "$remaining_issues" ]]; then
+      print_warning "Some issues remain - may need manual fixes"
+    else
+      print_success "All issues resolved"
+    fi
+  else
+    print_error "Claude returned invalid JSON - fix manually"
+    return 1
+  fi
+}
+
+# Quick validation without auto-fix (for re-checking after fix)
+validate_stories_quick() {
+  local prd_file="$1"
+  local issues=""
+
+  local story_ids
+  story_ids=$(jq -r '.stories[].id' "$prd_file" 2>/dev/null)
+
+  while IFS= read -r story_id; do
+    [[ -z "$story_id" ]] && continue
+
+    local story_type
+    story_type=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .type // "unknown"' "$prd_file")
+    local test_steps
+    test_steps=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .testSteps // [] | join(" ")' "$prd_file")
+
+    if [[ "$story_type" == "backend" ]] && ! echo "$test_steps" | grep -q "curl "; then
+      issues+="$story_id: still missing curl tests, "
+    fi
+
+    if [[ "$story_type" == "frontend" ]]; then
+      local has_url
+      has_url=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .testUrl // empty' "$prd_file")
+      [[ -z "$has_url" ]] && issues+="$story_id: still missing testUrl, "
+    fi
+  done <<< "$story_ids"
+
+  echo "$issues"
 }
 
 # Detect Python runner (uv, poetry, pipenv, or plain python)
