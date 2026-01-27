@@ -99,53 +99,83 @@ Break the idea into small, executable stories:
 
 - Each story completable in one Claude session (~10-15 min)
 - Max 3-4 acceptance criteria per story
-- Order by dependency
 - Max 10 stories (suggest phases if more needed)
 - If appending, start IDs from the next available number
 
-### Step 5: Validate Test Steps (CRITICAL)
+### Step 5: Write Draft PRD
 
-**Before writing the PRD, validate EVERY story's testSteps:**
+Write the initial PRD to `.ralph/prd.json`:
 
-For each story, check:
-- ❌ **REJECT** if testSteps only use `grep` to check code exists
-- ❌ **REJECT** if testSteps are human instructions ("Visit the page", "User can see")
-- ✅ **REQUIRE** curl commands for backend stories that verify actual API behavior
-- ✅ **REQUIRE** `npx tsc --noEmit` for TypeScript frontend stories
-- ✅ **REQUIRE** playwright/test commands for UI stories
-
-**Common mistake to catch:**
-```json
-// ❌ This will pass but the feature is broken!
-"testSteps": ["grep -q 'myFunction' src/api/users.ts"]
-
-// ✅ This actually verifies behavior
-"testSteps": ["curl -s {config.urls.backend}/users | jq -e '.data | length >= 0'"]
-```
-
-If a story's testSteps won't catch a broken implementation, FIX THEM before proceeding.
-
-### Step 6: Write PRD
-
-1. Ensure .ralph directory exists and allow PRD edit:
+1. Ensure .ralph directory exists:
    ```bash
    mkdir -p .ralph && touch .ralph/.prd-edit-allowed
    ```
 
-2. Write to `.ralph/prd.json`:
-   - If **overwriting** or no existing PRD: Create new file with full structure
-   - If **appending**: Read existing JSON, add new stories to the `stories` array, update `metadata.estimatedStories` count, write back
+2. Write all stories to `.ralph/prd.json`
+   - If **appending**: Read existing JSON, add new stories, update count
 
-3. Say: "I've {created|updated} the PRD with {N} stories ({X} new).
+**Do not present to user yet - validation comes next.**
 
-   Review `.ralph/prd.json` and let me know:
-   - **'approved'** - Ready for `ralph run`
-   - **'edit [changes]'** - Tell me what to change
-   - Or edit the JSON directly and say **'done'**"
+### Step 6: Validate and Fix (MANDATORY)
+
+**Read back the PRD you just wrote and validate EVERY story.**
+
+```bash
+cat .ralph/prd.json
+```
+
+For EACH story, ask yourself:
+
+1. **"Is this testable?"** - Can the testSteps actually run?
+   - ❌ `grep -q 'function' file.py` → Only checks code exists, not behavior
+   - ❌ `test -f src/component.tsx` → Only checks file exists
+   - ❌ "Visit the page and verify" → Not executable
+   - ✅ `curl ... | jq -e` → Tests actual API response
+   - ✅ `npm test` / `pytest` → Runs real tests
+   - ✅ `npx playwright test` → Runs real tests
+
+2. **"Is this passable?"** - Given prior stories completed, can this story's tests pass?
+   - If TASK-003 needs a user to exist, does TASK-001 or TASK-002 create one?
+   - If TASK-004 tests a login flow, does a prior story create the auth endpoint?
+
+**Fix any issues you find:**
+
+| Problem | Fix |
+|---------|-----|
+| testSteps use grep/test only | Replace with curl, pytest, npm test, playwright |
+| Story depends on something not yet created | Reorder stories or add missing dependency story |
+| testSteps would pass on current code | Strengthen tests to verify NEW behavior |
+| No testSteps for backend story | Add `curl -s {config.urls.backend}/endpoint \| jq -e '.field'` |
+| No testSteps for frontend story | Add `npx tsc --noEmit` + `npm test` |
+
+### Step 7: Reorder if Needed
+
+If validation found dependency issues, reorder stories:
+
+1. Stories that create foundations (DB schemas, base components) come first
+2. Stories that depend on others come after their dependencies
+3. Update `dependsOn` arrays to reflect the order
+4. Re-number story IDs if needed (TASK-001, TASK-002, etc.)
+
+**After reordering, re-run Step 6 validation to confirm the new order works.**
+
+### Step 8: Present Final PRD
+
+Open the PRD for review:
+```bash
+open -a TextEdit .ralph/prd.json
+```
+
+Say: "I've {created|updated} the PRD with {N} stories and opened it in TextEdit.
+
+Review the PRD and let me know:
+- **'approved'** - Ready for `ralph run`
+- **'edit [changes]'** - Tell me what to change
+- Or edit the JSON directly and say **'done'**"
 
 **STOP and wait for user response.**
 
-### Step 7: Final Instructions
+### Step 9: Final Instructions
 
 Once approved, say:
 
