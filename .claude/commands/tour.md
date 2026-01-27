@@ -25,13 +25,13 @@ Print this exactly:
    - If missing: Say "⚠️ jq not found. Install it: `brew install jq` (macOS) or `apt install jq` (Linux)"
    - If found: ✓ jq installed
 
-2. **Check slash commands:**
+2. **Check slash commands (skills):**
    ```bash
-   test -d .claude/commands && ls .claude/commands/*.md 2>/dev/null | wc -l
+   test -d .claude/skills && ls -d .claude/skills/*/ 2>/dev/null | wc -l
    ```
    - If missing or count is 0: Copy from node_modules:
      ```bash
-     mkdir -p .claude/commands && cp -r node_modules/agentic-loop/.claude/commands/* .claude/commands/
+     mkdir -p .claude/skills && cp -r node_modules/agentic-loop/.claude/skills/* .claude/skills/
      ```
    - Then: ✓ Slash commands installed
 

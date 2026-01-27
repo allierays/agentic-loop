@@ -116,15 +116,20 @@ detect_project_type() {
 install_claude_skills() {
   echo -e "  ${CYAN}Installing Claude skills...${NC}"
 
-  mkdir -p .claude/commands
-
-  # Copy all command files from agentic-loop
-  if [[ -d "$VIBE_ROOT/.claude/commands" ]]; then
+  # New skills format (.claude/skills/<name>/SKILL.md)
+  if [[ -d "$VIBE_ROOT/.claude/skills" ]]; then
+    mkdir -p .claude/skills
+    cp -r "$VIBE_ROOT/.claude/skills/"* .claude/skills/ 2>/dev/null || true
+    local count=$(ls -d .claude/skills/*/ 2>/dev/null | wc -l | tr -d ' ')
+    echo -e "    ${GREEN}${EMOJI_CHECK}${NC} $count slash commands installed"
+  # Fallback to legacy commands format
+  elif [[ -d "$VIBE_ROOT/.claude/commands" ]]; then
+    mkdir -p .claude/commands
     cp -r "$VIBE_ROOT/.claude/commands/"* .claude/commands/ 2>/dev/null || true
     local count=$(ls -1 .claude/commands/*.md 2>/dev/null | wc -l | tr -d ' ')
     echo -e "    ${GREEN}${EMOJI_CHECK}${NC} $count slash commands installed"
   else
-    echo -e "    ${YELLOW}${EMOJI_WARN}${NC} No command templates found"
+    echo -e "    ${YELLOW}${EMOJI_WARN}${NC} No skill templates found"
   fi
 }
 

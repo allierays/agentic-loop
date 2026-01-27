@@ -8,7 +8,7 @@ Slash commands for Claude Code that power the agentic-loop workflow.
 npm install agentic-loop
 ```
 
-The postinstall automatically copies commands to your project's `.claude/commands/`.
+The postinstall automatically copies skills to your project's `.claude/skills/`.
 
 ---
 

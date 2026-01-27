@@ -53,7 +53,7 @@ Work on your story following these rules:
 - **story.errorHandling** - How to handle failures
 - **story.apiContract** - Expected request/response format (if applicable)
 - **story.notes** - Human guidance and preferences
-- **story.skills** - Read `.claude/commands/{skill}.md` for patterns
+- **story.skills** - Read `.claude/skills/{skill}/SKILL.md` for patterns
 
 ### From the PRD
 - **prd.globalConstraints** - Rules that apply to ALL stories

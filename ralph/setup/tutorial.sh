@@ -81,7 +81,7 @@ lesson_slash_commands() {
   echo -e "    ${CYAN}/compact${NC}   Summarize context to save tokens"
   echo -e "    ${CYAN}/cost${NC}      Show token usage and cost"
   echo ""
-  echo -e "  ${BOLD}Custom commands${NC} (from ${DIM}.claude/commands/${NC}):"
+  echo -e "  ${BOLD}Custom commands${NC} (from ${DIM}.claude/skills/${NC}):"
   echo ""
   echo -e "    ${CYAN}/idea${NC}      Brainstorm → PRD → Ready for Ralph"
   echo -e "    ${CYAN}/vibe-check${NC} Code quality audit"

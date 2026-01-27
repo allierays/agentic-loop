@@ -46,7 +46,7 @@ Agentic-loop is a system that lets you describe a feature in plain English, have
 **Languages:**
 - **Bash** - Core loop, verification, CLI (ralph/ directory)
 - **TypeScript** - Static analysis tool called "vibe-check" (src/ directory)
-- **Markdown** - Slash commands that Claude reads for instructions (.claude/commands/)
+- **Markdown** - Slash commands that Claude reads for instructions (.claude/skills/)
 - **JSON** - Configuration, PRD (Product Requirements Document), learned patterns
 
 ---
@@ -105,7 +105,7 @@ This is the main user journey - from a rough idea to shipped, working code.
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### /idea Command (.claude/commands/idea.md)
+### /idea Command (.claude/skills/idea/SKILL.md)
 
 The `/idea` command is a markdown file that Claude reads as instructions. When you type `/idea "feature"`, Claude follows these steps:
 
@@ -115,7 +115,7 @@ The `/idea` command is a markdown file that Claude reads as instructions. When y
 4. **Wait** - Stop and ask user to review and approve
 5. **Delegate** - Call `/prd` command to generate the PRD
 
-### /prd Command (.claude/commands/prd.md)
+### /prd Command (.claude/skills/prd/SKILL.md)
 
 The `/prd` command generates the actual task list (PRD = Product Requirements Document). This is where the "single source of truth" lives - all schema definitions, testing requirements, and story format are defined here.
 
@@ -208,7 +208,7 @@ Setup detects your project type and configures everything:
 | `setup_ralph_dir()` | Create `.ralph/` with config.json, signs.json based on detected project type |
 | `setup_gitignore()` | Add agentic-loop files to .gitignore |
 | `setup_claude_hooks()` | Copy hooks to `.ralph/hooks/` and configure `.claude/settings.json` |
-| `setup_slash_commands()` | Copy slash commands to `.claude/commands/` |
+| `setup_slash_commands()` | Copy slash commands to `.claude/skills/` |
 | `setup_claude_md()` | Generate CLAUDE.md with conventions for detected stack |
 | `setup_mcp()` | Help configure MCP tools (Playwright, DevTools) |
 | `setup_precommit_hooks()` | Set up pre-commit hooks for git |
@@ -472,12 +472,12 @@ The 7-step framework Claude follows:
 
 ## Slash Commands
 
-Claude Code has a feature called "slash commands" - markdown files in `.claude/commands/` that Claude reads as instructions when you type `/commandname`.
+Claude Code has a feature called "slash commands" - markdown files in `.claude/skills/` that Claude reads as instructions when you type `/commandname`.
 
 ### How They Work
 
 When you type `/idea "add auth"` in Claude Code:
-1. Claude looks for `.claude/commands/idea.md`
+1. Claude looks for `.claude/skills/idea/SKILL.md`
 2. Claude reads the entire file as instructions
 3. Claude follows those instructions with your input ("add auth")
 
@@ -728,7 +728,7 @@ The PRD (Product Requirements Document). Contains:
 - Global constraints (rules for all stories)
 - Stories array (the actual tasks)
 
-Schema is defined in `.claude/commands/prd.md`.
+Schema is defined in `.claude/skills/prd/SKILL.md`.
 
 ### .ralph/signs.json
 
