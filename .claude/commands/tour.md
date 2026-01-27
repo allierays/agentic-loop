@@ -157,7 +157,55 @@ For fullstack projects with separate frontend:
 jq '.commands.dev = "cd frontend && npm run dev"' .ralph/config.json > .ralph/config.tmp && mv .ralph/config.tmp .ralph/config.json
 ```
 
-### 2d. Detect Build & Test
+### 2d. Detect Test Directory and Patterns
+
+Check for test directories and files:
+
+```bash
+# Check common test directories
+for dir in tests test __tests__ spec src/__tests__; do
+  test -d "$dir" && echo "Found test directory: $dir"
+done
+
+# Check for test files (colocated pattern)
+find . -type f \( -name "*.test.ts" -o -name "*.spec.ts" -o -name "*_test.py" -o -name "test_*.py" -o -name "*_test.exs" -o -name "*_test.go" \) \
+  -not -path "*/node_modules/*" -not -path "*/.venv/*" 2>/dev/null | head -3
+```
+
+Update config based on findings:
+
+```bash
+# If tests/ directory found
+jq '.tests.directory = "tests"' .ralph/config.json > .ralph/config.tmp && mv .ralph/config.tmp .ralph/config.json
+
+# If test/ directory found (Elixir convention)
+jq '.tests.directory = "test"' .ralph/config.json > .ralph/config.tmp && mv .ralph/config.tmp .ralph/config.json
+
+# If colocated tests found (no test directory, but *.test.ts files exist)
+jq '.tests.directory = "src"' .ralph/config.json > .ralph/config.tmp && mv .ralph/config.tmp .ralph/config.json
+```
+
+Set test patterns based on project type:
+
+```bash
+# Node/TypeScript projects
+jq '.tests.patterns = "*.test.ts,*.test.tsx,*.spec.ts,*.spec.tsx,*.test.js,*.spec.js"' .ralph/config.json > .ralph/config.tmp && mv .ralph/config.tmp .ralph/config.json
+
+# Python projects
+jq '.tests.patterns = "*_test.py,test_*.py"' .ralph/config.json > .ralph/config.tmp && mv .ralph/config.tmp .ralph/config.json
+
+# Elixir projects
+jq '.tests.patterns = "*_test.exs"' .ralph/config.json > .ralph/config.tmp && mv .ralph/config.tmp .ralph/config.json
+
+# Go projects
+jq '.tests.patterns = "*_test.go"' .ralph/config.json > .ralph/config.tmp && mv .ralph/config.tmp .ralph/config.json
+```
+
+**If NO tests found:**
+- Say: "⚠️ No test directory found. Ralph can only verify syntax and API responses."
+- Say: "Add tests, or set `checks.requireTests: false` in config to silence this warning."
+
+### 2e. Detect Build & Test Commands
 
 Check for build script in package.json:
 ```bash
@@ -182,6 +230,7 @@ test -f jest.config.js && echo "jest"
 test -f manage.py && echo "django"
 test -f pytest.ini && echo "pytest"
 test -f pyproject.toml && grep -q "pytest" pyproject.toml && echo "pytest"
+test -f mix.exs && echo "exunit"
 ```
 
 Update config:
@@ -200,14 +249,17 @@ jq '.checks.test = "pytest"' .ralph/config.json > .ralph/config.tmp && mv .ralph
 
 # If vitest/jest found
 jq '.checks.test = "npm test"' .ralph/config.json > .ralph/config.tmp && mv .ralph/config.tmp .ralph/config.json
+
+# If ExUnit found (Elixir)
+jq '.checks.test = "mix test"' .ralph/config.json > .ralph/config.tmp && mv .ralph/config.tmp .ralph/config.json
 ```
 
-### 2e. Show Results
+### 2f. Show Results
 
 After updating, read the config and show user:
 
 ```bash
-cat .ralph/config.json | jq '{paths, urls, commands, checks}'
+cat .ralph/config.json | jq '{paths, urls, commands, checks, tests}'
 ```
 
 Say: "I've auto-configured Ralph:
@@ -216,7 +268,7 @@ Say: "I've auto-configured Ralph:
 
 Edit `.ralph/config.json` if anything needs adjusting."
 
-### 2f. Test Credentials (Optional)
+### 2g. Test Credentials (Optional)
 
 ```bash
 cat .ralph/config.json | jq -r '.auth.testUser // empty'
