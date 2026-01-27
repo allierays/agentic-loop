@@ -1,0 +1,134 @@
+{
+  "feature": {
+    "name": "User Authentication",
+    "ideaFile": "docs/ideas/auth.md",
+    "branch": "feature/auth",
+    "status": "pending"
+  },
+
+  "originalContext": "docs/ideas/auth.md",
+
+  "techStack": {
+    "frontend": "React",
+    "backend": "Node.js",
+    "database": "PostgreSQL"
+  },
+
+  "testing": {
+    "approach": "TDD",
+    "unit": {
+      "frontend": "vitest",
+      "backend": "jest"
+    },
+    "integration": "playwright",
+    "e2e": "playwright"
+  },
+
+  "globalConstraints": [
+    "All API calls must have error handling",
+    "Use existing UI components from src/components/ui"
+  ],
+
+  "metadata": {
+    "createdAt": "2026-01-27T10:00:00Z",
+    "estimatedStories": 2,
+    "complexity": "medium"
+  },
+
+  "stories": [
+    {
+      "id": "TASK-001",
+      "type": "backend",
+      "title": "Create user registration endpoint",
+      "priority": 1,
+      "passes": false,
+
+      "files": {
+        "create": ["src/api/users.ts", "src/api/users.test.ts"],
+        "modify": ["src/api/index.ts"],
+        "reuse": ["src/db/client.ts"]
+      },
+
+      "acceptanceCriteria": [
+        "POST /api/users creates a new user with email and password",
+        "Returns 201 with user id and email (no password in response)",
+        "Returns 400 if email already exists"
+      ],
+
+      "errorHandling": [
+        "Duplicate email returns {error: 'Email already registered'}",
+        "Invalid email returns {error: 'Invalid email format'}"
+      ],
+
+      "testing": {
+        "types": ["unit", "integration"],
+        "approach": "TDD",
+        "files": {
+          "unit": ["src/api/users.test.ts"]
+        }
+      },
+
+      "testSteps": [
+        "curl -s -X POST {config.urls.backend}/api/users -H 'Content-Type: application/json' -d '{\"email\":\"test@example.com\",\"password\":\"secret123\"}' | jq -e '.id and .email'",
+        "curl -s -X POST {config.urls.backend}/api/users -H 'Content-Type: application/json' -d '{\"email\":\"test@example.com\",\"password\":\"secret123\"}' | jq -e '.error'",
+        "npm test -- --testPathPattern=users"
+      ],
+
+      "apiContract": {
+        "endpoint": "POST /api/users",
+        "request": {"email": "string", "password": "string"},
+        "response": {"id": "string", "email": "string"}
+      },
+
+      "notes": "Hash passwords with bcrypt before storing.",
+      "dependsOn": []
+    },
+    {
+      "id": "TASK-002",
+      "type": "frontend",
+      "title": "Create registration form",
+      "priority": 2,
+      "passes": false,
+
+      "files": {
+        "create": ["src/components/RegisterForm.tsx", "src/components/RegisterForm.test.tsx"],
+        "modify": ["src/pages/index.tsx"],
+        "reuse": ["src/components/ui/Button.tsx", "src/components/ui/Input.tsx"]
+      },
+
+      "acceptanceCriteria": [
+        "Form has email and password fields",
+        "Submit button calls POST /api/users",
+        "Shows success message on 201 response",
+        "Shows error message on 400 response"
+      ],
+
+      "errorHandling": [
+        "Network error shows 'Unable to connect' message",
+        "Validation errors display inline"
+      ],
+
+      "testing": {
+        "types": ["unit", "e2e"],
+        "approach": "TDD",
+        "files": {
+          "unit": ["src/components/RegisterForm.test.tsx"],
+          "e2e": ["tests/e2e/register.spec.ts"]
+        }
+      },
+
+      "testSteps": [
+        "npx tsc --noEmit",
+        "npm test -- --testPathPattern=RegisterForm",
+        "npx playwright test tests/e2e/register.spec.ts"
+      ],
+
+      "testUrl": "{config.urls.frontend}/register",
+
+      "mcp": ["playwright", "devtools"],
+
+      "notes": "Use existing Button and Input components from ui folder.",
+      "dependsOn": ["TASK-001"]
+    }
+  ]
+}

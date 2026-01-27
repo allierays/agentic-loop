@@ -71,7 +71,7 @@ npx agentic-loop run         # Execute PRDs autonomously
 ```
 
 **What's a PRD?**
-A JSON file (`.ralph/prd.json`) containing your feature broken into small stories. Each story has acceptance criteria, test steps, and a test URL. Ralph implements them one by one.
+A JSON file (`.ralph/prd.json`) containing your feature broken into small stories. Each story has acceptance criteria, test steps, and a test URL. Ralph implements them one by one. See [`templates/prd-example.json`](templates/prd-example.json) for a complete example.
 
 **What are Signs?**
 Patterns Ralph learns from failures. If Ralph keeps making the same mistake, add a sign: `npx agentic-loop sign "Always use camelCase for API fields" backend`. Future stories will see this guidance.

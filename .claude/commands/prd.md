@@ -197,6 +197,8 @@ Ralph will work through each story, running tests and committing as it goes."
 
 ## Complete PRD JSON Schema
 
+**Full working example:** See `templates/prd-example.json` for a complete, valid PRD.
+
 ```json
 {
   "feature": {

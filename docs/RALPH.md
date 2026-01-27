@@ -44,7 +44,9 @@ Ralph reads from multiple files to give Claude full context:
 
 ### prd.json (The Work)
 
-The PRD is the **single source of truth** - everything Claude needs is here:
+The PRD is the **single source of truth** - everything Claude needs is here.
+
+**See full example:** [`templates/prd-example.json`](../templates/prd-example.json)
 
 ```json
 {
