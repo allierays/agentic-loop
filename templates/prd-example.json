@@ -26,7 +26,9 @@
 
   "globalConstraints": [
     "All API calls must have error handling",
-    "Use existing UI components from src/components/ui"
+    "Use existing UI components from src/components/ui",
+    "Never store passwords in plain text",
+    "Sanitize all user input before database operations"
   ],
 
   "metadata": {
@@ -51,13 +53,17 @@
 
       "acceptanceCriteria": [
         "POST /api/users creates a new user with email and password",
-        "Returns 201 with user id and email (no password in response)",
-        "Returns 400 if email already exists"
+        "Returns 201 with user id and email (password NEVER in response)",
+        "Returns 400 if email already exists",
+        "Passwords hashed with bcrypt (cost factor 10+) before storing",
+        "Email validated for format before insert",
+        "Input sanitized to prevent SQL injection"
       ],
 
       "errorHandling": [
         "Duplicate email returns {error: 'Email already registered'}",
-        "Invalid email returns {error: 'Invalid email format'}"
+        "Invalid email returns {error: 'Invalid email format'}",
+        "Missing fields returns {error: 'Email and password required'}"
       ],
 
       "testing": {
@@ -69,9 +75,9 @@
       },
 
       "testSteps": [
-        "curl -s -X POST {config.urls.backend}/api/users -H 'Content-Type: application/json' -d '{\"email\":\"test@example.com\",\"password\":\"secret123\"}' | jq -e '.id and .email'",
-        "curl -s -X POST {config.urls.backend}/api/users -H 'Content-Type: application/json' -d '{\"email\":\"test@example.com\",\"password\":\"secret123\"}' | jq -e '.error'",
-        "npm test -- --testPathPattern=users"
+        "curl -s -X POST {config.urls.backend}/api/users -H 'Content-Type: application/json' -d '{\"email\":\"test@example.com\",\"password\":\"secret123\"}' | jq -e '.id and .email and (has(\"password\") | not)'",
+        "curl -s -X POST {config.urls.backend}/api/users -H 'Content-Type: application/json' -d '{\"email\":\"test@example.com\",\"password\":\"secret123\"}' | jq -e '.error == \"Email already registered\"'",
+        "curl -s -X POST {config.urls.backend}/api/users -H 'Content-Type: application/json' -d '{\"email\":\"invalid\",\"password\":\"x\"}' | jq -e '.error'"
       ],
 
       "apiContract": {
@@ -80,7 +86,7 @@
         "response": {"id": "string", "email": "string"}
       },
 
-      "notes": "Hash passwords with bcrypt before storing.",
+      "notes": "SECURITY: Use bcrypt with cost 10+. Never log passwords. Validate email format server-side even if validated client-side.",
       "dependsOn": []
     },
     {
@@ -97,15 +103,20 @@
       },
 
       "acceptanceCriteria": [
-        "Form has email and password fields",
+        "Form has email and password fields with proper input types",
+        "Password field uses type='password' (masked input)",
         "Submit button calls POST /api/users",
         "Shows success message on 201 response",
-        "Shows error message on 400 response"
+        "Shows error message on 400 response",
+        "Client-side validation before submit (email format, password length)",
+        "Disable submit button while request in flight (prevent double-submit)",
+        "Form matches mockup in docs/ideas/auth.md"
       ],
 
       "errorHandling": [
         "Network error shows 'Unable to connect' message",
-        "Validation errors display inline"
+        "Validation errors display inline below each field",
+        "Server errors display at form level"
       ],
 
       "testing": {
@@ -119,15 +130,67 @@
 
       "testSteps": [
         "npx tsc --noEmit",
-        "npm test -- --testPathPattern=RegisterForm",
         "npx playwright test tests/e2e/register.spec.ts"
       ],
 
       "testUrl": "{config.urls.frontend}/register",
 
+      "contextFiles": [
+        "docs/ideas/auth.md",
+        "src/styles/styleguide.html"
+      ],
+
       "mcp": ["playwright", "devtools"],
 
-      "notes": "Use existing Button and Input components from ui folder.",
+      "notes": "IMPORTANT: Reference the ASCII mockup in docs/ideas/auth.md for layout. Use existing Button and Input components from ui folder per styleguide.",
+      "dependsOn": ["TASK-001"]
+    },
+    {
+      "id": "TASK-003",
+      "type": "backend",
+      "title": "List users endpoint with pagination",
+      "priority": 3,
+      "passes": false,
+
+      "files": {
+        "create": [],
+        "modify": ["src/api/users.ts"],
+        "reuse": ["src/db/client.ts"]
+      },
+
+      "acceptanceCriteria": [
+        "GET /api/users returns paginated list of users",
+        "Accepts ?page=1&limit=20 query params",
+        "Default limit is 20, max limit is 100",
+        "Returns {data: [...], total: N, page: N, limit: N}",
+        "Passwords NEVER included in response",
+        "Results ordered by created_at desc",
+        "Database query uses index on created_at"
+      ],
+
+      "errorHandling": [
+        "Invalid page/limit returns 400 with error message",
+        "limit > 100 returns 400 'Limit cannot exceed 100'"
+      ],
+
+      "testing": {
+        "types": ["integration"],
+        "approach": "TDD",
+        "files": {}
+      },
+
+      "testSteps": [
+        "curl -s '{config.urls.backend}/api/users?page=1&limit=10' | jq -e '.data and .total and .page and .limit'",
+        "curl -s '{config.urls.backend}/api/users?limit=200' | jq -e '.error'"
+      ],
+
+      "apiContract": {
+        "endpoint": "GET /api/users",
+        "request": {"page": "number (optional)", "limit": "number (optional)"},
+        "response": {"data": "User[]", "total": "number", "page": "number", "limit": "number"}
+      },
+
+      "notes": "SCALE: Always paginate list endpoints. Enforce max limit to prevent memory issues. Add database index for sort column.",
       "dependsOn": ["TASK-001"]
     }
   ]

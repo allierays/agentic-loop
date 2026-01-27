@@ -773,3 +773,117 @@ If the `log-tools.sh` hook is enabled, logs every tool Claude uses:
 2024-01-15 10:35:20 | Edit   | src/components/Dashboard.tsx
 2024-01-15 10:36:00 | Bash   | npm test
 ```
+
+---
+
+## PRD Validation and Story Quality
+
+Before Ralph runs any stories, it validates the PRD and auto-fixes common issues. This prevents wasted iterations on poorly-defined stories.
+
+### Why Validation Matters
+
+Common problems with AI-generated PRDs:
+1. **Weak testSteps** - `npm test` alone passes with mocks but doesn't verify real behavior
+2. **Missing context** - Frontend stories without styleguide/mockup references
+3. **No security criteria** - Auth endpoints without password hashing requirements
+4. **No scale criteria** - List endpoints without pagination
+
+### validate_prd() Checks
+
+Run automatically before the loop starts. For each story:
+
+| Check | Story Type | What's Validated |
+|-------|------------|------------------|
+| **Real testSteps** | All | Must have `curl`/`playwright`/`tsc`, not just `npm test` |
+| **apiContract** | Backend | Must define endpoint, request, response |
+| **testUrl** | Frontend | Must have URL for visual verification |
+| **contextFiles** | Frontend | Must include idea file (ASCII mockups) + styleguide |
+| **Security criteria** | Auth stories | Must have password hashing, input validation |
+| **Scale criteria** | List endpoints | Must have pagination, max limits |
+
+### Auto-Fix with Claude
+
+When validation finds issues, Ralph asks Claude to fix them before running:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  validate_prd()                                              │
+│                                                              │
+│  For each story:                                             │
+│    1. Check testSteps - has curl/playwright? ────────────┐  │
+│    2. Check apiContract (backend) ───────────────────────│  │
+│    3. Check testUrl + contextFiles (frontend) ───────────│  │
+│    4. Check security criteria (auth stories) ────────────│  │
+│    5. Check scale criteria (list endpoints) ─────────────│  │
+│                                                          │  │
+│  Issues found? ──────────────────────────────────────────┘  │
+│       │                                                      │
+│       ▼                                                      │
+│  Call Claude with fix prompt:                                │
+│  "Story TASK-001 is missing: apiContract, security criteria" │
+│  "Fix these issues. Output updated story JSON."              │
+│       │                                                      │
+│       ▼                                                      │
+│  Update prd.json with fixed story                            │
+│  Continue to next story                                      │
+│                                                              │
+│  All stories validated → Start the loop                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Security Criteria (Added to acceptanceCriteria)
+
+Stories involving authentication or user input should include:
+
+| Story Type | Required Criteria |
+|------------|-------------------|
+| Password handling | "Passwords hashed with bcrypt (cost 10+)" |
+| Auth endpoints | "Tokens expire after X hours" |
+| User input | "Input sanitized to prevent SQL injection" |
+| API responses | "Passwords/secrets NEVER in response" |
+| Login | "Rate limited to N attempts per minute" |
+
+### Scale Criteria (Added to acceptanceCriteria)
+
+Stories involving lists or high-traffic endpoints should include:
+
+| Story Type | Required Criteria |
+|------------|-------------------|
+| List endpoints | "Returns paginated results (max 100 per page)" |
+| List endpoints | "Accepts ?page=N&limit=N query params" |
+| Frequent reads | "Response cached for N seconds" |
+| Large datasets | "Database query uses index on sort column" |
+
+### testSteps Best Practices
+
+**Backend stories** - Must hit real endpoints:
+```json
+"testSteps": [
+  "curl -s -X POST {config.urls.backend}/api/users -d '...' | jq -e '.id'",
+  "curl -s {config.urls.backend}/api/users?limit=200 | jq -e '.error'"
+]
+```
+
+**Frontend stories** - Must use real verification:
+```json
+"testSteps": [
+  "npx tsc --noEmit",
+  "npx playwright test tests/e2e/register.spec.ts"
+]
+```
+
+**Avoid** - These pass but don't verify behavior:
+```json
+"testSteps": [
+  "npm test",              // Mocks can make this pass
+  "grep -q 'function' file.ts",  // Code exists ≠ code works
+  "test -f src/component.tsx"    // File exists ≠ file works
+]
+```
+
+### Example: Well-Validated Story
+
+See `templates/prd-example.json` for complete examples showing:
+- Backend story with security criteria and curl tests
+- Frontend story with contextFiles and playwright tests
+- List endpoint with pagination and scale criteria
