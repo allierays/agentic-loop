@@ -509,6 +509,27 @@ validate_prd() {
     print_warning "PRD is missing feature name (will show as 'unnamed')"
   fi
 
+  # Check if project has tests (from config)
+  local config="$RALPH_DIR/config.json"
+  if [[ -f "$config" ]]; then
+    local require_tests
+    require_tests=$(jq -r '.checks.requireTests // true' "$config" 2>/dev/null)
+    local test_dir
+    test_dir=$(jq -r '.tests.directory // empty' "$config" 2>/dev/null)
+
+    if [[ "$require_tests" == "true" && -z "$test_dir" ]]; then
+      echo ""
+      print_warning "No test directory configured in .ralph/config.json"
+      echo "  Without tests, Ralph can only verify syntax and API responses."
+      echo "  Import errors and integration issues won't be caught."
+      echo ""
+      echo "  To fix: Add tests, or set in .ralph/config.json:"
+      echo "    {\"tests\": {\"directory\": \"src\", \"patterns\": \"*.test.ts\"}}"
+      echo "  To silence: {\"checks\": {\"requireTests\": false}}"
+      echo ""
+    fi
+  fi
+
   # Validate and fix individual stories
   validate_and_fix_stories "$prd_file" || return 1
 
@@ -589,7 +610,8 @@ validate_and_fix_stories() {
     fi
 
     # Check 5: List endpoints need scale criteria
-    if echo "$story_title" | grep -qiE "(list|get all|fetch all|index|search)"; then
+    # Note: "search" excluded - search endpoints often return single/filtered results
+    if echo "$story_title" | grep -qiE "(list|get all|fetch all|index)"; then
       local criteria
       criteria=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .acceptanceCriteria // [] | join(" ")' "$prd_file")
       if ! echo "$criteria" | grep -qiE "(pagina|limit|page=|per.?page)"; then
@@ -656,36 +678,51 @@ RULES FOR FIXING:
 CURRENT PRD:
 $(cat "$prd_file")
 
-Output ONLY the fixed JSON, no explanation."
+Output ONLY the fixed JSON, no explanation. Start with { and end with }."
 
+  local raw_response
+  raw_response=$(echo "$fix_prompt" | run_with_timeout "$CODE_REVIEW_TIMEOUT_SECONDS" claude -p 2>/dev/null)
+
+  # Extract JSON from response (Claude sometimes adds text before/after)
   local fixed_prd
-  fixed_prd=$(echo "$fix_prompt" | claude -p 2>/dev/null)
+  fixed_prd=$(echo "$raw_response" | sed -n '/^[[:space:]]*{/,/^[[:space:]]*}[[:space:]]*$/p' | head -1000)
 
-  # Validate the response is valid JSON
-  if echo "$fixed_prd" | jq -e . >/dev/null 2>&1; then
-    # Backup original
-    cp "$prd_file" "${prd_file}.bak"
+  # If sed extraction failed, try the raw response
+  if [[ -z "$fixed_prd" ]]; then
+    fixed_prd="$raw_response"
+  fi
+
+  # Validate the response is valid JSON with required structure
+  if echo "$fixed_prd" | jq -e '.stories' >/dev/null 2>&1; then
+    # Timestamped backup (preserves history across multiple fixes)
+    local backup_file="${prd_file}.$(date +%Y%m%d-%H%M%S).bak"
+    cp "$prd_file" "$backup_file"
 
     # Write fixed PRD
     echo "$fixed_prd" > "$prd_file"
-    print_success "PRD auto-fixed (backup at ${prd_file}.bak)"
+    print_success "PRD auto-fixed (backup at $backup_file)"
 
     # Re-validate to confirm fixes
     echo "  Re-validating..."
     local remaining_issues
     remaining_issues=$(validate_stories_quick "$prd_file")
     if [[ -n "$remaining_issues" ]]; then
-      print_warning "Some issues remain - may need manual fixes"
+      print_warning "Some issues remain - may need manual fixes:"
+      echo "$remaining_issues" | tr ',' '\n' | while IFS= read -r line; do
+        [[ -n "$line" ]] && echo "    $line"
+      done
     else
       print_success "All issues resolved"
     fi
   else
     print_error "Claude returned invalid JSON - fix manually"
+    echo "  Response preview: $(echo "$raw_response" | head -3)"
     return 1
   fi
 }
 
 # Quick validation without auto-fix (for re-checking after fix)
+# Checks all the same things as validate_and_fix_stories() but returns issues string
 validate_stories_quick() {
   local prd_file="$1"
   local issues=""
@@ -698,17 +735,55 @@ validate_stories_quick() {
 
     local story_type
     story_type=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .type // "unknown"' "$prd_file")
+    local story_title
+    story_title=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .title // ""' "$prd_file")
     local test_steps
     test_steps=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .testSteps // [] | join(" ")' "$prd_file")
 
+    # Check 1: testSteps quality
     if [[ "$story_type" == "backend" ]] && ! echo "$test_steps" | grep -q "curl "; then
-      issues+="$story_id: still missing curl tests, "
+      issues+="$story_id: missing curl tests, "
+    fi
+    if [[ "$story_type" == "frontend" ]] && ! echo "$test_steps" | grep -qE "(tsc --noEmit|playwright)"; then
+      issues+="$story_id: missing tsc/playwright tests, "
     fi
 
+    # Check 2: Backend needs apiContract
+    if [[ "$story_type" == "backend" ]]; then
+      local has_contract
+      has_contract=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .apiContract // empty' "$prd_file")
+      if [[ -z "$has_contract" || "$has_contract" == "null" ]]; then
+        issues+="$story_id: missing apiContract, "
+      fi
+    fi
+
+    # Check 3: Frontend needs testUrl and contextFiles
     if [[ "$story_type" == "frontend" ]]; then
       local has_url
       has_url=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .testUrl // empty' "$prd_file")
-      [[ -z "$has_url" ]] && issues+="$story_id: still missing testUrl, "
+      [[ -z "$has_url" || "$has_url" == "null" ]] && issues+="$story_id: missing testUrl, "
+
+      local context_files
+      context_files=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .contextFiles // [] | length' "$prd_file")
+      [[ "$context_files" == "0" ]] && issues+="$story_id: missing contextFiles, "
+    fi
+
+    # Check 4: Auth stories need security criteria
+    if echo "$story_title" | grep -qiE "(login|auth|password|register|signup|sign.?up)"; then
+      local criteria
+      criteria=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .acceptanceCriteria // [] | join(" ")' "$prd_file")
+      if ! echo "$criteria" | grep -qiE "(hash|bcrypt|sanitiz|inject|rate.?limit)"; then
+        issues+="$story_id: missing security criteria, "
+      fi
+    fi
+
+    # Check 5: List endpoints need scale criteria
+    if echo "$story_title" | grep -qiE "(list|get all|fetch all|index)"; then
+      local criteria
+      criteria=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .acceptanceCriteria // [] | join(" ")' "$prd_file")
+      if ! echo "$criteria" | grep -qiE "(pagina|limit|page=|per.?page)"; then
+        issues+="$story_id: missing pagination criteria, "
+      fi
     fi
   done <<< "$story_ids"
 

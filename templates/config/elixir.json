@@ -39,7 +39,13 @@
     "typecheck": false,
     "build": true,
     "test": true,
+    "requireTests": true,
     "fastapi": false
+  },
+
+  "tests": {
+    "directory": "test",
+    "patterns": "*_test.exs"
   },
 
   "api": {

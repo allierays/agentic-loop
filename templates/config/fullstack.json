@@ -41,7 +41,13 @@
     "typecheck": true,
     "build": "final",
     "test": true,
+    "requireTests": true,
     "fastapi": true
+  },
+
+  "tests": {
+    "directory": "tests",
+    "patterns": "*.test.ts,*.test.tsx,*_test.py,test_*.py"
   },
 
   "api": {

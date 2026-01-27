@@ -39,7 +39,13 @@
     "typecheck": true,
     "build": "final",
     "test": true,
+    "requireTests": false,
     "fastapi": false
+  },
+
+  "tests": {
+    "directory": "",
+    "patterns": ""
   },
 
   "api": {

@@ -496,6 +496,89 @@ auto_configure_project() {
     done
   fi
 
+  # 7. Detect test directory and patterns
+  local test_dir=""
+  local test_patterns=""
+
+  # Check for common test directories
+  for dir in "tests" "test" "__tests__" "spec" \
+             "src/__tests__" "src/test" \
+             "apps/api/tests" "apps/web/tests" \
+             "backend/tests" "frontend/tests"; do
+    if [[ -d "$dir" ]]; then
+      test_dir="$dir"
+      break
+    fi
+  done
+
+  # If no directory found, check for colocated test files
+  if [[ -z "$test_dir" ]]; then
+    # Look for test files anywhere (colocated pattern)
+    local test_file=""
+    test_file=$(find . -type f \( \
+      -name "*_test.py" -o -name "test_*.py" -o \
+      -name "*.test.ts" -o -name "*.test.js" -o -name "*.test.tsx" -o \
+      -name "*.spec.ts" -o -name "*.spec.js" -o \
+      -name "*_test.go" -o -name "*_test.rs" \
+    \) -not -path "*/node_modules/*" -not -path "*/.venv/*" -not -path "*/venv/*" \
+       -not -path "*/.git/*" -not -path "*/dist/*" -not -path "*/build/*" \
+       -not -path "*/__pycache__/*" -not -path "*/coverage/*" 2>/dev/null | head -1 || true)
+
+    if [[ -n "$test_file" ]]; then
+      # Tests are colocated with source (e.g., src/component.test.ts)
+      test_dir="src"
+      [[ ! -d "src" ]] && test_dir="."
+    fi
+  fi
+
+  # Detect test patterns based on project type (combine for mixed projects)
+  test_patterns=""
+  if [[ -f "pyproject.toml" || -f "requirements.txt" ]]; then
+    test_patterns="*_test.py,test_*.py"
+  fi
+  if [[ -f "package.json" ]]; then
+    [[ -n "$test_patterns" ]] && test_patterns+=","
+    test_patterns+="*.test.ts,*.test.tsx,*.test.js,*.spec.ts,*.spec.tsx,*.spec.js"
+  fi
+  if [[ -f "go.mod" ]]; then
+    [[ -n "$test_patterns" ]] && test_patterns+=","
+    test_patterns+="*_test.go"
+  fi
+  if [[ -f "Cargo.toml" ]]; then
+    [[ -n "$test_patterns" ]] && test_patterns+=","
+    test_patterns+="*_test.rs"
+  fi
+  if [[ -f "mix.exs" ]]; then
+    [[ -n "$test_patterns" ]] && test_patterns+=","
+    test_patterns+="*_test.exs"
+  fi
+
+  if [[ -n "$test_dir" ]]; then
+    if ! jq -e '.tests.directory' "$tmpfile" >/dev/null 2>&1 || [[ "$(jq -r '.tests.directory' "$tmpfile")" == "" ]]; then
+      jq --arg dir "$test_dir" --arg patterns "$test_patterns" \
+         '.tests.directory = $dir | .tests.patterns = $patterns' \
+         "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+      echo "  Auto-detected tests.directory: $test_dir"
+      updated=true
+    fi
+  else
+    # No tests found - check if warning is suppressed
+    local require_tests
+    require_tests=$(jq -r '.checks.requireTests // true' "$tmpfile" 2>/dev/null)
+
+    if [[ "$require_tests" == "true" ]]; then
+      echo ""
+      print_warning "No test directory or test files found."
+      echo "  Without tests, Ralph can only verify syntax and API responses."
+      echo "  Import errors and integration issues won't be caught."
+      echo ""
+      echo "  To fix: Add tests, or set in .ralph/config.json:"
+      echo "    {\"tests\": {\"directory\": \"src\", \"patterns\": \"*.test.ts\"}}"
+      echo "  To silence: {\"checks\": {\"requireTests\": false}}"
+      echo ""
+    fi
+  fi
+
   # Save if updated
   if [[ "$updated" == "true" ]]; then
     mv "$tmpfile" "$config"

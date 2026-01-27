@@ -54,7 +54,7 @@ Help the user flesh out the idea through conversation:
 **Security (IMPORTANT - ask if feature involves):**
 - Authentication: Who can access this? Login required?
 - Passwords: How stored? (must be hashed, never plain text)
-- User input: What validation needed? (prevent injection)
+- User input: What validation needed? (SQL injection, XSS, command injection)
 - Sensitive data: What should NEVER be in API responses?
 - Rate limiting: Should this be rate limited? (login attempts, API calls)
 

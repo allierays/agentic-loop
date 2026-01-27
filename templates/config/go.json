@@ -39,7 +39,13 @@
     "typecheck": false,
     "build": true,
     "test": true,
+    "requireTests": true,
     "fastapi": false
+  },
+
+  "tests": {
+    "directory": ".",
+    "patterns": "*_test.go"
   },
 
   "api": {

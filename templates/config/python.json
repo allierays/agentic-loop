@@ -39,7 +39,13 @@
     "typecheck": false,
     "build": false,
     "test": true,
+    "requireTests": true,
     "fastapi": true
+  },
+
+  "tests": {
+    "directory": "tests",
+    "patterns": "*_test.py,test_*.py"
   },
 
   "api": {
