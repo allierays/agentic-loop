@@ -371,15 +371,22 @@ EOF
   echo "  Configured .claude/settings.json"
 }
 
-# Copy slash commands
+# Copy slash commands (skills format for Claude Code)
 setup_slash_commands() {
   local pkg_root="$1"
 
-  if [[ -d "$pkg_root/.claude/commands" ]]; then
+  # New skills format (.claude/skills/<name>/SKILL.md)
+  if [[ -d "$pkg_root/.claude/skills" ]]; then
     echo "Installing slash commands..."
+    mkdir -p .claude/skills
+    cp -r "$pkg_root/.claude/skills/"* .claude/skills/ 2>/dev/null || true
+    echo "  Copied skills to .claude/skills/"
+  fi
+
+  # Legacy commands format (for backward compatibility)
+  if [[ -d "$pkg_root/.claude/commands" ]]; then
     mkdir -p .claude/commands
     cp -r "$pkg_root/.claude/commands/"* .claude/commands/ 2>/dev/null || true
-    echo "  Copied commands to .claude/commands/"
   fi
 }
 
