@@ -1,6 +1,8 @@
-# Claude Code Commands Reference
+# Claude Code Skills Reference
 
-Slash commands for Claude Code that power the agentic-loop workflow.
+Slash commands (skills) for Claude Code that power the agentic-loop workflow.
+
+> **Note:** Skills are stored in `.claude/skills/<name>/SKILL.md` format.
 
 ## Installation
 

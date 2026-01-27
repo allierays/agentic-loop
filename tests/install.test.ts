@@ -8,10 +8,51 @@ const PROJECT_ROOT = join(__dirname, '..')
 const QUICK_SETUP = join(PROJECT_ROOT, 'ralph', 'setup', 'quick-setup.sh')
 
 describe('install flow', () => {
-  describe('slash commands', () => {
+  describe('skills (new format)', () => {
+    const skillsDir = join(PROJECT_ROOT, '.claude', 'skills')
+
+    it('has all required skills', () => {
+      const requiredSkills = [
+        'idea',
+        'tour',
+        'vibe-check',
+        'review',
+        'explain',
+        'styleguide',
+        'my-dna',
+        'vibe-help',
+        'vibe-list',
+        'prd',
+        'sign'
+      ]
+
+      requiredSkills.forEach(skill => {
+        expect(existsSync(join(skillsDir, skill, 'SKILL.md'))).toBe(true)
+      })
+    })
+
+    it('/idea skill has PRD generation', () => {
+      const ideaPath = join(skillsDir, 'idea', 'SKILL.md')
+      const content = readFileSync(ideaPath, 'utf-8')
+
+      expect(content).toContain('prd.json')
+      expect(content).toContain('Generate PRD')
+      expect(content).toContain('Ralph')
+    })
+
+    it('/tour skill has Ralph content', () => {
+      const tourPath = join(skillsDir, 'tour', 'SKILL.md')
+      const content = readFileSync(tourPath, 'utf-8')
+
+      expect(content).toContain('Ralph')
+      expect(content).toContain('agentic-loop')
+    })
+  })
+
+  describe('legacy commands (backward compatibility)', () => {
     const commandsDir = join(PROJECT_ROOT, '.claude', 'commands')
 
-    it('has all required slash commands', () => {
+    it('has legacy command files', () => {
       const requiredCommands = [
         'idea.md',
         'tour.md',
@@ -27,30 +68,12 @@ describe('install flow', () => {
         expect(existsSync(join(commandsDir, cmd))).toBe(true)
       })
     })
-
-    it('/idea command has PRD schema', () => {
-      const ideaPath = join(commandsDir, 'idea.md')
-      const content = readFileSync(ideaPath, 'utf-8')
-
-      expect(content).toContain('prd.json')
-      expect(content).toContain('acceptanceCriteria')
-      expect(content).toContain('errorHandling')
-      expect(content).toContain('testSteps')
-    })
-
-    it('/tour command has Ralph content', () => {
-      const tourPath = join(commandsDir, 'tour.md')
-      const content = readFileSync(tourPath, 'utf-8')
-
-      expect(content).toContain('Ralph')
-      expect(content).toContain('agentic-loop')
-    })
   })
 
   describe('bin scripts', () => {
     it('agentic-loop.sh is executable', () => {
-      const agentic-loopPath = join(PROJECT_ROOT, 'bin', 'agentic-loop.sh')
-      expect(existsSync(agentic-loopPath)).toBe(true)
+      const agenticLoopPath = join(PROJECT_ROOT, 'bin', 'agentic-loop.sh')
+      expect(existsSync(agenticLoopPath)).toBe(true)
     })
 
     it('ralph.sh exists for internal use', () => {
@@ -70,8 +93,8 @@ describe('install flow', () => {
         'verify.sh',
         'prd.sh',
         'signs.sh',
-        'playwright.sh',
-        'api.sh'
+        'setup.sh',
+        'test.sh'
       ]
 
       requiredModules.forEach(mod => {
@@ -84,7 +107,7 @@ describe('install flow', () => {
       const content = readFileSync(verifyPath, 'utf-8')
 
       expect(content).toContain('run_verification')
-      expect(content).toContain('Code review')
+      expect(content).toContain('Verification')
     })
   })
 
@@ -130,17 +153,17 @@ describe('simulated install', () => {
     rmSync(testDir, { recursive: true, force: true })
   })
 
-  it('quick-setup creates .claude/commands', () => {
-    // Simulate what quick-setup does for slash commands
-    const commandsDir = join(testDir, '.claude', 'commands')
-    mkdirSync(commandsDir, { recursive: true })
+  it('quick-setup creates .claude/skills', () => {
+    // Simulate what quick-setup does for skills (new format)
+    const skillsDir = join(testDir, '.claude', 'skills', 'vibe-help')
+    mkdirSync(skillsDir, { recursive: true })
 
-    // Copy a command file
-    const srcCommand = join(PROJECT_ROOT, '.claude', 'commands', 'vibe-help.md')
-    const destCommand = join(commandsDir, 'vibe-help.md')
-    writeFileSync(destCommand, readFileSync(srcCommand))
+    // Copy a skill file
+    const srcSkill = join(PROJECT_ROOT, '.claude', 'skills', 'vibe-help', 'SKILL.md')
+    const destSkill = join(skillsDir, 'SKILL.md')
+    writeFileSync(destSkill, readFileSync(srcSkill))
 
-    expect(existsSync(destCommand)).toBe(true)
+    expect(existsSync(destSkill)).toBe(true)
   })
 
   it('quick-setup creates .ralph directory', () => {

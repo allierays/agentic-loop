@@ -407,11 +407,34 @@ Use `{config.urls.backend}` and `{config.urls.frontend}` in testSteps. Ralph exp
 | `checks.build` | `"npm run build"` | Build command |
 | `checks.test` | `true` | Run tests (`true`, `false`, or `"final"`) |
 | `checks.testCommand` | (auto-detect) | Custom test command |
-| `checks.requireTests` | `false` | Require test files for new Python/Go code |
+| `checks.requireTests` | `true` | Warn if no test directory found |
+| `tests.directory` | (auto-detect) | Where tests live (`tests/`, `test/`, `src/`, etc.) |
+| `tests.patterns` | (auto-detect) | Test file patterns (`*.test.ts`, `*_test.py`, etc.) |
 | `docker.enabled` | `false` | Run commands in Docker |
 | `playwright.enabled` | `true` | Enable e2e tests |
 | `styleguide` | `""` | Path to styleguide for frontend stories |
 | `maxSessionSeconds` | `600` | Claude session timeout |
+
+### Test Detection
+
+Ralph auto-detects your test setup during `init`:
+
+```json
+{
+  "tests": {
+    "directory": "tests",
+    "patterns": "*.test.ts,*.spec.ts,*_test.py"
+  },
+  "checks": {
+    "requireTests": true
+  }
+}
+```
+
+If no tests are found, Ralph warns you. To silence the warning:
+```json
+{ "checks": { "requireTests": false } }
+```
 
 ### Test Modes
 

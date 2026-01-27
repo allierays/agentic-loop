@@ -165,7 +165,7 @@ describe('PROMPT.md template', () => {
     const promptPath = join(TEMPLATES_DIR, 'PROMPT.md')
     const content = readFileSync(promptPath, 'utf-8')
 
-    expect(content).toContain('Write Tests First')
-    expect(content).toContain('Verification Checklist')
+    expect(content).toContain('TDD Workflow')
+    expect(content).toContain('Run Test Steps')
   })
 })

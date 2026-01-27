@@ -1,4 +1,4 @@
-# Contributing to Vibe and Thrive
+# Contributing to Agentic Loop
 
 Found a pattern that AI agents commonly introduce? We'd love to add it!
 
