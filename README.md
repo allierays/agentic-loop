@@ -52,14 +52,6 @@ Your loop gets smarter over time. When Ralph struggles with something, add a sig
 
 ---
 
-### Learn More
-
-- **[PRD Check](docs/PRD-CHECK.md)** - How Ralph validates stories before coding (catches prose test steps, missing API tests, security gaps)
-- **[Code Check](docs/CODE-CHECK.md)** - The 5-step verification pipeline after each story (lint, tests, PRD steps, smoke tests)
-- **[Customization & Guardrails](docs/CUSTOMIZATION.md)** - `/my-dna`, `/styleguide`, pre-commit hooks, and more
-
----
-
 ## Quick Start
 
 **Prerequisites:** Node.js 18+, [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI, `jq` (`brew install jq`)
@@ -82,16 +74,6 @@ npx agentic-loop run         # Execute PRDs autonomously
 ```
 
 > **Tip:** Use two terminals. Plan with Claude in one, run Ralph in the other.
-
----
-
-## Key Concepts
-
-**What's a PRD?**
-A JSON file (`.ralph/prd.json`) containing your feature broken into small stories. Each story has acceptance criteria, test steps, and a test URL. Ralph implements them one by one. See [`templates/prd-example.json`](templates/prd-example.json) for a complete example.
-
-**What are Signs?**
-Patterns Ralph learns from failures. If Ralph keeps making the same mistake, add a sign: `npx agentic-loop sign "Always use camelCase for API fields" backend`. Future stories will see this guidance.
 
 ---
 
