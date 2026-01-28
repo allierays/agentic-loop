@@ -178,7 +178,10 @@ run_loop() {
   local iteration=0
   local last_story=""
   local consecutive_failures=0
-  local max_story_retries=5
+  local consecutive_timeouts=0
+  local max_story_retries
+  local max_timeouts=3  # Faster skip on repeated timeouts
+  max_story_retries=$(get_config '.maxStoryRetries' "5")
   local total_attempts=0
   local skipped_stories=()
   local start_time
@@ -226,32 +229,40 @@ run_loop() {
 
     ((total_attempts++))
 
-    # Track repeated failures on same story
+    # Track repeated failures on same story (also load from prd.json for restart persistence)
     if [[ "$story" == "$last_story" ]]; then
       ((consecutive_failures++))
-
-      # Circuit breaker: skip to next story after max retries
-      if [[ $consecutive_failures -gt $max_story_retries ]]; then
-        print_error "Circuit breaker: $story failed $max_story_retries times, skipping to next story"
-        echo ""
-        echo "  Saved failure context to: $RALPH_DIR/failures/$story.txt"
-        mkdir -p "$RALPH_DIR/failures"
-        cp "$RALPH_DIR/last_failure.txt" "$RALPH_DIR/failures/$story.txt" 2>/dev/null || true
-        # Clear failure context so it doesn't leak into next story
-        rm -f "$RALPH_DIR/last_failure.txt"
-        skipped_stories+=("$story")
-        # Mark as skipped (not passed, but move on)
-        jq --arg id "$story" '(.stories[] | select(.id==$id)) |= . + {skipped: true}' "$RALPH_DIR/prd.json" > "$RALPH_DIR/prd.json.tmp" && mv "$RALPH_DIR/prd.json.tmp" "$RALPH_DIR/prd.json"
-        last_story=""
-        consecutive_failures=0
-        continue
-      fi
-
-      # Quick retry - no delay needed (Claude API isn't rate-limited)
-      print_warning "Retry $consecutive_failures/$max_story_retries for $story"
     else
-      consecutive_failures=1
+      # Load retry count from prd.json (persists across restarts)
+      consecutive_failures=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .retryCount // 0' "$RALPH_DIR/prd.json")
+      consecutive_failures=$((consecutive_failures + 1))
+      consecutive_timeouts=0
       last_story="$story"
+    fi
+
+    # Persist retry count to prd.json (survives restarts)
+    jq --arg id "$story" --argjson count "$consecutive_failures" \
+      '(.stories[] | select(.id==$id)) |= . + {retryCount: $count}' \
+      "$RALPH_DIR/prd.json" > "$RALPH_DIR/prd.json.tmp" && mv "$RALPH_DIR/prd.json.tmp" "$RALPH_DIR/prd.json"
+
+    # Circuit breaker: skip to next story after max retries
+    if [[ $consecutive_failures -gt $max_story_retries ]]; then
+      print_error "Circuit breaker: $story failed $consecutive_failures times (max $max_story_retries), skipping"
+      echo ""
+      echo "  Saved failure context to: $RALPH_DIR/failures/$story.txt"
+      mkdir -p "$RALPH_DIR/failures"
+      cp "$RALPH_DIR/last_failure.txt" "$RALPH_DIR/failures/$story.txt" 2>/dev/null || true
+      rm -f "$RALPH_DIR/last_failure.txt"
+      skipped_stories+=("$story")
+      jq --arg id "$story" '(.stories[] | select(.id==$id)) |= . + {skipped: true, skipReason: "exceeded max retries"}' "$RALPH_DIR/prd.json" > "$RALPH_DIR/prd.json.tmp" && mv "$RALPH_DIR/prd.json.tmp" "$RALPH_DIR/prd.json"
+      last_story=""
+      consecutive_failures=0
+      continue
+    fi
+
+    # Show retry status
+    if [[ $consecutive_failures -gt 1 ]]; then
+      print_warning "Retry $consecutive_failures/$max_story_retries for $story"
     fi
 
     # 2. Session startup checklist (skip on retries)
@@ -373,17 +384,35 @@ run_loop() {
     fi
 
     if [[ $claude_exit_code -ne 0 ]]; then
-      print_warning "Claude session ended (timeout or error)"
-      log_progress "$story" "TIMEOUT" "Claude session ended after ${timeout_seconds}s"
+      ((consecutive_timeouts++))
+      print_warning "Claude session ended (timeout or error) - timeout $consecutive_timeouts/$max_timeouts"
+      log_progress "$story" "TIMEOUT" "Claude session ended after ${timeout_seconds}s (timeout $consecutive_timeouts)"
       rm -f "$prompt_file"
 
       # Session may be broken - reset for next attempt
       session_started=false
 
+      # Fast skip on repeated timeouts (likely a systemic issue)
+      if [[ $consecutive_timeouts -ge $max_timeouts ]]; then
+        print_error "Story $story timed out $max_timeouts times - likely too large, skipping"
+        mkdir -p "$RALPH_DIR/failures"
+        echo "Story $story timed out $max_timeouts consecutive times (${timeout_seconds}s each)" > "$RALPH_DIR/failures/$story.txt"
+        echo "Consider breaking this story into smaller pieces." >> "$RALPH_DIR/failures/$story.txt"
+        skipped_stories+=("$story")
+        jq --arg id "$story" '(.stories[] | select(.id==$id)) |= . + {skipped: true, skipReason: "repeated timeouts"}' "$RALPH_DIR/prd.json" > "$RALPH_DIR/prd.json.tmp" && mv "$RALPH_DIR/prd.json.tmp" "$RALPH_DIR/prd.json"
+        last_story=""
+        consecutive_failures=0
+        consecutive_timeouts=0
+        continue
+      fi
+
       # If running specific story, exit on failure
       [[ -n "$specific_story" ]] && return 1
       continue
     fi
+
+    # Reset timeout counter on successful Claude run
+    consecutive_timeouts=0
 
     rm -f "$prompt_file"
     session_started=true  # Mark session as active for subsequent stories
@@ -402,9 +431,9 @@ run_loop() {
     local verify_log="$RALPH_DIR/last_verification.log"
     set -o pipefail
     if run_verification "$story" 2>&1 | tee "$verify_log"; then
-      # Mark story as complete
+      # Mark story as complete and reset retry count
       update_json "$RALPH_DIR/prd.json" \
-        --arg id "$story" '(.stories[] | select(.id==$id) | .passes) = true'
+        --arg id "$story" '(.stories[] | select(.id==$id)) |= . + {passes: true, retryCount: 0}'
 
       # Clear failure context on success
       rm -f "$RALPH_DIR/last_failure.txt"
