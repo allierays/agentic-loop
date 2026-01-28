@@ -429,6 +429,12 @@ send_notification() {
   return 0
 }
 
+# Escape special regex characters in a string for use in sed
+# Usage: escaped=$(escape_sed_pattern "http://localhost:8000")
+_escape_sed_pattern() {
+  printf '%s' "$1" | sed 's/[.[\/*^$()+?{|]/\\&/g'
+}
+
 # Replace hardcoded paths/URLs with config placeholders
 # Makes PRDs portable across machines and environments
 fix_hardcoded_paths() {
@@ -440,12 +446,20 @@ fix_hardcoded_paths() {
   local prd_content
   prd_content=$(cat "$prd_file")
 
+  # Safety check - don't proceed if file is empty
+  if [[ -z "$prd_content" ]]; then
+    return 0
+  fi
+
   # Get URLs from config (if available)
   local backend_url="" frontend_url=""
   if [[ -f "$config_file" ]]; then
     backend_url=$(jq -r '.urls.backend // .api.baseUrl // empty' "$config_file" 2>/dev/null)
     frontend_url=$(jq -r '.urls.frontend // .playwright.baseUrl // empty' "$config_file" 2>/dev/null)
   fi
+
+  # Store original for safety check
+  local original_content="$prd_content"
 
   # Check for hardcoded absolute paths (non-portable)
   if echo "$prd_content" | grep -qE '"/Users/|"/home/|"C:\\|"/var/|"/opt/' ; then
@@ -457,16 +471,20 @@ fix_hardcoded_paths() {
   fi
 
   # Replace hardcoded backend URLs with {config.urls.backend}
-  if [[ -n "$backend_url" ]] && echo "$prd_content" | grep -qF "\"$backend_url" ; then
+  if [[ -n "$backend_url" ]] && echo "$prd_content" | grep -qF "$backend_url" ; then
     echo "  Replacing hardcoded backend URL with {config.urls.backend}..."
-    prd_content=$(echo "$prd_content" | sed "s|$backend_url|{config.urls.backend}|g")
+    local escaped_url
+    escaped_url=$(_escape_sed_pattern "$backend_url")
+    prd_content=$(echo "$prd_content" | sed "s|$escaped_url|{config.urls.backend}|g")
     modified=true
   fi
 
   # Replace hardcoded frontend URLs with {config.urls.frontend}
-  if [[ -n "$frontend_url" ]] && echo "$prd_content" | grep -qF "\"$frontend_url" ; then
+  if [[ -n "$frontend_url" ]] && echo "$prd_content" | grep -qF "$frontend_url" ; then
     echo "  Replacing hardcoded frontend URL with {config.urls.frontend}..."
-    prd_content=$(echo "$prd_content" | sed "s|$frontend_url|{config.urls.frontend}|g")
+    local escaped_url
+    escaped_url=$(_escape_sed_pattern "$frontend_url")
+    prd_content=$(echo "$prd_content" | sed "s|$escaped_url|{config.urls.frontend}|g")
     modified=true
   fi
 
@@ -498,8 +516,19 @@ fix_hardcoded_paths() {
     fi
   fi
 
-  # Write back if modified
+  # Write back if modified, but only if content is still valid
   if [[ "$modified" == "true" ]]; then
+    # Safety check: don't write empty or drastically smaller content
+    if [[ -z "$prd_content" ]]; then
+      print_error "Path replacement resulted in empty content - aborting write"
+      return 1
+    fi
+    local orig_len=${#original_content}
+    local new_len=${#prd_content}
+    if [[ $new_len -lt $((orig_len / 2)) ]]; then
+      print_error "Path replacement lost too much content ($orig_len -> $new_len bytes) - aborting write"
+      return 1
+    fi
     echo "$prd_content" > "$prd_file"
     print_success "Paths updated to use config placeholders"
   fi

@@ -414,6 +414,15 @@ Output ONLY the fixed JSON, no explanation. Start with { and end with }."
 
   # Validate the response is valid JSON with required structure
   if echo "$fixed_prd" | jq -e '.stories' >/dev/null 2>&1; then
+    # Safety check: ensure we're not writing drastically smaller content
+    local orig_size new_size
+    orig_size=$(wc -c < "$prd_file" | tr -d ' ')
+    new_size=${#fixed_prd}
+    if [[ $new_size -lt $((orig_size / 3)) ]]; then
+      print_warning "Fixed PRD seems too small ($orig_size -> $new_size bytes) - keeping original"
+      return 0
+    fi
+
     # Timestamped backup (preserves history across multiple fixes)
     local backup_file="${prd_file}.$(date +%Y%m%d-%H%M%S).bak"
     cp "$prd_file" "$backup_file"

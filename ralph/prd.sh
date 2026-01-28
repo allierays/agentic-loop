@@ -265,13 +265,20 @@ ralph_prd_accept() {
   # - Ensure all stories have passes: false
   # - Ensure all stories have id and title
   # - Set status to pending
-  prd_json=$(echo "$prd_json" | jq '
+  local normalized_json
+  normalized_json=$(echo "$prd_json" | jq '
     .feature.status = "pending" |
     .stories = [.stories[] | . + {passes: (.passes // false)}]
   ')
 
+  # Safety check: don't save if normalization failed
+  if [[ -z "$normalized_json" ]] || ! echo "$normalized_json" | jq -e '.stories' >/dev/null 2>&1; then
+    print_error "PRD normalization failed - saving original JSON instead"
+    normalized_json="$prd_json"
+  fi
+
   # Save
-  echo "$prd_json" > "$RALPH_DIR/prd.json"
+  echo "$normalized_json" > "$RALPH_DIR/prd.json"
 
   # Run full validation
   if ! validate_prd "$RALPH_DIR/prd.json"; then
