@@ -495,20 +495,34 @@ Output ONLY the fixed JSON, no explanation. Start with { and end with }."
     fixed_prd=$(echo "$raw_response" | sed 's/^```json//; s/^```//; s/```$//')
   fi
 
+  # Create backup BEFORE any validation/write attempts
+  local backup_file="${prd_file}.$(date +%Y%m%d-%H%M%S).bak"
+  cp "$prd_file" "$backup_file"
+
+  # Get original story count for validation
+  local orig_story_count
+  orig_story_count=$(jq '.stories | length' "$prd_file" 2>/dev/null || echo "0")
+
   # Validate the response is valid JSON with required structure
   if echo "$fixed_prd" | jq -e '.stories' >/dev/null 2>&1; then
+    # Critical: Check story count is preserved (not just that .stories exists)
+    local new_story_count
+    new_story_count=$(echo "$fixed_prd" | jq '.stories | length' 2>/dev/null || echo "0")
+    if [[ "$new_story_count" -lt "$orig_story_count" ]]; then
+      print_warning "Fixed PRD has fewer stories ($orig_story_count -> $new_story_count) - keeping original"
+      echo "  Backup preserved at: $backup_file"
+      return 0
+    fi
+
     # Safety check: ensure we're not writing drastically smaller content
     local orig_size new_size
     orig_size=$(wc -c < "$prd_file" | tr -d ' ')
     new_size=${#fixed_prd}
     if [[ $new_size -lt $((orig_size / 3)) ]]; then
       print_warning "Fixed PRD seems too small ($orig_size -> $new_size bytes) - keeping original"
+      echo "  Backup preserved at: $backup_file"
       return 0
     fi
-
-    # Timestamped backup (preserves history across multiple fixes)
-    local backup_file="${prd_file}.$(date +%Y%m%d-%H%M%S).bak"
-    cp "$prd_file" "$backup_file"
 
     # Write fixed PRD
     echo "$fixed_prd" > "$prd_file"
@@ -522,6 +536,7 @@ Output ONLY the fixed JSON, no explanation. Start with { and end with }."
     fi
   else
     print_warning "Could not auto-optimize - continuing with current PRD"
+    echo "  Backup preserved at: $backup_file"
     return 0  # Don't fail, just continue
   fi
 }
