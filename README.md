@@ -25,7 +25,7 @@ You describe what you want to build. Claude Code writes a PRD (Product Requireme
 │                                        │  ┌─ loop (per story) ───────────────┐   │
 │  ENHANCE AS YOU LEARN                  │  │                                  │   │
 │  → Add signs when Ralph repeats        │  │ Read prd.json → get next story   │   │
-│    the same mistake                    │  │ Load signs.json, config.json     │   │
+│    the same mistake                    │  │ Load PROMPT.md, signs, config    │   │
 │  → Tune timeouts, retries, checks      │  │ Load last_failure.txt (if retry) │   │
 │  → Refine test commands for your       │  │ Build prompt with full context   │   │
 │    stack                               │  │ Spawn Claude → write code        │   │
