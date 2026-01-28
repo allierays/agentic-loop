@@ -429,6 +429,73 @@ send_notification() {
   return 0
 }
 
+# Replace hardcoded paths/URLs with config placeholders
+# Makes PRDs portable across machines and environments
+fix_hardcoded_paths() {
+  local prd_file="$1"
+  local config_file="$2"
+  local modified=false
+
+  # Read current PRD
+  local prd_content
+  prd_content=$(cat "$prd_file")
+
+  # Get URLs from config (if available)
+  local backend_url="" frontend_url=""
+  if [[ -f "$config_file" ]]; then
+    backend_url=$(jq -r '.urls.backend // .api.baseUrl // empty' "$config_file" 2>/dev/null)
+    frontend_url=$(jq -r '.urls.frontend // .playwright.baseUrl // empty' "$config_file" 2>/dev/null)
+  fi
+
+  # Check for hardcoded absolute paths (non-portable)
+  if echo "$prd_content" | grep -qE '"/Users/|"/home/|"C:\\|"/var/|"/opt/' ; then
+    echo "  Removing hardcoded absolute paths..."
+    # Remove common absolute path prefixes, keep relative path
+    prd_content=$(echo "$prd_content" | sed -E 's|"/Users/[^"]*/([^"]+)"|"\1"|g')
+    prd_content=$(echo "$prd_content" | sed -E 's|"/home/[^"]*/([^"]+)"|"\1"|g')
+    modified=true
+  fi
+
+  # Replace hardcoded backend URLs with {config.urls.backend}
+  if [[ -n "$backend_url" ]] && echo "$prd_content" | grep -qF "\"$backend_url" ; then
+    echo "  Replacing hardcoded backend URL with {config.urls.backend}..."
+    prd_content=$(echo "$prd_content" | sed "s|$backend_url|{config.urls.backend}|g")
+    modified=true
+  fi
+
+  # Replace hardcoded frontend URLs with {config.urls.frontend}
+  if [[ -n "$frontend_url" ]] && echo "$prd_content" | grep -qF "\"$frontend_url" ; then
+    echo "  Replacing hardcoded frontend URL with {config.urls.frontend}..."
+    prd_content=$(echo "$prd_content" | sed "s|$frontend_url|{config.urls.frontend}|g")
+    modified=true
+  fi
+
+  # Replace common localhost patterns if no config URLs set
+  if [[ -z "$backend_url" ]]; then
+    # Common backend ports: 8000, 8001, 8080, 3001, 4000, 5000
+    if echo "$prd_content" | grep -qE 'http://localhost:(8000|8001|8080|3001|4000|5000)' ; then
+      echo "  Replacing hardcoded localhost backend URLs with {config.urls.backend}..."
+      prd_content=$(echo "$prd_content" | sed -E 's|http://localhost:(8000|8001|8080|3001|4000|5000)|{config.urls.backend}|g')
+      modified=true
+    fi
+  fi
+
+  if [[ -z "$frontend_url" ]]; then
+    # Common frontend ports: 3000, 5173, 4200, 8080
+    if echo "$prd_content" | grep -qE 'http://localhost:(3000|5173|4200)' ; then
+      echo "  Replacing hardcoded localhost frontend URLs with {config.urls.frontend}..."
+      prd_content=$(echo "$prd_content" | sed -E 's|http://localhost:(3000|5173|4200)|{config.urls.frontend}|g')
+      modified=true
+    fi
+  fi
+
+  # Write back if modified
+  if [[ "$modified" == "true" ]]; then
+    echo "$prd_content" > "$prd_file"
+    print_success "Paths updated to use config placeholders"
+  fi
+}
+
 # Validate PRD structure
 # Returns 0 if valid, 1 if invalid with helpful error messages
 validate_prd() {
@@ -529,6 +596,9 @@ validate_prd() {
       echo ""
     fi
   fi
+
+  # Replace hardcoded paths with config placeholders
+  fix_hardcoded_paths "$prd_file" "$config"
 
   # Validate and fix individual stories
   validate_and_fix_stories "$prd_file" || return 1
