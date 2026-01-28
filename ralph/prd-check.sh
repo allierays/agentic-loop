@@ -50,6 +50,11 @@
 #     - Has prerequisites array with DB reset command
 #     - Prevents infinite retries on schema mismatch errors
 #
+# API configuration validation:
+#   - If api.baseUrl configured, checks health endpoint is reachable
+#   - Warns if default /health returns 404 (misconfigured healthEndpoint)
+#   - Catches endpoint mismatches before loop starts
+#
 # ============================================================================
 # AUTO-FIX
 # ============================================================================
@@ -68,6 +73,8 @@
 #
 #   .checks.requireTests  - Warn if no test directory configured
 #   .tests.directory      - Where tests live (for requireTests check)
+#   .api.baseUrl          - API base URL (enables API config validation)
+#   .api.healthEndpoint   - Health check path (default: /health, empty to disable)
 #
 # ============================================================================
 # USAGE
@@ -177,6 +184,9 @@ validate_prd() {
     fi
   fi
 
+  # Validate API smoke test configuration
+  _validate_api_config "$config"
+
   # Replace hardcoded paths with config placeholders
   fix_hardcoded_paths "$prd_file" "$config"
 
@@ -189,6 +199,79 @@ validate_prd() {
 # ============================================================================
 # INTERNAL FUNCTIONS
 # ============================================================================
+
+# Validate API smoke test configuration
+# Checks that configured health endpoint is reachable (warns if not)
+_validate_api_config() {
+  local config="$1"
+
+  [[ ! -f "$config" ]] && return 0
+
+  local base_url
+  base_url=$(jq -r '.api.baseUrl // empty' "$config" 2>/dev/null)
+
+  # No API configured, skip
+  [[ -z "$base_url" ]] && return 0
+
+  echo "  Validating API configuration..."
+
+  local health_endpoint
+  local health_endpoint_raw
+  health_endpoint_raw=$(jq -r '.api.healthEndpoint' "$config" 2>/dev/null)
+
+  # If explicitly set to empty string, disable health check
+  if [[ "$health_endpoint_raw" == "" ]]; then
+    print_info "Health check disabled (healthEndpoint is empty)"
+    return 0
+  fi
+
+  # If not configured at all (null), warn about the default
+  if [[ "$health_endpoint_raw" == "null" ]]; then
+    echo ""
+    print_warning "No api.healthEndpoint configured - defaulting to /health"
+    echo "  If your API uses a different health endpoint, add to .ralph/config.json:"
+    echo "    {\"api\": {\"baseUrl\": \"$base_url\", \"healthEndpoint\": \"/your/health/path\"}}"
+    echo ""
+    health_endpoint="/health"
+  else
+    health_endpoint="$health_endpoint_raw"
+  fi
+
+  # Test the health endpoint
+  local url="${base_url}${health_endpoint}"
+  local http_code
+
+  http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$url" 2>/dev/null) || http_code="000"
+
+  if [[ "$http_code" == "000" ]]; then
+    print_warning "API not reachable at $base_url (server may not be running yet)"
+    return 0
+  elif [[ "$http_code" == "404" ]]; then
+    echo ""
+    print_error "API health endpoint not found: $health_endpoint (HTTP 404)"
+    echo ""
+    echo "  The configured health endpoint doesn't exist at: $url"
+    echo ""
+    echo "  Fix in .ralph/config.json:"
+    echo "    {\"api\": {\"baseUrl\": \"$base_url\", \"healthEndpoint\": \"/correct/path\"}}"
+    echo ""
+    echo "  Common health endpoints:"
+    echo "    /api/health, /api/v1/health, /healthz, /status, /"
+    echo ""
+    echo "  Set to empty string to disable health check:"
+    echo "    {\"api\": {\"healthEndpoint\": \"\"}}"
+    echo ""
+    # Don't fail - API tests will fail later with more context
+    return 0
+  elif [[ "$http_code" =~ ^5 ]]; then
+    print_warning "API health check returned error: HTTP $http_code"
+    return 0
+  else
+    print_success "API health check passed: $health_endpoint (HTTP $http_code)"
+  fi
+
+  return 0
+}
 
 # Validate individual stories and auto-fix with Claude if needed
 _validate_and_fix_stories() {

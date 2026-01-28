@@ -524,14 +524,28 @@ fix_hardcoded_paths() {
       print_error "Path replacement resulted in empty content - aborting write"
       return 1
     fi
+
+    # Validate the result is still valid JSON with stories
+    if ! echo "$prd_content" | jq -e '.stories' >/dev/null 2>&1; then
+      print_error "Path replacement produced invalid JSON - aborting write"
+      return 1
+    fi
+
     local orig_len=${#original_content}
     local new_len=${#prd_content}
     if [[ $new_len -lt $((orig_len / 2)) ]]; then
       print_error "Path replacement lost too much content ($orig_len -> $new_len bytes) - aborting write"
       return 1
     fi
+
+    # Create backup before writing
+    cp "$prd_file" "${prd_file}.pre-fix.bak"
+
     echo "$prd_content" > "$prd_file"
     print_success "Paths updated to use config placeholders"
+
+    # Remove backup on success
+    rm -f "${prd_file}.pre-fix.bak"
   fi
 }
 

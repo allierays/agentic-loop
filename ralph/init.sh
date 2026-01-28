@@ -379,6 +379,30 @@ auto_configure_project() {
       echo "  Auto-detected api.baseUrl: $api_url"
       updated=true
     fi
+
+    # 4b. Detect api.healthEndpoint - probe common endpoints if server is running
+    if ! jq -e '.api.healthEndpoint' "$tmpfile" >/dev/null 2>&1 || [[ "$(jq -r '.api.healthEndpoint' "$tmpfile")" == "null" ]]; then
+      if command -v curl &>/dev/null; then
+        local health_endpoint=""
+        # Common health endpoint paths to try (most specific first)
+        local health_paths=("/api/v1/health" "/api/health" "/health" "/healthz" "/api/v1/healthz" "/status" "/")
+
+        for path in "${health_paths[@]}"; do
+          local http_code
+          http_code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 2 "${api_url}${path}" 2>/dev/null) || http_code="000"
+          if [[ "$http_code" =~ ^[23] ]]; then
+            health_endpoint="$path"
+            break
+          fi
+        done
+
+        if [[ -n "$health_endpoint" ]]; then
+          jq --arg ep "$health_endpoint" '.api.healthEndpoint = $ep' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+          echo "  Auto-detected api.healthEndpoint: $health_endpoint"
+          updated=true
+        fi
+      fi
+    fi
   fi
 
   # 5. Detect package manager

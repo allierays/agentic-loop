@@ -29,8 +29,21 @@ run_api_smoke_test() {
   local endpoints_tested=0
 
   # 1. Health endpoint (most important)
+  # Check if explicitly disabled (empty string in config)
+  local health_endpoint_raw
+  health_endpoint_raw=$(jq -r '.api.healthEndpoint' "$RALPH_DIR/config.json" 2>/dev/null)
+
   local health_endpoint
-  health_endpoint=$(get_config '.api.healthEndpoint' "/health")
+  if [[ "$health_endpoint_raw" == "" ]]; then
+    # Explicitly disabled
+    health_endpoint=""
+  elif [[ "$health_endpoint_raw" == "null" ]]; then
+    # Not configured, use default
+    health_endpoint="/health"
+  else
+    health_endpoint="$health_endpoint_raw"
+  fi
+
   if [[ -n "$health_endpoint" ]]; then
     if ! _smoke_test_endpoint "$base_url" "$health_endpoint" "health"; then
       failed=1

@@ -223,6 +223,21 @@ run_loop() {
     fi
 
     if [[ -z "$story" ]]; then
+      # Safety check: verify PRD is valid before claiming all stories passed
+      # An empty/corrupt PRD would also result in no stories found
+      local total_stories
+      total_stories=$(jq '.stories | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+      if [[ "$total_stories" == "0" || "$total_stories" == "null" ]]; then
+        print_error "PRD appears to be empty or corrupted!"
+        echo ""
+        echo "  The prd.json file has no stories. This usually means:"
+        echo "    - The file was accidentally cleared"
+        echo "    - A write operation failed"
+        echo ""
+        echo "  Check for backups: ls -la $RALPH_DIR/*.bak"
+        echo "  Or restore from git: git checkout $RALPH_DIR/prd.json"
+        return 1
+      fi
       print_progress_summary "$start_time" "$total_attempts" "${#skipped_stories[@]}"
       send_notification "✅ Ralph finished: All stories passed!"
       archive_feature
