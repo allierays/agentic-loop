@@ -703,13 +703,14 @@ Output ONLY the fixed JSON, no explanation. Start with { and end with }."
   local raw_response
   raw_response=$(echo "$fix_prompt" | run_with_timeout "$CODE_REVIEW_TIMEOUT_SECONDS" claude -p 2>/dev/null)
 
-  # Extract JSON from response (Claude sometimes adds text before/after)
+  # Extract JSON from response (Claude often wraps in markdown code fences)
   local fixed_prd
-  fixed_prd=$(echo "$raw_response" | sed -n '/^[[:space:]]*{/,/^[[:space:]]*}[[:space:]]*$/p' | head -1000)
+  # First strip markdown code fences if present
+  fixed_prd=$(echo "$raw_response" | sed 's/^```json//; s/^```$//' | sed -n '/^[[:space:]]*{/,/^[[:space:]]*}[[:space:]]*$/p' | head -1000)
 
-  # If sed extraction failed, try the raw response
+  # If sed extraction failed, try removing fences and using raw
   if [[ -z "$fixed_prd" ]]; then
-    fixed_prd="$raw_response"
+    fixed_prd=$(echo "$raw_response" | sed 's/^```json//; s/^```//; s/```$//')
   fi
 
   # Validate the response is valid JSON with required structure
