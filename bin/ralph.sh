@@ -87,7 +87,8 @@ source "$RALPH_LIB/utils.sh"
 source "$RALPH_LIB/init.sh"
 source "$RALPH_LIB/setup.sh"
 source "$RALPH_LIB/loop.sh"
-source "$RALPH_LIB/verify.sh"
+source "$RALPH_LIB/prd-check.sh"   # PRD validation before loop
+source "$RALPH_LIB/code-check.sh"  # Code verification after Claude writes
 source "$RALPH_LIB/prd.sh"
 source "$RALPH_LIB/signs.sh"
 source "$RALPH_LIB/test.sh"

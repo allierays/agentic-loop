@@ -180,8 +180,10 @@ run_loop() {
   local consecutive_failures=0
   local consecutive_timeouts=0
   local max_story_retries
-  local max_timeouts=3  # Faster skip on repeated timeouts
-  max_story_retries=$(get_config '.maxStoryRetries' "5")
+  local max_timeouts=5  # Skip after 5 consecutive timeouts (likely too large/complex)
+  # Default to 15 retries - generous enough for transient issues, catches infinite loops
+  # Override with config.json: "maxStoryRetries": 25
+  max_story_retries=$(get_config '.maxStoryRetries' "15")
   local total_attempts=0
   local skipped_stories=()
   local start_time
@@ -233,6 +235,8 @@ run_loop() {
     if [[ "$story" == "$last_story" ]]; then
       ((consecutive_failures++))
     else
+      # New story - clear failure history from previous story
+      rm -f "$RALPH_DIR/last_failure.txt"
       # Load retry count from prd.json (persists across restarts)
       consecutive_failures=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .retryCount // 0' "$RALPH_DIR/prd.json")
       consecutive_failures=$((consecutive_failures + 1))
@@ -245,11 +249,19 @@ run_loop() {
       '(.stories[] | select(.id==$id)) |= . + {retryCount: $count}' \
       "$RALPH_DIR/prd.json" > "$RALPH_DIR/prd.json.tmp" && mv "$RALPH_DIR/prd.json.tmp" "$RALPH_DIR/prd.json"
 
-    # Circuit breaker: skip to next story after max retries
+    # Circuit breaker: skip to next story after max retries (prevents infinite loops)
+    # Note: This is NOT meant to stop legitimate retrying - 15 attempts is generous.
+    # If a story consistently fails after this many tries, it likely needs manual review
+    # (vague test steps, missing prerequisites, or fundamentally broken requirements).
     if [[ $consecutive_failures -gt $max_story_retries ]]; then
-      print_error "Circuit breaker: $story failed $consecutive_failures times (max $max_story_retries), skipping"
+      print_error "Story $story has failed $consecutive_failures times - likely needs manual review"
       echo ""
-      echo "  Saved failure context to: $RALPH_DIR/failures/$story.txt"
+      echo "  This usually means:"
+      echo "    - Test steps are too vague or ambiguous"
+      echo "    - Missing prerequisites (DB setup, env vars, etc.)"
+      echo "    - Story scope is too large - consider breaking it up"
+      echo ""
+      echo "  Failure context saved to: $RALPH_DIR/failures/$story.txt"
       mkdir -p "$RALPH_DIR/failures"
       cp "$RALPH_DIR/last_failure.txt" "$RALPH_DIR/failures/$story.txt" 2>/dev/null || true
       rm -f "$RALPH_DIR/last_failure.txt"
@@ -260,9 +272,15 @@ run_loop() {
       continue
     fi
 
-    # Show retry status
+    # Show retry status (but don't make it scary - retrying is normal!)
     if [[ $consecutive_failures -gt 1 ]]; then
-      print_warning "Retry $consecutive_failures/$max_story_retries for $story"
+      if [[ $consecutive_failures -le 3 ]]; then
+        print_info "Attempt $consecutive_failures for $story (normal - refining solution)"
+      elif [[ $consecutive_failures -le 8 ]]; then
+        print_warning "Attempt $consecutive_failures/$max_story_retries for $story"
+      else
+        print_warning "Attempt $consecutive_failures/$max_story_retries for $story (getting close to limit)"
+      fi
     fi
 
     # 2. Session startup checklist (skip on retries)
@@ -392,9 +410,15 @@ run_loop() {
       # Session may be broken - reset for next attempt
       session_started=false
 
-      # Fast skip on repeated timeouts (likely a systemic issue)
+      # Skip on repeated timeouts (story is too large/complex for single session)
       if [[ $consecutive_timeouts -ge $max_timeouts ]]; then
-        print_error "Story $story timed out $max_timeouts times - likely too large, skipping"
+        print_error "Story $story timed out $max_timeouts times - needs to be broken up"
+        echo ""
+        echo "  Consecutive timeouts indicate the story is too large for a single"
+        echo "  Claude session (${timeout_seconds}s). Consider:"
+        echo "    - Breaking it into smaller, focused stories"
+        echo "    - Increasing maxSessionSeconds in config.json"
+        echo ""
         mkdir -p "$RALPH_DIR/failures"
         echo "Story $story timed out $max_timeouts consecutive times (${timeout_seconds}s each)" > "$RALPH_DIR/failures/$story.txt"
         echo "Consider breaking this story into smaller pieces." >> "$RALPH_DIR/failures/$story.txt"

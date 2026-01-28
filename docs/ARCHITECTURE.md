@@ -38,8 +38,8 @@ Agentic-loop is a system that lets you describe a feature in plain English, have
 ├──────────────┼──────────────┼──────────────┼───────────────┤
 │ bin/         │ ralph/       │ src/         │ templates/    │
 │ agentic-     │ loop.sh      │ checks/      │ config/       │
-│ loop.sh      │ verify.sh    │ cli.ts       │ PROMPT.md     │
-│ ralph.sh     │ utils.sh     │              │ signs.json    │
+│ loop.sh      │ prd-check.sh │ cli.ts       │ PROMPT.md     │
+│ ralph.sh     │ code-check.sh│              │ signs.json    │
 └──────────────┴──────────────┴──────────────┴───────────────┘
 ```
 
@@ -284,7 +284,7 @@ User runs: npx agentic-loop run
         Claude writes code...        ← Claude reads prd.json, implements story
                 │
                 ▼
-        ralph/verify.sh              ← Run verification pipeline
+        ralph/code-check.sh          ← Run verification pipeline
         ├── verify/lint.sh           ← Build, lint, typecheck
         ├── verify/tests.sh          ← Unit tests
         └── testSteps from PRD       ← Custom commands (curl, playwright, etc.)
@@ -315,8 +315,8 @@ The main CLI. When you run `npx agentic-loop <command>`, this script routes to t
 | `run` | `ralph/loop.sh` | Start the autonomous coding loop |
 | `stop` | Sets a flag file | Gracefully stop after current story finishes |
 | `status` | `ralph/loop.sh` | Show which stories have passed/failed |
-| `check` | `ralph/verify.sh` | Run verification without Claude (useful for debugging) |
-| `verify TASK-001` | `ralph/verify.sh` | Verify a specific story |
+| `check` | `ralph/code-check.sh` | Run verification without Claude (useful for debugging) |
+| `verify TASK-001` | `ralph/code-check.sh` | Verify a specific story |
 | `test` | `ralph/test.sh` | Run full test suite (like CI would) |
 | `signs` | `ralph/signs.sh` | List/add/remove learned patterns |
 | `ci install` | `ralph/ci.sh` | Generate GitHub Actions workflow files |
@@ -377,17 +377,41 @@ Shared utilities that all scripts source. Includes:
 
 After Claude finishes coding, we need to verify the code actually works. This is crucial - without verification, Claude might write plausible-looking code that doesn't actually run.
 
-### ralph/verify.sh
+### Two-Phase Verification
+
+Agentic-loop has two verification phases:
+
+1. **prd-check.sh** - Runs BEFORE the loop starts. Validates PRD structure and story quality.
+2. **code-check.sh** - Runs AFTER Claude writes code. Verifies the code works.
+
+### ralph/prd-check.sh (Pre-Loop)
+
+Validates PRD before any code is written. Catches issues early rather than failing 50+ times:
+
+- Checks PRD structure (valid JSON, has stories, has feature name)
+- Validates testSteps are executable commands (not prose like "verify user can login")
+- Checks backend stories have curl tests and apiContract
+- Checks frontend stories have testUrl and contextFiles
+- Checks auth stories have security criteria
+- Checks list endpoints have pagination criteria
+- Auto-fixes issues using Claude if possible
+
+### ralph/code-check.sh (Post-Code)
 
 Orchestrates the verification steps in order. If any step fails, the whole verification fails:
 
 ```bash
 run_verification() {
-    verify_lint "$story" || return 1      # Must pass before continuing
-    verify_tests "$story" || return 1     # Must pass before continuing
-    verify_prd_criteria "$story" || return 1  # Custom test steps
+    run_configured_checks "$story" || return 1   # Lint, build, typecheck
+    verify_test_files_exist || return 1          # Tests exist for new code
+    run_unit_tests || return 1                   # Run test suite
+    verify_prd_criteria "$story" || return 1     # Custom testSteps from PRD
+    run_api_smoke_test "$story" || return 1      # Health endpoint check
+    run_frontend_smoke_test "$story" || return 1 # Page loads without errors
 }
 ```
+
+**Failure Accumulation**: When verification fails, errors are accumulated across retries (not just the last failure). This helps Claude identify patterns like "same error 5 times = structural issue".
 
 ### ralph/verify/lint.sh
 
@@ -762,7 +786,9 @@ Activity log with timestamps:
 
 ### .ralph/last_failure.txt
 
-When verification fails, the error output is saved here. On retry, this gets included in the prompt so Claude knows what went wrong.
+When verification fails, errors are **accumulated** here across retries (not just the last failure). This lets Claude see patterns like "same error 3 times = structural issue". The file is capped at 200 lines and cleared when switching stories.
+
+Structural issues (schema mismatch, service not running) are detected and flagged with actionable suggestions.
 
 ### .ralph/tool-log.txt
 

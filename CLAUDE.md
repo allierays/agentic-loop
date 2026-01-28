@@ -45,13 +45,12 @@ Ralph is an autonomous AI development loop written in Bash. It orchestrates Clau
 ralph/
   utils.sh      # Shared constants and utilities (source first)
   loop.sh       # Main autonomous loop
-  verify.sh     # Verification orchestrator
-  verify/       # Verification modules
-    review.sh   # Code review
+  prd-check.sh  # PRD validation before loop starts
+  code-check.sh # Code verification after Claude writes
+  verify/       # Verification submodules for code-check.sh
     lint.sh     # Linting/auto-fix
     tests.sh    # Unit tests
-    browser.sh  # Browser validation
-  api.sh        # API validation
+    api.sh      # API/frontend smoke tests
   backup.sh     # Database backup/restore
   init.sh       # Project initialization
   prd.sh        # PRD generation

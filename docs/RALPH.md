@@ -40,7 +40,7 @@ Ralph reads from multiple files to give Claude full context:
 | `.ralph/config.json` | Project settings (URLs, commands, paths) |
 | `.ralph/signs.json` | Learned patterns from past runs |
 | `~/.claude/DNA.md` | Your personal coding preferences |
-| `.ralph/last_failure.txt` | Why the last attempt failed |
+| `.ralph/last_failure.txt` | Accumulated failure history across retries |
 
 ### prd.json (The Work)
 
@@ -272,11 +272,37 @@ This approach gives Claude better comprehension because it actively reads contex
 
 ## Verification Pipeline
 
-After Claude finishes, Ralph runs verification:
+Ralph has two verification phases:
+
+### 1. PRD Validation (prd-check.sh) - Before Loop
+
+Runs once at startup to catch issues early:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                   VERIFICATION PIPELINE                      │
+│                   PRD VALIDATION                             │
+├─────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ✓ Valid JSON structure                                      │
+│  ✓ Has feature name and stories                              │
+│  ✓ testSteps are executable commands (not prose)             │
+│  ✓ Backend stories have curl tests + apiContract             │
+│  ✓ Frontend stories have testUrl + contextFiles              │
+│  ✓ Auth stories have security criteria                       │
+│  ✓ List endpoints have pagination criteria                   │
+│                                                              │
+│  Issues found? → Claude auto-fixes them                      │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 2. Code Verification (code-check.sh) - After Claude Writes
+
+Runs after each story:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                   CODE VERIFICATION                          │
 ├─────────────────────────────────────────────────────────────┤
 │                                                              │
 │  1. Lint Checks                                              │
@@ -288,6 +314,12 @@ After Claude finishes, Ralph runs verification:
 │  3. PRD Test Steps                                           │
 │     └─ Custom commands from testSteps                        │
 │                                                              │
+│  4. API Smoke Test                                           │
+│     └─ Health endpoint check                                 │
+│                                                              │
+│  5. Frontend Smoke Test                                      │
+│     └─ Page loads without errors                             │
+│                                                              │
 │  Browser verification is done BY CLAUDE using MCP tools:     │
 │  - Playwright MCP for automation & testing                   │
 │  - Chrome DevTools MCP for debugging                         │
@@ -295,10 +327,26 @@ After Claude finishes, Ralph runs verification:
 └─────────────────────────────────────────────────────────────┘
 ```
 
+### Failure Accumulation
+
+When verification fails, errors are **accumulated across retries** (not just the last failure):
+
+```
+=== Attempt 1 failed for TASK-001 ===
+ERROR: relation "users" does not exist
+---
+=== Attempt 2 failed for TASK-001 ===
+ERROR: relation "users" does not exist
+---
+```
+
+This helps Claude identify patterns like "same error 3 times = structural issue, try something different."
+
 If any step fails:
-1. Error is saved to `.ralph/last_failure.txt`
+1. Error is appended to `.ralph/last_failure.txt`
 2. Story stays `passes: false`
-3. Ralph retries with failure context in the prompt
+3. Ralph retries with accumulated failure context in the prompt
+4. After 15 failures (configurable), story is skipped with explanation
 
 ## Iteration and Learning
 
@@ -452,7 +500,7 @@ your-project/
 │   ├── prd.json         # Current feature PRD
 │   ├── signs.json       # Learned patterns
 │   ├── progress.txt     # Activity log
-│   ├── last_failure.txt # Last error (for retries)
+│   ├── last_failure.txt # Accumulated errors (for retries)
 │   └── archive/         # Completed PRDs
 ├── PROMPT.md            # Base coding instructions
 ├── CLAUDE.md            # Project context for Claude
