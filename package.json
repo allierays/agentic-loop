@@ -29,6 +29,7 @@
   "types": "dist/index.d.ts",
   "bin": {
     "agentic-loop": "./bin/agentic-loop.sh",
+    "ralph": "./bin/ralph.sh",
     "vibe-check": "./bin/vibe-check.js"
   },
   "exports": {
