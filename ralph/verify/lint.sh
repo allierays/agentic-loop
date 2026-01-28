@@ -522,16 +522,19 @@ verify_naming_conventions() {
   # Run vibe-check with snake-case check only
   # Use --fail-on warning to catch all snake_case issues
   local check_output
-  local check_dirs="."
 
-  # Check frontend dirs if in monorepo
+  # Build array of directories to check (handles spaces/newlines in paths)
+  local -a check_dirs_arr=(".")
   local fe_dirs
   fe_dirs=$(get_frontend_dirs 2>/dev/null || echo "")
   if [[ -n "$fe_dirs" ]]; then
-    check_dirs="$fe_dirs"
+    check_dirs_arr=()  # Clear default, use frontend dirs instead
+    while IFS= read -r dir; do
+      [[ -n "$dir" ]] && check_dirs_arr+=("$dir")
+    done <<< "$fe_dirs"
   fi
 
-  if check_output=$($vibe_check_cmd $check_dirs --only snake-case --fail-on warning --format compact 2>&1); then
+  if check_output=$($vibe_check_cmd "${check_dirs_arr[@]}" --only snake-case --fail-on warning --format compact 2>&1); then
     print_success "passed"
     return 0
   else
