@@ -514,7 +514,7 @@ validate_stories_quick() {
     # Check 7: Frontend/general stories consuming APIs need naming convention notes
     if [[ "$story_type" == "frontend" || "$story_type" == "general" ]]; then
       local story_desc
-      story_desc=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | (.title + " " + (.acceptanceCriteria // [] | join(" ")))' "$prd_file")
+      story_desc=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | (.title + " " + (.acceptanceCriteria // [] | join(" ")) + " " + (.notes // ""))' "$prd_file")
       if echo "$story_desc" | grep -qiE "(api|fetch|axios|endpoint|backend|response)"; then
         local story_notes
         story_notes=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .notes // ""' "$prd_file")

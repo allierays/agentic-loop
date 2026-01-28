@@ -534,7 +534,7 @@ verify_naming_conventions() {
     done <<< "$fe_dirs"
   fi
 
-  if check_output=$($vibe_check_cmd "${check_dirs_arr[@]}" --only snake-case --fail-on warning --format compact 2>&1); then
+  if check_output=$("$vibe_check_cmd" "${check_dirs_arr[@]}" --only snake-case --fail-on warning --format compact 2>&1); then
     print_success "passed"
     return 0
   else
