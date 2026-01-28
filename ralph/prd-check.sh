@@ -201,7 +201,7 @@ _validate_and_fix_stories() {
   local cnt_no_tests=0 cnt_backend_curl=0 cnt_backend_contract=0
   local cnt_frontend_tsc=0 cnt_frontend_url=0 cnt_frontend_context=0
   local cnt_auth_security=0 cnt_list_pagination=0 cnt_prose_steps=0
-  local cnt_migration_prereq=0
+  local cnt_migration_prereq=0 cnt_naming_convention=0
 
   echo "  Checking test coverage..."
 
@@ -311,6 +311,21 @@ _validate_and_fix_stories() {
       fi
     fi
 
+    # Check 7: Frontend stories consuming APIs need naming convention notes
+    # If story is frontend/general AND mentions API/fetch/axios, ensure notes include camelCase guidance
+    if [[ "$story_type" == "frontend" || "$story_type" == "general" ]]; then
+      local story_desc
+      story_desc=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | (.title + " " + (.acceptanceCriteria // [] | join(" ")) + " " + (.notes // ""))' "$prd_file")
+      if echo "$story_desc" | grep -qiE "(api|fetch|axios|endpoint|backend|response)"; then
+        local story_notes
+        story_notes=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .notes // ""' "$prd_file")
+        if ! echo "$story_notes" | grep -qiE "(camelCase|snake_case|naming)"; then
+          story_issues+="API consumer needs camelCase transformation note, "
+          cnt_naming_convention=$((cnt_naming_convention + 1))
+        fi
+      fi
+    fi
+
     # Track this story if it has issues
     if [[ -n "$story_issues" ]]; then
       needs_fix=true
@@ -335,6 +350,7 @@ _validate_and_fix_stories() {
     [[ $cnt_auth_security -gt 0 ]] && echo "    ${cnt_auth_security}x auth: add security criteria"
     [[ $cnt_list_pagination -gt 0 ]] && echo "    ${cnt_list_pagination}x list: add pagination"
     [[ $cnt_migration_prereq -gt 0 ]] && echo "    ${cnt_migration_prereq}x migration: add prerequisites (DB reset)"
+    [[ $cnt_naming_convention -gt 0 ]] && echo "    ${cnt_naming_convention}x API consumer: add camelCase transformation note"
 
     # Check if Claude is available for auto-fix
     if command -v claude &>/dev/null; then
@@ -375,6 +391,8 @@ RULES:
    - Accepts ?page=N&limit=N query params
 7. Migration stories (creating alembic/versions, migrations/, or modifying models) MUST have prerequisites:
    Example: \"prerequisites\": [{\"name\": \"Reset test DB\", \"command\": \"npm run db:reset:test\", \"when\": \"schema changes\"}]
+8. Frontend/general stories that consume APIs MUST have notes about naming conventions:
+   Example: \"notes\": \"Transform API responses from snake_case to camelCase. Create typed interfaces with camelCase properties and map: const user = { userName: data.user_name }\"
 
 CURRENT PRD:
 $(cat "$prd_file")
@@ -490,6 +508,19 @@ validate_stories_quick() {
       has_prereq=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .prerequisites // [] | length' "$prd_file")
       if [[ "$has_prereq" == "0" ]]; then
         issues+="$story_id: migration needs prerequisites, "
+      fi
+    fi
+
+    # Check 7: Frontend/general stories consuming APIs need naming convention notes
+    if [[ "$story_type" == "frontend" || "$story_type" == "general" ]]; then
+      local story_desc
+      story_desc=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | (.title + " " + (.acceptanceCriteria // [] | join(" ")))' "$prd_file")
+      if echo "$story_desc" | grep -qiE "(api|fetch|axios|endpoint|backend|response)"; then
+        local story_notes
+        story_notes=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .notes // ""' "$prd_file")
+        if ! echo "$story_notes" | grep -qiE "(camelCase|snake_case|naming)"; then
+          issues+="$story_id: needs camelCase transformation note, "
+        fi
       fi
     fi
   done <<< "$story_ids"

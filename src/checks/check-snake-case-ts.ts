@@ -83,6 +83,35 @@ export const checkSnakeCaseTs: Hook = {
           }
         }
       }
+
+      // Check for snake_case property access (e.g., data.user_name, response.created_at)
+      // This catches direct usage of snake_case from API responses without transformation
+      const propertyAccessRegex = /\.([a-z][a-z0-9]*(?:_[a-z0-9]+)+)(?:\s*[,;)\]}]|\s*$|\s*\.|\s*\?\.|\s*!\.|\s*&&|\s*\|\||\s*\?|\s*:|\s*===|\s*!==|\s*==|\s*!=)/g;
+      let accessMatch;
+      while ((accessMatch = propertyAccessRegex.exec(line)) !== null) {
+        const propName = accessMatch[1];
+        const suggestedName = toCamelCase(propName);
+
+        // Skip if it's in a comment
+        const beforeMatch = line.substring(0, accessMatch.index);
+        if (beforeMatch.includes('//') || beforeMatch.includes('/*')) {
+          continue;
+        }
+
+        // Skip common exceptions (CSS properties, external library patterns)
+        if (['line_number', 'column_number', 'stack_trace'].includes(propName)) {
+          continue;
+        }
+
+        results.push({
+          line: lineNum,
+          column: accessMatch.index + 1,
+          message: `Property access ".${propName}" uses snake_case - transform API response to camelCase ".${suggestedName}"`,
+          severity: 'warning',
+          ruleId: 'snake-case/access',
+          fix: suggestedName,
+        });
+      }
     }
 
     return results;

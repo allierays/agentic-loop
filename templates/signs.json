@@ -23,7 +23,7 @@
     },
     {
       "id": "sign-004",
-      "pattern": "Use camelCase for TypeScript/JavaScript variables, functions, and API response fields - convert snake_case from backend to camelCase in frontend",
+      "pattern": "ALWAYS transform API responses from snake_case to camelCase at the boundary. Create a transform function: `const user = { userName: data.user_name, createdAt: data.created_at }`. NEVER use snake_case properties directly in TypeScript code like `data.user_name` - always map to camelCase first.",
       "category": "frontend",
       "learnedFrom": null,
       "createdAt": "2026-01-20T00:00:00-08:00"
