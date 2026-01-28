@@ -4,28 +4,59 @@
 
 You describe what you want to build. Claude Code writes a PRD (Product Requirements Document) with small, testable stories. Ralph executes each story automatically - coding, testing, and committing in a loop until everything passes.
 
-> **Optimized for:** Python, TypeScript, React, Go/Hugo, FastMCP, and Docker projects.
+---
+
+## What It Does and How to work with Agentic Loop
+
+### The Two-Terminal Workflow
+
+```
+┌──────────────────────────────────────────────────────────────────────────────────┐
+│  TERMINAL 1: Claude CLI                │  TERMINAL 2: Execute                    │
+├────────────────────────────────────────┼─────────────────────────────────────────┤
+│                                        │                                         │
+│  claude --dangerously-skip-permissions │  npx agentic-loop run                   │
+│                                        │                                         │
+│  PLAN FEATURES                         │  ┌─ prd-check (once) ───────────────┐   │
+│  /idea 'your feature or bugfix'        │  │ Validate all stories upfront     │   │
+│  → Claude asks questions               │  │ Auto-fix missing test steps      │   │
+│  → Explores codebase                   │  └──────────────────────────────────┘   │
+│  → Generates PRD                       │            ↓                            │
+│                                        │  ┌─ loop (per story) ───────────────┐   │
+│  ENHANCE AS YOU LEARN                  │  │                                  │   │
+│  → Add signs when Ralph repeats        │  │ Read prd.json → get next story   │   │
+│    the same mistake                    │  │ Load signs.json, config.json     │   │
+│  → Tune timeouts, retries, checks      │  │ Load last_failure.txt (if retry) │   │
+│  → Refine test commands for your       │  │ Build prompt with full context   │   │
+│    stack                               │  │ Spawn Claude → write code        │   │
+│                                        │  │                                  │   │
+│  (OPTIONAL) CUSTOMIZE YOUR LOOP        │  │ code-check:                      │   │
+│  /my-dna      → your coding style      │  │   [1] Lint                       │   │
+│  /styleguide  → UI consistency         │  │   [2] Tests                      │   │
+│  /sign        → teach patterns         │  │   [3] PRD test steps             │   │
+│  config.json  → tune your setup        │  │   [4] API smoke                  │   │
+│                                        │  │   [5] Frontend smoke             │   │
+│                                        │  │                                  │   │
+│                                        │  │ Pass → commit, next story        │   │
+│                                        │  │ Fail → save to last_failure.txt, │   │
+│                                        │  │        retry                     │   │
+│                                        │  └──────────────────────────────────┘   │
+│                                        │                                         │
+└────────────────────────────────────────┴─────────────────────────────────────────┘
+```
+
+**Terminal 1** is where you shape *what* gets built and *how* Ralph builds it.
+**Terminal 2** is where Ralph executes autonomously.
+
+Your loop gets smarter over time. When Ralph struggles with something, add a sign. When tests flake, tune the config. The customization never really stops—it's how you make Ralph work for *your* project.
 
 ---
 
-## What It Does
+### Learn More
 
-**Brainstorm ideas with `/idea`**
-Describe a feature in plain English. Claude asks clarifying questions, explores your codebase, and generates a PRD with atomic stories that can be implemented one at a time.
-
-**Execute with Ralph**
-Ralph reads the PRD and implements each story autonomously. It spawns Claude, runs verification (lint, tests, browser checks), and either commits on success or retries with error context on failure.
-
-**Customize your output**
-- `/my-dna` - Add your voice and values so the code reflects your style
-- `/styleguide` - Generate a UI component reference for consistent design
-
-**Built-in guardrails**
-- `/vibe-check`, `/review` - On-demand quality and security checks
-- Pre-commit hooks - Block secrets, hardcoded URLs, debug statements
-- Claude Code hooks - Real-time warnings while coding
-- GitHub Actions CI/CD - Fast PR checks + comprehensive nightly tests
-- Test file enforcement - Fails if new code lacks corresponding tests
+- **[PRD Check](docs/PRD-CHECK.md)** - How Ralph validates stories before coding (catches prose test steps, missing API tests, security gaps)
+- **[Code Check](docs/CODE-CHECK.md)** - The 5-step verification pipeline after each story (lint, tests, PRD steps, smoke tests)
+- **[Customization & Guardrails](docs/CUSTOMIZATION.md)** - `/my-dna`, `/styleguide`, pre-commit hooks, and more
 
 ---
 
@@ -54,21 +85,7 @@ npx agentic-loop run         # Execute PRDs autonomously
 
 ---
 
-## How Ralph Works
-
-```
-┌─────────────────────────────────────────────────────────────┐
-│                        RALPH LOOP                           │
-├─────────────────────────────────────────────────────────────┤
-│  1. Read prd.json → find next story where passes=false      │
-│  2. Build prompt (story + context + failures + signs)       │
-│  3. Spawn Claude with prompt + MCP browser tools            │
-│  4. Run verification (lint, tests, testSteps)               │
-│  5. Pass? → commit, next story                              │
-│     Fail? → save error, retry with failure context          │
-│  6. Repeat until all stories pass                           │
-└─────────────────────────────────────────────────────────────┘
-```
+## Key Concepts
 
 **What's a PRD?**
 A JSON file (`.ralph/prd.json`) containing your feature broken into small stories. Each story has acceptance criteria, test steps, and a test URL. Ralph implements them one by one. See [`templates/prd-example.json`](templates/prd-example.json) for a complete example.
@@ -80,8 +97,11 @@ Patterns Ralph learns from failures. If Ralph keeps making the same mistake, add
 
 ## Docs
 
-- [How Ralph Works](docs/RALPH.md) - Architecture, config, verification pipeline
-- [Technical Architecture](docs/ARCHITECTURE.md) - Deep dive for developers
+- **[Beginners Guide](docs/BEGINNERS.md)** - New to this? Start here (no coding experience required)
+- [PRD Check](docs/PRD-CHECK.md) - Story validation before coding starts
+- [Code Check](docs/CODE-CHECK.md) - Verification pipeline after each story
+- [Customization](docs/CUSTOMIZATION.md) - Personalization and guardrails
+- [How Ralph Works](docs/RALPH.md) - Architecture, config, full reference
 - [Cheatsheet](docs/CHEATSHEET.md) - All commands at a glance
 - [Hooks Reference](docs/HOOKS.md) - Pre-commit and Claude Code hooks
 - [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and fixes
