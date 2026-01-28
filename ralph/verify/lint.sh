@@ -484,6 +484,79 @@ run_fastapi_response_check() {
   return $failed
 }
 
+# Verify naming conventions (snake_case vs camelCase)
+# Uses vibe-check to catch common naming issues in TypeScript
+verify_naming_conventions() {
+  local story_type="${1:-general}"
+  local naming_log="$RALPH_DIR/last_naming_failure.log"
+
+  # Skip for backend-only stories (Python uses snake_case correctly)
+  if [[ "$story_type" == "backend" ]]; then
+    echo "    Naming conventions... skipped (backend story)"
+    return 0
+  fi
+
+  # Skip if no TypeScript files or vibe-check not available
+  if [[ ! -f "tsconfig.json" ]] && [[ ! -f "package.json" ]]; then
+    return 0
+  fi
+
+  # Check if vibe-check is available (it's part of agentic-loop)
+  local vibe_check_cmd=""
+  if command -v vibe-check &>/dev/null; then
+    vibe_check_cmd="vibe-check"
+  elif command -v npx &>/dev/null && [[ -f "node_modules/.bin/vibe-check" ]]; then
+    vibe_check_cmd="npx vibe-check"
+  elif [[ -n "${RALPH_LIB:-}" ]] && [[ -f "${RALPH_LIB}/../bin/vibe-check" ]]; then
+    vibe_check_cmd="${RALPH_LIB}/../bin/vibe-check"
+  else
+    # vibe-check not available, skip silently
+    return 0
+  fi
+
+  # Clear previous failure log
+  rm -f "$naming_log"
+
+  echo -n "    Naming conventions (snake_case)... "
+
+  # Run vibe-check with snake-case check only
+  # Use --fail-on warning to catch all snake_case issues
+  local check_output
+  local check_dirs="."
+
+  # Check frontend dirs if in monorepo
+  local fe_dirs
+  fe_dirs=$(get_frontend_dirs 2>/dev/null || echo "")
+  if [[ -n "$fe_dirs" ]]; then
+    check_dirs="$fe_dirs"
+  fi
+
+  if check_output=$($vibe_check_cmd $check_dirs --only snake-case --fail-on warning --format compact 2>&1); then
+    print_success "passed"
+    return 0
+  else
+    # Check if there are actual issues or just no files
+    if echo "$check_output" | grep -qE "snake_case|snake-case"; then
+      print_error "failed"
+      echo ""
+      echo "    Naming convention issues (use camelCase in TypeScript):"
+      echo "$check_output" | head -"$MAX_LINT_ERROR_LINES" | sed 's/^/      /'
+      {
+        echo "Naming convention errors:"
+        echo "$check_output"
+        echo ""
+        echo "Fix: Use camelCase for TypeScript properties and variables."
+        echo "     snake_case is only acceptable when mapping external API responses."
+      } > "$naming_log"
+      return 1
+    else
+      # No snake_case issues found, might be other error
+      print_success "passed"
+      return 0
+    fi
+  fi
+}
+
 # Check if a verification step is enabled in config
 # Values: true, false, "final" (only on last story)
 check_enabled() {
@@ -553,6 +626,14 @@ run_configured_checks() {
   # FastAPI response model check
   if check_enabled "fastapi" "false"; then
     run_fastapi_response_check
+  fi
+
+  # Naming convention check (snake_case vs camelCase)
+  # Enabled by default for TypeScript projects
+  if check_enabled "naming" "true"; then
+    if ! verify_naming_conventions "$story_type"; then
+      return 1
+    fi
   fi
 
   # Run pre-commit hooks if available (catches errors before commit attempt)
