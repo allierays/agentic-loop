@@ -498,20 +498,21 @@ fix_hardcoded_paths() {
   fi
 
   # Replace common localhost patterns if no config URLs set
+  # Note: Use # as delimiter since | appears in regex alternation
   if [[ -z "$backend_url" ]]; then
     # Common backend ports: 8000, 8001, 8080, 3001, 4000, 5000
     if echo "$prd_content" | grep -qE 'http://localhost:(8000|8001|8080|3001|4000|5000)' ; then
       echo "  Replacing hardcoded localhost backend URLs with {config.urls.backend}..."
-      prd_content=$(echo "$prd_content" | sed -E 's|http://localhost:(8000|8001|8080|3001|4000|5000)|{config.urls.backend}|g')
+      prd_content=$(echo "$prd_content" | sed -E 's#http://localhost:(8000|8001|8080|3001|4000|5000)#{config.urls.backend}#g')
       modified=true
     fi
   fi
 
   if [[ -z "$frontend_url" ]]; then
-    # Common frontend ports: 3000, 5173, 4200, 8080
+    # Common frontend ports: 3000, 5173, 4200
     if echo "$prd_content" | grep -qE 'http://localhost:(3000|5173|4200)' ; then
       echo "  Replacing hardcoded localhost frontend URLs with {config.urls.frontend}..."
-      prd_content=$(echo "$prd_content" | sed -E 's|http://localhost:(3000|5173|4200)|{config.urls.frontend}|g')
+      prd_content=$(echo "$prd_content" | sed -E 's#http://localhost:(3000|5173|4200)#{config.urls.frontend}#g')
       modified=true
     fi
   fi
