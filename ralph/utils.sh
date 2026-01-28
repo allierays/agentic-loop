@@ -470,6 +470,15 @@ fix_hardcoded_paths() {
     modified=true
   fi
 
+  # Replace hardcoded health endpoints with config placeholder
+  if echo "$prd_content" | grep -qE '/api(/v[0-9]+)?/health|/health' ; then
+    echo "  Replacing hardcoded health endpoints with {config.api.healthEndpoint}..."
+    prd_content=$(echo "$prd_content" | sed -E 's|/api/v[0-9]+/health|{config.api.healthEndpoint}|g')
+    prd_content=$(echo "$prd_content" | sed -E 's|/api/health|{config.api.healthEndpoint}|g')
+    prd_content=$(echo "$prd_content" | sed -E 's|"/health"|"{config.api.healthEndpoint}"|g')
+    modified=true
+  fi
+
   # Replace common localhost patterns if no config URLs set
   if [[ -z "$backend_url" ]]; then
     # Common backend ports: 8000, 8001, 8080, 3001, 4000, 5000

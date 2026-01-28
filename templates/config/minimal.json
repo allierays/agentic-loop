@@ -50,7 +50,7 @@
 
   "api": {
     "baseUrl": "http://localhost:3000",
-    "healthEndpoint": "/health",
+    "healthEndpoint": "/api/v1/health",
     "timeout": 30
   },
 

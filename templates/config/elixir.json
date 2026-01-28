@@ -50,7 +50,7 @@
 
   "api": {
     "baseUrl": "http://localhost:4000",
-    "healthEndpoint": "/api/health",
+    "healthEndpoint": "/api/v1/health",
     "smokeEndpoints": [],
     "timeout": 30
   },
