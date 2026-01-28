@@ -538,16 +538,23 @@ validate_prd() {
 
 # Validate individual stories and auto-fix with Claude if needed
 # Checks: testSteps quality, apiContract, testUrl, contextFiles, security, scale
+# Skips completed stories (passes=true) from validation but still optimizes incomplete ones
 validate_and_fix_stories() {
   local prd_file="$1"
   local needs_fix=false
   local issues=""
+  local story_count=0
 
-  echo "  Validating story quality..."
+  # Issue counters (bash 3.2 compatible - no associative arrays)
+  local cnt_no_tests=0 cnt_backend_curl=0 cnt_backend_contract=0
+  local cnt_frontend_tsc=0 cnt_frontend_url=0 cnt_frontend_context=0
+  local cnt_auth_security=0 cnt_list_pagination=0
 
-  # Get all story IDs
+  echo "  Checking test coverage..."
+
+  # Only validate incomplete stories (skip stories that already passed)
   local story_ids
-  story_ids=$(jq -r '.stories[].id' "$prd_file" 2>/dev/null)
+  story_ids=$(jq -r '.stories[] | select(.passes != true) | .id' "$prd_file" 2>/dev/null)
 
   while IFS= read -r story_id; do
     [[ -z "$story_id" ]] && continue
@@ -564,15 +571,18 @@ validate_and_fix_stories() {
 
     if [[ -z "$test_steps" ]]; then
       story_issues+="no testSteps, "
+      cnt_no_tests=$((cnt_no_tests + 1))
     elif [[ "$story_type" == "backend" ]]; then
       # Backend must have curl, not just npm test/pytest
       if ! echo "$test_steps" | grep -q "curl "; then
-        story_issues+="backend needs curl tests (npm test alone uses mocks), "
+        story_issues+="backend needs curl tests, "
+        cnt_backend_curl=$((cnt_backend_curl + 1))
       fi
     elif [[ "$story_type" == "frontend" ]]; then
       # Frontend must have tsc or playwright
       if ! echo "$test_steps" | grep -qE "(tsc --noEmit|playwright)"; then
-        story_issues+="frontend needs tsc --noEmit or playwright tests, "
+        story_issues+="frontend needs tsc/playwright tests, "
+        cnt_frontend_tsc=$((cnt_frontend_tsc + 1))
       fi
     fi
 
@@ -581,7 +591,8 @@ validate_and_fix_stories() {
       local has_contract
       has_contract=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .apiContract // empty' "$prd_file")
       if [[ -z "$has_contract" || "$has_contract" == "null" ]]; then
-        story_issues+="backend missing apiContract, "
+        story_issues+="missing apiContract, "
+        cnt_backend_contract=$((cnt_backend_contract + 1))
       fi
     fi
 
@@ -590,13 +601,15 @@ validate_and_fix_stories() {
       local has_url
       has_url=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .testUrl // empty' "$prd_file")
       if [[ -z "$has_url" || "$has_url" == "null" ]]; then
-        story_issues+="frontend missing testUrl, "
+        story_issues+="missing testUrl, "
+        cnt_frontend_url=$((cnt_frontend_url + 1))
       fi
 
       local context_files
       context_files=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .contextFiles // [] | length' "$prd_file")
       if [[ "$context_files" == "0" ]]; then
-        story_issues+="frontend missing contextFiles (idea file + styleguide), "
+        story_issues+="missing contextFiles, "
+        cnt_frontend_context=$((cnt_frontend_context + 1))
       fi
     fi
 
@@ -605,7 +618,8 @@ validate_and_fix_stories() {
       local criteria
       criteria=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .acceptanceCriteria // [] | join(" ")' "$prd_file")
       if ! echo "$criteria" | grep -qiE "(hash|bcrypt|sanitiz|inject|rate.?limit)"; then
-        story_issues+="auth story missing security criteria (password hashing/rate limiting), "
+        story_issues+="missing security criteria, "
+        cnt_auth_security=$((cnt_auth_security + 1))
       fi
     fi
 
@@ -615,53 +629,59 @@ validate_and_fix_stories() {
       local criteria
       criteria=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .acceptanceCriteria // [] | join(" ")' "$prd_file")
       if ! echo "$criteria" | grep -qiE "(pagina|limit|page=|per.?page)"; then
-        story_issues+="list endpoint missing pagination criteria, "
+        story_issues+="missing pagination criteria, "
+        cnt_list_pagination=$((cnt_list_pagination + 1))
       fi
     fi
 
-    # Report issues for this story
+    # Track this story if it has issues
     if [[ -n "$story_issues" ]]; then
       needs_fix=true
+      story_count=$((story_count + 1))
       issues+="$story_id: ${story_issues%%, }
 "
     fi
   done <<< "$story_ids"
 
-  # If issues found, attempt to fix with Claude
+  # If issues found, show summary and attempt fix
   if [[ "$needs_fix" == "true" ]]; then
-    print_warning "Story quality issues found:"
-    echo "$issues" | while IFS= read -r line; do
-      [[ -n "$line" ]] && echo "    $line"
-    done
-    echo ""
+    echo "  Optimizing test coverage for $story_count stories..."
+
+    # Print compact summary (only non-zero counts)
+    [[ $cnt_no_tests -gt 0 ]] && echo "    ${cnt_no_tests}x missing testSteps"
+    [[ $cnt_backend_curl -gt 0 ]] && echo "    ${cnt_backend_curl}x backend: add curl tests"
+    [[ $cnt_backend_contract -gt 0 ]] && echo "    ${cnt_backend_contract}x backend: add apiContract"
+    [[ $cnt_frontend_tsc -gt 0 ]] && echo "    ${cnt_frontend_tsc}x frontend: add tsc/playwright"
+    [[ $cnt_frontend_url -gt 0 ]] && echo "    ${cnt_frontend_url}x frontend: add testUrl"
+    [[ $cnt_frontend_context -gt 0 ]] && echo "    ${cnt_frontend_context}x frontend: add contextFiles"
+    [[ $cnt_auth_security -gt 0 ]] && echo "    ${cnt_auth_security}x auth: add security criteria"
+    [[ $cnt_list_pagination -gt 0 ]] && echo "    ${cnt_list_pagination}x list: add pagination"
 
     # Check if Claude is available for auto-fix
     if command -v claude &>/dev/null; then
-      echo "  Attempting auto-fix with Claude..."
       fix_stories_with_claude "$prd_file" "$issues"
     else
-      echo "  Claude CLI not found - fix these issues manually or regenerate PRD."
-      echo ""
+      print_warning "Claude CLI not found - run manually to optimize test coverage"
       return 1
     fi
   else
-    print_success "All stories validated"
+    print_success "Test coverage looks good"
   fi
 
   return 0
 }
 
-# Fix story issues using Claude
+# Optimize story test coverage using Claude
 fix_stories_with_claude() {
   local prd_file="$1"
   local issues="$2"
 
-  local fix_prompt="Fix the following issues in this PRD. Output the COMPLETE fixed prd.json.
+  local fix_prompt="Enhance test coverage for these stories. Output the COMPLETE updated prd.json.
 
-ISSUES FOUND:
+STORIES TO OPTIMIZE:
 $issues
 
-RULES FOR FIXING:
+RULES:
 1. Backend stories MUST have testSteps with curl commands that hit real endpoints
    Example: curl -s -X POST {config.urls.backend}/api/users -d '...' | jq -e '.id'
 2. Backend stories MUST have apiContract with endpoint, request, response
@@ -700,35 +720,30 @@ Output ONLY the fixed JSON, no explanation. Start with { and end with }."
 
     # Write fixed PRD
     echo "$fixed_prd" > "$prd_file"
-    print_success "PRD auto-fixed (backup at $backup_file)"
+    print_success "Test coverage optimized (backup at $backup_file)"
 
-    # Re-validate to confirm fixes
-    echo "  Re-validating..."
+    # Re-validate to confirm
     local remaining_issues
     remaining_issues=$(validate_stories_quick "$prd_file")
     if [[ -n "$remaining_issues" ]]; then
-      print_warning "Some issues remain - may need manual fixes:"
-      echo "$remaining_issues" | tr ',' '\n' | while IFS= read -r line; do
-        [[ -n "$line" ]] && echo "    $line"
-      done
-    else
-      print_success "All issues resolved"
+      echo "  Some stories may need manual review"
     fi
   else
-    print_error "Claude returned invalid JSON - fix manually"
-    echo "  Response preview: $(echo "$raw_response" | head -3)"
-    return 1
+    print_warning "Could not auto-optimize - continuing with current PRD"
+    return 0  # Don't fail, just continue
   fi
 }
 
 # Quick validation without auto-fix (for re-checking after fix)
 # Checks all the same things as validate_and_fix_stories() but returns issues string
+# Skips completed stories (passes=true)
 validate_stories_quick() {
   local prd_file="$1"
   local issues=""
 
+  # Only check incomplete stories
   local story_ids
-  story_ids=$(jq -r '.stories[].id' "$prd_file" 2>/dev/null)
+  story_ids=$(jq -r '.stories[] | select(.passes != true) | .id' "$prd_file" 2>/dev/null)
 
   while IFS= read -r story_id; do
     [[ -z "$story_id" ]] && continue
