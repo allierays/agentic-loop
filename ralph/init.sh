@@ -603,6 +603,36 @@ auto_configure_project() {
     fi
   fi
 
+  # 8. Detect Python runner (uv/poetry/pipenv) and update test command
+  if [[ -f "pyproject.toml" || -f "requirements.txt" ]]; then
+    local py_runner=""
+    py_runner=$(detect_python_runner ".")
+
+    if [[ -n "$py_runner" ]]; then
+      # Check if commands.test exists and needs updating
+      local current_test
+      current_test=$(jq -r '.commands.test // ""' "$tmpfile" 2>/dev/null)
+
+      # Update if test command is bare pytest (no runner prefix)
+      if [[ "$current_test" == "pytest"* ]] && [[ "$current_test" != "$py_runner"* ]]; then
+        local new_test="${py_runner} ${current_test}"
+        jq --arg test "$new_test" '.commands.test = $test' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+        echo "  Auto-updated commands.test: $new_test"
+        updated=true
+      fi
+
+      # Also update commands.dev if it's bare python
+      local current_dev
+      current_dev=$(jq -r '.commands.dev // ""' "$tmpfile" 2>/dev/null)
+      if [[ "$current_dev" == "python "* ]] && [[ "$current_dev" != "$py_runner"* ]]; then
+        local new_dev="${py_runner} ${current_dev}"
+        jq --arg dev "$new_dev" '.commands.dev = $dev' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+        echo "  Auto-updated commands.dev: $new_dev"
+        updated=true
+      fi
+    fi
+  fi
+
   # Save if updated
   if [[ "$updated" == "true" ]]; then
     mv "$tmpfile" "$config"

@@ -25,12 +25,12 @@
   },
 
   "commands": {
-    "dev": "python -m ${PROJECT_MODULE}.server",
+    "dev": "uv run python -m ${PROJECT_MODULE}.server",
     "install": "uv pip install -e .",
-    "lint": "ruff check src/",
-    "format": "ruff format src/",
-    "typecheck": "mypy src/",
-    "test": "pytest",
+    "lint": "uv run ruff check src/",
+    "format": "uv run ruff format src/",
+    "typecheck": "uv run mypy src/",
+    "test": "uv run pytest",
     "seed": "",
     "resetDb": ""
   },
