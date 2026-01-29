@@ -174,8 +174,8 @@ validate_prd() {
     if [[ "$require_tests" == "true" && -z "$test_dir" ]]; then
       echo ""
       print_warning "No test directory configured in .ralph/config.json"
-      echo "  Without tests, Ralph can only verify syntax and API responses."
-      echo "  Import errors and integration issues won't be caught."
+      echo "  Without tests, Ralph relies on lint, type-checking, and PRD test steps."
+      echo "  Consider adding tests or PRD testCommands for better verification."
       echo ""
       echo "  To fix: Add tests, or set in .ralph/config.json:"
       echo "    {\"tests\": {\"directory\": \"src\", \"patterns\": \"*.test.ts\"}}"
