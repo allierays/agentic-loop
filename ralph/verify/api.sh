@@ -108,8 +108,8 @@ run_frontend_smoke_test() {
   # No frontend configured, skip silently
   [[ -z "$frontend_url" ]] && return 0
 
-  # Skip for backend-only stories (optional optimization)
-  # [[ "$story_type" == "backend" ]] && return 0
+  # Skip for backend-only stories
+  [[ "$story_type" == "backend" ]] && return 0
 
   echo ""
   echo "  [5/5] Running frontend smoke tests..."
