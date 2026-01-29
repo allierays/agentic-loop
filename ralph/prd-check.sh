@@ -284,7 +284,7 @@ _validate_and_fix_stories() {
   local cnt_no_tests=0 cnt_backend_curl=0 cnt_backend_contract=0
   local cnt_frontend_tsc=0 cnt_frontend_url=0 cnt_frontend_context=0
   local cnt_auth_security=0 cnt_list_pagination=0 cnt_prose_steps=0
-  local cnt_migration_prereq=0 cnt_naming_convention=0
+  local cnt_migration_prereq=0 cnt_naming_convention=0 cnt_bare_pytest=0
 
   echo "  Checking test coverage..."
 
@@ -329,6 +329,18 @@ _validate_and_fix_stories() {
         if ! echo "$test_steps" | grep -qE "(tsc --noEmit|playwright)"; then
           story_issues+="frontend needs tsc/playwright tests, "
           cnt_frontend_tsc=$((cnt_frontend_tsc + 1))
+        fi
+      fi
+
+      # Check for bare pytest/python in projects using uv/poetry/pipenv
+      local py_runner
+      py_runner=$(detect_python_runner ".")
+      if [[ -n "$py_runner" ]]; then
+        # Project uses a Python runner - check for bare pytest/python commands
+        # Match: "pytest " at start or after space/semicolon, but not preceded by "run "
+        if echo "$test_steps" | grep -qE '(^|[; ])pytest ' && ! echo "$test_steps" | grep -qE "(uv run|poetry run|pipenv run) pytest"; then
+          story_issues+="use '$py_runner pytest' not bare 'pytest', "
+          cnt_bare_pytest=$((cnt_bare_pytest + 1))
         fi
       fi
     fi
@@ -434,6 +446,7 @@ _validate_and_fix_stories() {
     [[ $cnt_list_pagination -gt 0 ]] && echo "    ${cnt_list_pagination}x list: add pagination"
     [[ $cnt_migration_prereq -gt 0 ]] && echo "    ${cnt_migration_prereq}x migration: add prerequisites (DB reset)"
     [[ $cnt_naming_convention -gt 0 ]] && echo "    ${cnt_naming_convention}x API consumer: add camelCase transformation note"
+    [[ $cnt_bare_pytest -gt 0 ]] && echo "    ${cnt_bare_pytest}x use 'uv run pytest' not bare 'pytest'"
 
     # Check if Claude is available for auto-fix
     if command -v claude &>/dev/null; then
