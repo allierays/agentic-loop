@@ -37,33 +37,6 @@ EOF
   echo ""
 }
 
-show_welcome() {
-  echo -e "  ${BOLD}Welcome!${NC} How would you like to get started?"
-  echo ""
-  echo -e "  ${GREEN}[1]${NC} ${EMOJI_ROCKET} ${BOLD}Quick Setup${NC}"
-  echo -e "      ${DIM}I know what I'm doing, just configure my project${NC}"
-  echo ""
-  echo -e "  ${GREEN}[2]${NC} ${EMOJI_MOVIE} ${BOLD}Feature Tour${NC}"
-  echo -e "      ${DIM}Show me what agentic-loop can do (auto-demo)${NC}"
-  echo ""
-  echo -e "  ${GREEN}[3]${NC} ${EMOJI_BOOK} ${BOLD}New to Claude Code${NC}"
-  echo -e "      ${DIM}Teach me the basics (interactive tutorial)${NC}"
-  echo ""
-}
-
-prompt_menu() {
-  local choice
-  while true; do
-    echo -ne "  Press ${GREEN}1${NC}, ${GREEN}2${NC}, or ${GREEN}3${NC} (or ${DIM}q${NC} to quit): "
-    read -r -n 1 choice
-    echo ""
-    case "$choice" in
-      1|2|3|q|Q) echo "$choice"; return ;;
-      *) echo -e "  ${RED}Invalid choice${NC}" ;;
-    esac
-  done
-}
-
 # Typewriter effect for demos
 typewrite() {
   local text="$1" delay="${2:-0.02}"
@@ -109,21 +82,6 @@ print_warning() {
 # Print info message
 print_info() {
   echo -e "  ${CYAN}→${NC} $1"
-}
-
-# Spinner for long operations
-spin() {
-  local pid=$1
-  local delay=0.1
-  local spinstr='|/-\'
-  while [ "$(ps a | awk '{print $1}' | grep $pid)" ]; do
-    local temp=${spinstr#?}
-    printf "  [%c]  " "$spinstr"
-    local spinstr=$temp${spinstr%"$temp"}
-    sleep $delay
-    printf "\b\b\b\b\b\b"
-  done
-  printf "      \b\b\b\b\b\b"
 }
 
 # Confirmation prompt

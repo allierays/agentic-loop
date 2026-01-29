@@ -77,36 +77,6 @@ print_success() { echo -e "${GREEN}$1${NC}"; }
 print_warning() { echo -e "${YELLOW}$1${NC}"; }
 print_info() { echo -e "${BLUE}$1${NC}"; }
 
-# Require a file to exist
-require_file() {
-  local file="$1"
-  local msg="${2:-File not found: $file}"
-  if [[ ! -f "$file" ]]; then
-    print_error "$msg"
-    exit 1
-  fi
-}
-
-# Require a directory to exist
-require_dir() {
-  local dir="$1"
-  local msg="${2:-Directory not found: $dir}"
-  if [[ ! -d "$dir" ]]; then
-    print_error "$msg"
-    exit 1
-  fi
-}
-
-# Require a command to be available
-require_command() {
-  local cmd="$1"
-  local msg="${2:-Command not found: $cmd}"
-  if ! command -v "$cmd" &>/dev/null; then
-    print_error "$msg"
-    exit 1
-  fi
-}
-
 # Check all required dependencies
 check_dependencies() {
   local missing=()
@@ -164,6 +134,172 @@ get_config() {
     fi
   fi
   echo "$default"
+}
+
+# Get a field from a story in prd.json
+# Usage: get_story_field "STORY-001" ".type" "general"
+get_story_field() {
+  local story_id="$1"
+  local field="$2"
+  local default="${3:-}"
+  local prd="$RALPH_DIR/prd.json"
+
+  if [[ -f "$prd" ]]; then
+    local value
+    value=$(jq -r --arg id "$story_id" ".stories[] | select(.id==\$id) | $field // empty" "$prd" 2>/dev/null)
+    if [[ -n "$value" && "$value" != "null" ]]; then
+      echo "$value"
+      return
+    fi
+  fi
+  echo "$default"
+}
+
+# Clear a failure log file
+# Usage: clear_failure_log "lint"  # clears last_lint_failure.log
+clear_failure_log() {
+  local log_name="$1"
+  rm -f "$RALPH_DIR/last_${log_name}_failure.log"
+}
+
+# Append content to a failure log file
+# Usage: log_failure "lint" "Error details here"
+log_failure() {
+  local log_name="$1"
+  local content="$2"
+  echo "$content" >> "$RALPH_DIR/last_${log_name}_failure.log"
+}
+
+# Deep merge user config with project config
+# User config provides defaults, project config overrides
+_merge_user_config() {
+  local project_config="$RALPH_DIR/config.json"
+  local user_config="$HOME/.config/ralph/config.json"
+
+  # Skip if no user config
+  [[ ! -f "$user_config" ]] && return 0
+
+  # Skip if no project config
+  [[ ! -f "$project_config" ]] && return 0
+
+  # Deep merge: user config * project config (project wins)
+  local merged
+  merged=$(jq -s '.[0] * .[1]' "$user_config" "$project_config" 2>/dev/null)
+
+  if [[ -n "$merged" && "$merged" != "null" ]]; then
+    echo "$merged" > "$project_config"
+  fi
+}
+
+# Manage user-level Ralph configuration
+ralph_config() {
+  local cmd="${1:-show}"
+  local user_config_dir="$HOME/.config/ralph"
+  local user_config="$user_config_dir/config.json"
+
+  case "$cmd" in
+    show)
+      echo "=== User Config ==="
+      echo "Location: $user_config"
+      if [[ -f "$user_config" ]]; then
+        jq '.' "$user_config"
+      else
+        echo "(not configured - run 'ralph config init')"
+      fi
+      echo ""
+      echo "=== Global Hooks ==="
+      if [[ -d "$user_config_dir/hooks" ]]; then
+        ls -1 "$user_config_dir/hooks" 2>/dev/null || echo "(none)"
+      else
+        echo "(none)"
+      fi
+      ;;
+
+    init)
+      mkdir -p "$user_config_dir/hooks" "$user_config_dir/templates/config"
+      if [[ ! -f "$user_config" ]]; then
+        echo '{}' > "$user_config"
+        echo "Created $user_config"
+      else
+        echo "User config already exists: $user_config"
+      fi
+      echo ""
+      echo "Directories created:"
+      echo "  $user_config_dir/hooks/      - Add global hooks here"
+      echo "  $user_config_dir/templates/  - Override default templates"
+      ;;
+
+    get)
+      # ralph config get commands.test
+      local key="$2"
+      if [[ -z "$key" ]]; then
+        echo "Usage: ralph config get <key>"
+        echo "Example: ralph config get commands.test"
+        return 1
+      fi
+      local value
+      value=$(jq -r ".$key // empty" "$user_config" 2>/dev/null)
+      if [[ -n "$value" && "$value" != "null" ]]; then
+        echo "$value"
+      else
+        echo "(not set)"
+      fi
+      ;;
+
+    set)
+      # ralph config set commands.test "uv run pytest"
+      local key="$2"
+      local value="$3"
+      if [[ -z "$key" || -z "$value" ]]; then
+        echo "Usage: ralph config set <key> <value>"
+        echo "Example: ralph config set commands.test 'uv run pytest'"
+        return 1
+      fi
+      mkdir -p "$user_config_dir"
+      [[ ! -f "$user_config" ]] && echo '{}' > "$user_config"
+
+      # Build jq path from dot notation: commands.test -> .commands.test
+      local jq_path=".$key"
+      jq --arg v "$value" "$jq_path = \$v" "$user_config" > "${user_config}.tmp" \
+        && mv "${user_config}.tmp" "$user_config"
+      echo "Set $key = $value"
+      ;;
+
+    unset)
+      # ralph config unset commands.test
+      local key="$2"
+      if [[ -z "$key" ]]; then
+        echo "Usage: ralph config unset <key>"
+        return 1
+      fi
+      [[ ! -f "$user_config" ]] && return 0
+      local jq_path=".$key"
+      jq "del($jq_path)" "$user_config" > "${user_config}.tmp" \
+        && mv "${user_config}.tmp" "$user_config"
+      echo "Removed $key"
+      ;;
+
+    path)
+      echo "$user_config_dir"
+      ;;
+
+    *)
+      echo "Usage: ralph config <command>"
+      echo ""
+      echo "Commands:"
+      echo "  show           Show current user config"
+      echo "  init           Initialize user config directory"
+      echo "  get <key>      Get a config value"
+      echo "  set <key> <v>  Set a config value"
+      echo "  unset <key>    Remove a config value"
+      echo "  path           Print config directory path"
+      echo ""
+      echo "Examples:"
+      echo "  ralph config init"
+      echo "  ralph config set commands.test 'uv run pytest'"
+      echo "  ralph config get commands.test"
+      ;;
+  esac
 }
 
 # Cross-platform timeout (macOS needs gtimeout from coreutils)
@@ -313,7 +449,7 @@ validate_command() {
 }
 
 # Validate a URL is safe (http/https only, no internal IPs in production)
-validate_url() {
+validate_url() { # public-api
   local url="$1"
 
   # Must start with http:// or https://

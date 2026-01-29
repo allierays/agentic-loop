@@ -285,6 +285,7 @@ setup_claude_hooks() {
   local settings_file=".claude/settings.json"
   local src_hooks_dir="$pkg_root/ralph/hooks"
   local project_hooks_dir=".ralph/hooks"
+  local global_hooks_dir="$HOME/.config/ralph/hooks"
 
   echo "Installing Claude Code hooks..."
 
@@ -307,6 +308,11 @@ setup_claude_hooks() {
   chmod +x "$project_hooks_dir"/*.sh 2>/dev/null || true
   echo "  Copied hooks to $project_hooks_dir/"
 
+  # Note if global hooks exist
+  if [[ -d "$global_hooks_dir" ]] && ls -1 "$global_hooks_dir"/*.sh &>/dev/null; then
+    echo "  Found global hooks in $global_hooks_dir/"
+  fi
+
   # Get absolute path to project hooks
   local hooks_dir
   hooks_dir="$(cd "$project_hooks_dir" && pwd)"
@@ -317,52 +323,70 @@ setup_claude_hooks() {
   # Create settings file if it doesn't exist
   [[ ! -f "$settings_file" ]] && echo '{}' > "$settings_file"
 
-  # Build hooks config with absolute paths to project hooks
+  # Helper to resolve hook path (project takes priority over global)
+  _resolve_hook() {
+    local hook_name="$1"
+    if [[ -f "$project_hooks_dir/$hook_name" ]]; then
+      echo "$hooks_dir/$hook_name"
+    elif [[ -f "$global_hooks_dir/$hook_name" ]]; then
+      echo "$global_hooks_dir/$hook_name"
+    fi
+  }
+
+  # Resolve each hook path (project hooks take priority over global)
+  local protect_prd warn_debug warn_secrets warn_urls warn_empty_catch log_tools inject_context save_learnings
+  protect_prd=$(_resolve_hook "protect-prd.sh")
+  warn_debug=$(_resolve_hook "warn-debug.sh")
+  warn_secrets=$(_resolve_hook "warn-secrets.sh")
+  warn_urls=$(_resolve_hook "warn-urls.sh")
+  warn_empty_catch=$(_resolve_hook "warn-empty-catch.sh")
+  log_tools=$(_resolve_hook "log-tools.sh")
+  inject_context=$(_resolve_hook "inject-context.sh")
+  save_learnings=$(_resolve_hook "save-learnings.sh")
+
+  # Build hooks arrays using jq for proper JSON
+  local pre_tool_hooks post_edit_hooks post_all_hooks session_start_hooks stop_hooks
+
+  # PreToolUse: protect-prd on Edit|Write
+  pre_tool_hooks="[]"
+  [[ -n "$protect_prd" ]] && pre_tool_hooks=$(jq -n --arg cmd "$protect_prd" '[{"type": "command", "command": $cmd, "timeout": 5}]')
+
+  # PostToolUse: warn-* hooks on Edit|Write
+  post_edit_hooks="[]"
+  for hook_path in "$warn_debug" "$warn_secrets" "$warn_urls" "$warn_empty_catch"; do
+    [[ -n "$hook_path" ]] && post_edit_hooks=$(echo "$post_edit_hooks" | jq --arg cmd "$hook_path" '. + [{"type": "command", "command": $cmd, "timeout": 5}]')
+  done
+
+  # PostToolUse: log-tools on all
+  post_all_hooks="[]"
+  [[ -n "$log_tools" ]] && post_all_hooks=$(jq -n --arg cmd "$log_tools" '[{"type": "command", "command": $cmd, "timeout": 3}]')
+
+  # SessionStart: inject-context
+  session_start_hooks="[]"
+  [[ -n "$inject_context" ]] && session_start_hooks=$(jq -n --arg cmd "$inject_context" '[{"type": "command", "command": $cmd, "timeout": 5}]')
+
+  # Stop: save-learnings
+  stop_hooks="[]"
+  [[ -n "$save_learnings" ]] && stop_hooks=$(jq -n --arg cmd "$save_learnings" '[{"type": "command", "command": $cmd, "timeout": 10}]')
+
+  # Build the complete hooks config
   local hooks_config
-  hooks_config=$(cat <<EOF
-{
-  "PreToolUse": [
-    {
-      "matcher": "Edit|Write",
-      "hooks": [
-        {"type": "command", "command": "$hooks_dir/protect-prd.sh", "timeout": 5}
-      ]
-    }
-  ],
-  "PostToolUse": [
-    {
-      "matcher": "Edit|Write",
-      "hooks": [
-        {"type": "command", "command": "$hooks_dir/warn-debug.sh", "timeout": 5},
-        {"type": "command", "command": "$hooks_dir/warn-secrets.sh", "timeout": 5},
-        {"type": "command", "command": "$hooks_dir/warn-urls.sh", "timeout": 5},
-        {"type": "command", "command": "$hooks_dir/warn-empty-catch.sh", "timeout": 5}
-      ]
-    },
-    {
-      "matcher": "*",
-      "hooks": [
-        {"type": "command", "command": "$hooks_dir/log-tools.sh", "timeout": 3}
-      ]
-    }
-  ],
-  "SessionStart": [
-    {
-      "hooks": [
-        {"type": "command", "command": "$hooks_dir/inject-context.sh", "timeout": 5}
-      ]
-    }
-  ],
-  "Stop": [
-    {
-      "hooks": [
-        {"type": "command", "command": "$hooks_dir/save-learnings.sh", "timeout": 10}
-      ]
-    }
-  ]
-}
-EOF
-)
+  hooks_config=$(jq -n \
+    --argjson pre_tool "$pre_tool_hooks" \
+    --argjson post_edit "$post_edit_hooks" \
+    --argjson post_all "$post_all_hooks" \
+    --argjson session_start "$session_start_hooks" \
+    --argjson stop "$stop_hooks" \
+    '{
+      "PreToolUse": [{"matcher": "Edit|Write", "hooks": $pre_tool}],
+      "PostToolUse": [
+        {"matcher": "Edit|Write", "hooks": $post_edit},
+        {"matcher": "*", "hooks": $post_all}
+      ],
+      "SessionStart": [{"hooks": $session_start}],
+      "Stop": [{"hooks": $stop}]
+    }'
+  )
 
   # Merge hooks into settings
   local tmp

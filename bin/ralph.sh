@@ -61,13 +61,22 @@ if [[ ! -f ".ralph/config.json" ]]; then
     _project_type="node"
   fi
 
+  # Check user template override first
+  _user_template="$HOME/.config/ralph/templates/config/${_project_type}.json"
   _config_template="$RALPH_TEMPLATES/config/${_project_type}.json"
-  if [[ -f "$_config_template" ]]; then
+
+  if [[ -f "$_user_template" ]]; then
+    cp "$_user_template" ".ralph/config.json"
+    echo "Using user template: $_user_template" >&2
+  elif [[ -f "$_config_template" ]]; then
     cp "$_config_template" ".ralph/config.json"
   else
     # Fall back to minimal config if template doesn't exist
+    _user_minimal="$HOME/.config/ralph/templates/config/minimal.json"
     _config_template="$RALPH_TEMPLATES/config/minimal.json"
-    if [[ -f "$_config_template" ]]; then
+    if [[ -f "$_user_minimal" ]]; then
+      cp "$_user_minimal" ".ralph/config.json"
+    elif [[ -f "$_config_template" ]]; then
       cp "$_config_template" ".ralph/config.json"
     else
       echo '{"projectType": "unknown"}' > ".ralph/config.json"
@@ -99,6 +108,11 @@ if [[ "${_ralph_needs_autoconfig:-}" == "true" ]]; then
   echo "Auto-detecting project configuration..." >&2
   auto_configure_project
   unset _ralph_needs_autoconfig
+fi
+
+# Merge user config defaults into project config
+if [[ -f "$RALPH_DIR/config.json" && -f "$HOME/.config/ralph/config.json" ]]; then
+  _merge_user_config
 fi
 
 # Main entry point
@@ -185,15 +199,7 @@ main() {
       fi
       ;;
     config)
-      if [[ ! -f "$RALPH_DIR/config.json" ]]; then
-        print_error "Ralph not initialized. Run 'ralph init' first."
-        exit 1
-      fi
-      echo "Auto-detecting project configuration..."
-      auto_configure_project
-      echo ""
-      echo "Current config:"
-      jq '.' "$RALPH_DIR/config.json"
+      ralph_config "$@"
       ;;
     help|-h|--help)
       ralph_help
