@@ -7,6 +7,8 @@ const lastState = new Map<string, string>();
 
 /**
  * Parse the Ralph progress file to get loop status
+ * Format: [ISO-timestamp] STATUS story_id message
+ * Statuses: COMPLETED, FAILED, CLI_CRASH, TIMEOUT, BLOCKED
  */
 export function parseProgressFile(projectPath: string): LoopStatus | null {
   const progressPath = join(projectPath, '.ralph/progress.txt');
@@ -19,61 +21,67 @@ export function parseProgressFile(projectPath: string): LoopStatus | null {
     const content = readFileSync(progressPath, 'utf-8');
     const lines = content.split('\n').filter(Boolean);
 
-    // Parse the progress file
-    // Format: timestamps and status messages
+    // Only look at recent lines (last 50)
+    const recentLines = lines.slice(-50);
+
     const errors: string[] = [];
+    const completedStoryIds = new Set<string>();
     let currentStory: string | null = null;
-    let completedStories = 0;
-    let totalStories = 0;
     let lastUpdate = '';
     let isRunning = false;
+    let hasRalphActivity = false;
 
-    for (const line of lines) {
-      // Extract timestamp
-      const timestampMatch = line.match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\]/);
-      if (timestampMatch) {
-        lastUpdate = timestampMatch[1];
-      }
+    // Ralph log format: [timestamp] STATUS story_id message
+    const logPattern = /^\[([^\]]+)\]\s+(COMPLETED|FAILED|CLI_CRASH|TIMEOUT|BLOCKED)\s+(\S+)(.*)$/;
 
-      // Check for story start
-      if (line.includes('Starting story:') || line.includes('▶')) {
-        const storyMatch = line.match(/(?:Starting story:|▶)\s*(\S+)/);
-        if (storyMatch) {
-          currentStory = storyMatch[1];
+    for (const line of recentLines) {
+      const match = line.match(logPattern);
+
+      if (match) {
+        hasRalphActivity = true;
+        const [, timestamp, status, storyId, message] = match;
+        lastUpdate = timestamp;
+
+        if (status === 'COMPLETED') {
+          completedStoryIds.add(storyId);
+          if (currentStory === storyId) {
+            currentStory = null;
+          }
+        } else if (status === 'FAILED' || status === 'CLI_CRASH' || status === 'TIMEOUT') {
+          errors.push(`${status} ${storyId}${message}`.trim());
+          currentStory = storyId; // Still working on this story
           isRunning = true;
         }
       }
 
-      // Check for story completion
-      if (line.includes('✓') || line.includes('completed') || line.includes('Story complete')) {
-        completedStories++;
-        currentStory = null;
+      // Check for loop start/end markers
+      if (line.includes('Loop starting') || line.includes('Starting loop')) {
+        isRunning = true;
+        hasRalphActivity = true;
       }
-
-      // Check for errors
-      if (line.includes('✗') || line.includes('ERROR') || line.includes('Failed')) {
-        errors.push(line.substring(0, 200)); // Truncate long errors
-      }
-
-      // Check for loop end
       if (line.includes('Loop complete') || line.includes('All stories done')) {
         isRunning = false;
       }
 
-      // Try to get total stories from PRD load message
-      const totalMatch = line.match(/(\d+)\s*(?:stories|tasks)/);
+      // Try to get total stories
+      const totalMatch = line.match(/(\d+)\s*(?:stories|story)/i);
       if (totalMatch) {
-        totalStories = Math.max(totalStories, parseInt(totalMatch[1]));
+        // Don't overwrite with smaller numbers
       }
+    }
+
+    // If no Ralph activity found, return null
+    if (!hasRalphActivity) {
+      return null;
     }
 
     return {
       isRunning,
       currentStory,
-      completedStories,
-      totalStories,
+      completedStories: completedStoryIds.size,
+      totalStories: 0, // Would need to read PRD to know this
       lastUpdate,
-      errors: errors.slice(-3), // Last 3 errors
+      errors: errors.slice(-3),
     };
   } catch (error) {
     console.error('Error parsing progress file:', error);
