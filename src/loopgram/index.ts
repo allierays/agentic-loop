@@ -10,9 +10,14 @@ import {
   handleProjectsCommand,
   handleStatusCommand,
   setConversationContext,
+  getConversationContext,
+  getHistory,
+  clearConversation,
 } from './conversation.js';
 import { parseProgressFile, formatLoopStatus } from './loop-monitor.js';
 import { getTopicContext } from './context-search.js';
+import { generateStories, appendToPRD } from './prd-generator.js';
+import { startLoop, stopLoop } from './loop-runner.js';
 
 // Load configuration
 function loadConfig(): BrainstormConfig {
@@ -114,10 +119,15 @@ async function main(): Promise<void> {
     ctx.reply(
       `📱 **Loopgram**\n\n` +
         `Your mobile connection to agentic-loop.\n\n` +
-        `**Commands:**\n` +
-        `/context <topic> - Load context about a topic from codebase\n` +
-        `/loop - Check Ralph loop progress\n` +
-        `/save - Save the conversation as an idea\n` +
+        `**Workflow:**\n` +
+        `/context <topic> - Load codebase context\n` +
+        `(chat about your idea)\n` +
+        `/prd - Generate stories from conversation\n` +
+        `/start-loop - Start Ralph to execute stories\n` +
+        `/loop - Check Ralph progress\n` +
+        `/stop-loop - Stop Ralph loop\n\n` +
+        `**Other:**\n` +
+        `/save - Save conversation as idea file\n` +
         `/clear - Clear conversation history\n` +
         `/status - Show current session info\n` +
         `/projects - List configured projects\n` +
@@ -137,11 +147,100 @@ async function main(): Promise<void> {
 
     const status = parseProgressFile(project.path);
     if (!status) {
-      ctx.reply(`No Ralph loop running in ${project.name}. Start one with: ralph loop`);
+      ctx.reply(`No Ralph loop running in ${project.name}. Start one with /start-loop`);
       return;
     }
 
     ctx.reply(formatLoopStatus(status, project.name));
+  });
+
+  // /prd command - generate stories from conversation
+  bot.command('prd', async (ctx) => {
+    const chatId = ctx.chat?.id;
+    const chatIdStr = chatId?.toString();
+    const project = chatIdStr ? getProject(chatIdStr, config) : null;
+
+    if (!project || !chatId) {
+      ctx.reply('This chat is not configured for a project.');
+      return;
+    }
+
+    const history = getHistory(chatId);
+    if (history.length < 2) {
+      ctx.reply('Nothing to generate. Start a conversation first!');
+      return;
+    }
+
+    await ctx.reply('🔄 Generating stories from conversation...');
+
+    try {
+      const context = getConversationContext(chatId);
+      const { featureName, featureDescription, stories } = await generateStories(
+        history,
+        context,
+        config.anthropic.model
+      );
+
+      const { added, total } = appendToPRD(
+        project.path,
+        featureName,
+        featureDescription,
+        stories
+      );
+
+      // Format story list
+      const storyList = stories.map((s) => `• ${s.title}`).join('\n');
+
+      await ctx.reply(
+        `✅ Added ${added} stories to PRD (${total} total)\n\n` +
+          `**${featureName}**\n${storyList}\n\n` +
+          `Use /start-loop to execute.`
+      );
+
+      // Clear conversation after generating PRD
+      clearConversation(chatId);
+    } catch (error) {
+      console.error('PRD generation error:', error);
+      await ctx.reply('Error generating stories. Check the logs.');
+    }
+  });
+
+  // /start-loop command - start Ralph loop
+  bot.command('start_loop', (ctx) => {
+    const chatId = ctx.chat?.id.toString();
+    const project = chatId ? getProject(chatId, config) : null;
+
+    if (!project) {
+      ctx.reply('This chat is not configured for a project.');
+      return;
+    }
+
+    const result = startLoop(project.path);
+
+    if (result.success) {
+      ctx.reply(`🚀 ${result.message}`);
+    } else {
+      ctx.reply(`❌ ${result.message}`);
+    }
+  });
+
+  // /stop-loop command - stop Ralph loop
+  bot.command('stop_loop', (ctx) => {
+    const chatId = ctx.chat?.id.toString();
+    const project = chatId ? getProject(chatId, config) : null;
+
+    if (!project) {
+      ctx.reply('This chat is not configured for a project.');
+      return;
+    }
+
+    const result = stopLoop(project.path);
+
+    if (result.success) {
+      ctx.reply(`✅ ${result.message}`);
+    } else {
+      ctx.reply(`❌ ${result.message}`);
+    }
   });
 
   // /context command - search codebase for a topic

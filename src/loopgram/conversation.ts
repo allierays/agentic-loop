@@ -22,14 +22,14 @@ export function setConversationContext(chatId: number, context: string): void {
 /**
  * Get context for a conversation
  */
-function getConversationContext(chatId: number): string | undefined {
+export function getConversationContext(chatId: number): string | undefined {
   return conversationContexts.get(chatId);
 }
 
 /**
  * Get conversation history for a chat, creating if needed
  */
-function getHistory(chatId: number): Message[] {
+export function getHistory(chatId: number): Message[] {
   if (!conversations.has(chatId)) {
     conversations.set(chatId, []);
   }
