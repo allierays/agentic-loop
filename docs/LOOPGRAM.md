@@ -1,13 +1,13 @@
-# Telegram Brainstorm Bot
+# Loopgram
 
-Brainstorm ideas for your projects from anywhere via Telegram. The bot searches your codebase for context and saves ideas to `docs/ideas/` for later execution with Ralph.
+**Your mobile connection to agentic-loop.** Brainstorm ideas, monitor Ralph loops, and search your codebase - all from Telegram.
 
 ## Features
 
 - **Smart Context Search**: `/context <topic>` searches your codebase and summarizes what exists
-- **Multi-Project Support**: One bot, multiple Telegram groups - each maps to a different project
-- **Ralph Loop Monitoring**: `/loop` checks the status of running Ralph loops
+- **Loop Monitoring**: `/loop` checks the status of running Ralph loops
 - **Idea Capture**: `/save` summarizes conversations and saves to `docs/ideas/`
+- **Multi-Project Support**: One bot, multiple Telegram groups - each maps to a different project
 
 ## Setup
 
@@ -37,7 +37,7 @@ chmod 600 ~/.config/ralph/secrets
 
 ### 4. Configure Projects
 
-Create `~/.config/ralph/brainstorm.json`:
+Create `~/.config/ralph/loopgram.json`:
 
 ```json
 {
@@ -51,11 +51,11 @@ Create `~/.config/ralph/brainstorm.json`:
 }
 ```
 
-### 5. Start the Bot
+### 5. Start Loopgram
 
 ```bash
 source ~/.config/ralph/secrets
-npm run brainstorm
+npm run loopgram
 ```
 
 ### 6. Add Projects
@@ -100,20 +100,20 @@ Telegram                    Your Mac                     Claude Code
 /context authentication
     │
     ▼
-Bot searches codebase ────► Found: auth.py, login.ts...
+Loopgram searches ────────► Found: auth.py, login.ts...
     │
     ▼
 "I want to add OAuth"
     │
     ▼
-Bot brainstorms with
-codebase context
+Loopgram brainstorms
+with codebase context
     │
     ▼
 /save
     │
     ▼
-Saved to docs/ideas/oauth-support.md ──────────────────► /prd docs/ideas/oauth-support.md
+Saved to docs/ideas/oauth.md ──────────────────────────► /prd docs/ideas/oauth.md
                                                               │
                                                               ▼
                                                          Ralph executes
@@ -125,19 +125,19 @@ Saved to docs/ideas/oauth-support.md ──────────────�
 - **Claude Opus**: ~$0.25 per deep conversation
 - **Hosting**: Free (runs on your Mac)
 
-Estimated: ~$7.50/month for daily brainstorming.
+Estimated: ~$7.50/month for daily use.
 
 ## Running in Background
 
 ```bash
 # Start in background
-npm run brainstorm:bg
+npm run loopgram:bg
 
 # Check logs
-tail -f .ralph/brainstorm.log
+tail -f .ralph/loopgram.log
 
 # Stop
-pkill -f "brainstorm/index.ts"
+pkill -f "loopgram/index.ts"
 ```
 
 ## Tips

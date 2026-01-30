@@ -82,6 +82,6 @@ yarn-error.log*
 .claude/settings.json
 *.tgz
 
-# Brainstorm bot secrets
+# Loopgram secrets
 .ralph/secrets
-brainstorm.log
+loopgram.log

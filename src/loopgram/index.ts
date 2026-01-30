@@ -18,7 +18,7 @@ import { getTopicContext } from './context-search.js';
 function loadConfig(): BrainstormConfig {
   const configPath = join(
     process.env.HOME || '',
-    '.config/ralph/brainstorm.json'
+    '.config/ralph/loopgram.json'
   );
 
   if (!existsSync(configPath)) {
@@ -112,8 +112,8 @@ async function main(): Promise<void> {
 
   bot.command('help', (ctx) => {
     ctx.reply(
-      `🧠 **Brainstorm Bot**\n\n` +
-        `Just send me your ideas and I'll help you think through them.\n\n` +
+      `📱 **Loopgram**\n\n` +
+        `Your mobile connection to agentic-loop.\n\n` +
         `**Commands:**\n` +
         `/context <topic> - Load context about a topic from codebase\n` +
         `/loop - Check Ralph loop progress\n` +
@@ -202,7 +202,7 @@ async function main(): Promise<void> {
   });
 
   // Start the bot
-  console.log('🧠 Brainstorm bot starting...');
+  console.log('📱 Loopgram starting...');
   console.log(`Model: ${config.anthropic.model}`);
   console.log(
     `Configured projects: ${Object.values(config.projects)
@@ -214,7 +214,7 @@ async function main(): Promise<void> {
   );
 
   await bot.launch();
-  console.log('✅ Bot is running! Send messages in Telegram to brainstorm.');
+  console.log('✅ Loopgram running! Send messages in Telegram.');
 
   // Graceful shutdown
   process.once('SIGINT', () => {
