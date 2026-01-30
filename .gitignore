@@ -81,3 +81,7 @@ yarn-error.log*
 # Users run `ralph hooks` to install their own
 .claude/settings.json
 *.tgz
+
+# Brainstorm bot secrets
+.ralph/secrets
+brainstorm.log

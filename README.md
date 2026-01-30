@@ -86,6 +86,7 @@ npx agentic-loop run         # Execute PRDs autonomously
 - [How Ralph Works](docs/RALPH.md) - Architecture, config, full reference
 - [Cheatsheet](docs/CHEATSHEET.md) - All commands at a glance
 - [Hooks Reference](docs/HOOKS.md) - Pre-commit and Claude Code hooks
+- [Brainstorm Bot](docs/BRAINSTORM.md) - Telegram bot for mobile brainstorming
 - [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues and fixes
 - [Contributing](docs/CONTRIBUTING.md) - How to contribute
 

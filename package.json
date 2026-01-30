@@ -58,7 +58,9 @@
     "postinstall": "./bin/postinstall.sh",
     "release": "npm version patch && git push && git push --tags && npm publish",
     "release:minor": "npm version minor && git push && git push --tags && npm publish",
-    "release:major": "npm version major && git push && git push --tags && npm publish"
+    "release:major": "npm version major && git push && git push --tags && npm publish",
+    "brainstorm": "tsx src/brainstorm/index.ts",
+    "brainstorm:bg": "nohup npm run brainstorm > .ralph/brainstorm.log 2>&1 &"
   },
   "engines": {
     "node": ">=18.0.0"
@@ -72,6 +74,8 @@
     }
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.32.0",
+    "telegraf": "^4.16.0",
     "tsx": "^4.0.0"
   },
   "devDependencies": {
