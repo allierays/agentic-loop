@@ -61,7 +61,12 @@
     "serverModule": "",
     "tools": [],
     "resources": [],
-    "prompts": []
+    "prompts": [],
+    "playwright": {
+      "browser": "chromium",
+      "headless": true,
+      "viewport": "1280x720"
+    }
   },
 
   "playwright": {

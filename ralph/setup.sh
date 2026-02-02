@@ -586,13 +586,14 @@ setup_mcp() {
   local added_any=false
 
   # Add Playwright MCP if not configured
+  # Uses chromium + headless to avoid conflicts with user's Chrome session
   if ! jq -e '.mcpServers["playwright"]' "$claude_json" > /dev/null 2>&1; then
     echo "Configuring MCP servers..."
     local tmp
     tmp=$(mktemp)
     jq '.mcpServers["playwright"] = {
       "command": "npx",
-      "args": ["-y", "@playwright/mcp@latest"]
+      "args": ["-y", "@playwright/mcp@latest", "--browser", "chromium", "--headless"]
     }' "$claude_json" > "$tmp" && mv "$tmp" "$claude_json"
     echo "  Added playwright MCP server (browser automation & testing)"
     added_any=true

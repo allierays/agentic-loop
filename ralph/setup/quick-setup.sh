@@ -202,20 +202,33 @@ configure_mcp() {
   # Create claude.json if it doesn't exist
   [[ ! -f "$claude_json" ]] && echo '{}' > "$claude_json"
 
-  # Check if chrome-devtools is already configured
-  if jq -e '.mcpServers["chrome-devtools"]' "$claude_json" > /dev/null 2>&1; then
-    echo -e "    ${DIM}Skipped: Chrome DevTools MCP already configured${NC}"
-    return
+  local added_any=false
+
+  # Add Playwright MCP if not configured (uses chromium + headless to avoid Chrome conflicts)
+  if ! jq -e '.mcpServers["playwright"]' "$claude_json" > /dev/null 2>&1; then
+    local tmp=$(mktemp)
+    jq '.mcpServers["playwright"] = {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest", "--browser", "chromium", "--headless"]
+    }' "$claude_json" > "$tmp" && mv "$tmp" "$claude_json"
+    echo -e "    ${GREEN}${EMOJI_CHECK}${NC} Playwright MCP configured"
+    added_any=true
+  else
+    echo -e "    ${DIM}Skipped: Playwright MCP already configured${NC}"
   fi
 
-  # Add Chrome DevTools MCP
-  local tmp=$(mktemp)
-  jq '.mcpServers["chrome-devtools"] = {
-    "command": "npx",
-    "args": ["-y", "@anthropic-ai/mcp-server-chrome-devtools@0.0.5"]
-  }' "$claude_json" > "$tmp" && mv "$tmp" "$claude_json"
-
-  echo -e "    ${GREEN}${EMOJI_CHECK}${NC} Chrome DevTools MCP configured"
+  # Add Chrome DevTools MCP if not configured
+  if ! jq -e '.mcpServers["chrome-devtools"]' "$claude_json" > /dev/null 2>&1; then
+    local tmp=$(mktemp)
+    jq '.mcpServers["chrome-devtools"] = {
+      "command": "npx",
+      "args": ["-y", "@anthropic-ai/mcp-server-chrome-devtools@0.0.5"]
+    }' "$claude_json" > "$tmp" && mv "$tmp" "$claude_json"
+    echo -e "    ${GREEN}${EMOJI_CHECK}${NC} Chrome DevTools MCP configured"
+    added_any=true
+  else
+    echo -e "    ${DIM}Skipped: Chrome DevTools MCP already configured${NC}"
+  fi
 }
 
 show_completion() {

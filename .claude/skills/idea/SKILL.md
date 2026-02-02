@@ -64,6 +64,12 @@ Help the user flesh out the idea through conversation:
 - Caching needed? How fresh must data be?
 - Database indexes: What will be queried/sorted frequently?
 
+**Migration/Refactoring (IMPORTANT - ask if moving or restructuring code):**
+- Source paths: Where does the code currently live?
+- Destination paths: Where should it end up? (be explicit, not vague)
+- Phases: What's the logical order? (move files → update imports → verify)
+- Verification: What commands prove each phase worked?
+
 ### Step 3: Summarize Before Writing
 
 When you have enough information, summarize what you've learned:
@@ -132,6 +138,36 @@ Once the user confirms, write the idea file:
    - **Caching**: What can be cached? For how long?
    - **Database**: What indexes are needed?
 
+   ## Migration Mapping (if moving/restructuring code)
+   For refactoring or migration tasks, explicitly map source to destination:
+
+   | Source | Destination |
+   |--------|-------------|
+   | `~/Sites/old-project/src/` | `apps/new-location/src/` |
+   | `~/Sites/old-project/tests/` | `apps/new-location/tests/` |
+
+   ## Phases & Verification
+   Break complex work into phases with explicit verification commands:
+
+   ### Phase 1: [Name]
+   **What:** Description of what this phase accomplishes
+   **Exit Criteria:**
+   ```bash
+   # These commands must pass before phase is complete
+   test -d apps/new-location/src
+   cd apps/new-location && uv run pytest -x
+   cd apps/new-location && npm run build
+   ```
+
+   ### Phase 2: [Name]
+   **What:** Description
+   **Exit Criteria:**
+   ```bash
+   # Verification commands for phase 2
+   docker-compose config | grep -q 'service-name:'
+   curl -s http://localhost:8000/health | jq -e '.status == "ok"'
+   ```
+
    ## UI Mockup (if applicable)
    ```
    ┌─────────────────────────────────┐
@@ -190,6 +226,26 @@ A good idea file has:
 - **Specific solution** - Not vague ("improve UX") but concrete ("add inline validation")
 - **Scope boundaries** - What's explicitly out of scope?
 - **Architecture hints** - Where do files go? What patterns to follow?
+- **Verification commands** - How do we know it worked? (executable commands, not prose)
+
+### Migration/Refactoring Ideas
+
+For ideas that involve moving or restructuring code, MUST include:
+
+1. **Explicit path mapping** - Source → Destination for every directory
+   ```
+   ❌ "Move GOPA to apps folder"
+   ✅ "~/Sites/gopa/src/gopa/ → apps/gopa/src/gopa/"
+   ```
+
+2. **Phase-based verification** - Each phase has exit criteria with commands
+   ```
+   ❌ "Verify everything still works"
+   ✅ "cd apps/gopa && uv run pytest -x && uv run python -c 'from gopa.server import mcp'"
+   ```
+
+3. **Order of operations** - What must happen before what?
+   - Move files → Update imports → Update configs → Verify
 
 ### ASCII Art for UI
 

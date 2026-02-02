@@ -62,6 +62,14 @@
     "baseUrl": "http://localhost:8000"
   },
 
+  "mcp": {
+    "playwright": {
+      "browser": "chromium",
+      "headless": true,
+      "viewport": "1280x720"
+    }
+  },
+
   "verification": {
     "codeReviewEnabled": true,
     "browserEnabled": true,

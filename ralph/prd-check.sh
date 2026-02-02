@@ -282,7 +282,7 @@ _validate_and_fix_stories() {
 
   # Issue counters (bash 3.2 compatible - no associative arrays)
   local cnt_no_tests=0 cnt_backend_curl=0 cnt_backend_contract=0
-  local cnt_frontend_tsc=0 cnt_frontend_url=0 cnt_frontend_context=0
+  local cnt_frontend_tsc=0 cnt_frontend_url=0 cnt_frontend_context=0 cnt_frontend_mcp=0
   local cnt_auth_security=0 cnt_list_pagination=0 cnt_prose_steps=0
   local cnt_migration_prereq=0 cnt_naming_convention=0 cnt_bare_pytest=0
 
@@ -355,7 +355,7 @@ _validate_and_fix_stories() {
       fi
     fi
 
-    # Check 3: Frontend needs testUrl and contextFiles
+    # Check 3: Frontend needs testUrl, contextFiles, and mcp
     if [[ "$story_type" == "frontend" ]]; then
       local has_url
       has_url=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .testUrl // empty' "$prd_file")
@@ -369,6 +369,14 @@ _validate_and_fix_stories() {
       if [[ "$context_files" == "0" ]]; then
         story_issues+="missing contextFiles, "
         cnt_frontend_context=$((cnt_frontend_context + 1))
+      fi
+
+      # Frontend must have mcp tools for browser verification
+      local mcp_tools
+      mcp_tools=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .mcp // [] | length' "$prd_file")
+      if [[ "$mcp_tools" == "0" ]]; then
+        story_issues+="missing mcp (browser tools), "
+        cnt_frontend_mcp=$((cnt_frontend_mcp + 1))
       fi
     fi
 
@@ -442,6 +450,7 @@ _validate_and_fix_stories() {
     [[ $cnt_frontend_tsc -gt 0 ]] && echo "    ${cnt_frontend_tsc}x frontend: add tsc/playwright"
     [[ $cnt_frontend_url -gt 0 ]] && echo "    ${cnt_frontend_url}x frontend: add testUrl"
     [[ $cnt_frontend_context -gt 0 ]] && echo "    ${cnt_frontend_context}x frontend: add contextFiles"
+    [[ $cnt_frontend_mcp -gt 0 ]] && echo "    ${cnt_frontend_mcp}x frontend: add mcp browser tools"
     [[ $cnt_auth_security -gt 0 ]] && echo "    ${cnt_auth_security}x auth: add security criteria"
     [[ $cnt_list_pagination -gt 0 ]] && echo "    ${cnt_list_pagination}x list: add pagination"
     [[ $cnt_migration_prereq -gt 0 ]] && echo "    ${cnt_migration_prereq}x migration: add prerequisites (DB reset)"
@@ -467,27 +476,41 @@ _fix_stories_with_claude() {
   local prd_file="$1"
   local issues="$2"
 
+  # Read config values for context
+  local config_file="$RALPH_DIR/config.json"
+  local backend_url="" frontend_url=""
+  if [[ -f "$config_file" ]]; then
+    backend_url=$(jq -r '.urls.backend // .api.baseUrl // "http://localhost:8000"' "$config_file" 2>/dev/null)
+    frontend_url=$(jq -r '.urls.frontend // .playwright.baseUrl // "http://localhost:3000"' "$config_file" 2>/dev/null)
+  fi
+
   local fix_prompt="Enhance test coverage for these stories. Output the COMPLETE updated prd.json.
 
 STORIES TO OPTIMIZE:
 $issues
 
+CONFIG VALUES (use these):
+- Backend URL: $backend_url (use as {config.urls.backend} in testSteps)
+- Frontend URL: $frontend_url (use as {config.urls.frontend} in testUrl)
+
 RULES:
 1. Backend stories MUST have testSteps with curl commands that hit real endpoints
    Example: curl -s -X POST {config.urls.backend}/api/users -d '...' | jq -e '.id'
 2. Backend stories MUST have apiContract with endpoint, request, response
-3. Frontend stories MUST have testUrl set to {config.urls.frontend}/page
+3. Frontend stories MUST have testUrl set to {config.urls.frontend}/[page-path]
+   - Derive page path from story title (e.g., 'login form' → '/login', 'dashboard' → '/dashboard')
 4. Frontend stories MUST have contextFiles array (include idea file path from originalContext)
-5. Auth stories MUST have security acceptanceCriteria:
+5. Frontend stories MUST have mcp array with browser tools: [\"playwright\", \"devtools\"]
+6. Auth stories MUST have security acceptanceCriteria:
    - Passwords hashed with bcrypt (cost 10+)
    - Passwords NEVER in API responses
    - Rate limiting on login attempts
-6. List endpoints MUST have pagination acceptanceCriteria:
+7. List endpoints MUST have pagination acceptanceCriteria:
    - Returns paginated results (max 100 per page)
    - Accepts ?page=N&limit=N query params
-7. Migration stories (creating alembic/versions, migrations/, or modifying models) MUST have prerequisites:
+8. Migration stories (creating alembic/versions, migrations/, or modifying models) MUST have prerequisites:
    Example: \"prerequisites\": [{\"name\": \"Reset test DB\", \"command\": \"npm run db:reset:test\", \"when\": \"schema changes\"}]
-8. Frontend/general stories that consume APIs MUST have notes about naming conventions:
+9. Frontend/general stories that consume APIs MUST have notes about naming conventions:
    Example: \"notes\": \"Transform API responses from snake_case to camelCase. Create typed interfaces with camelCase properties and map: const user = { userName: data.user_name }\"
 
 CURRENT PRD:
@@ -591,7 +614,7 @@ validate_stories_quick() {
       fi
     fi
 
-    # Check 3: Frontend needs testUrl and contextFiles
+    # Check 3: Frontend needs testUrl, contextFiles, and mcp
     if [[ "$story_type" == "frontend" ]]; then
       local has_url
       has_url=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .testUrl // empty' "$prd_file")
@@ -600,6 +623,10 @@ validate_stories_quick() {
       local context_files
       context_files=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .contextFiles // [] | length' "$prd_file")
       [[ "$context_files" == "0" ]] && issues+="$story_id: missing contextFiles, "
+
+      local mcp_tools
+      mcp_tools=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .mcp // [] | length' "$prd_file")
+      [[ "$mcp_tools" == "0" ]] && issues+="$story_id: missing mcp, "
     fi
 
     # Check 4: Auth stories need security criteria

@@ -156,6 +156,7 @@ Does acceptanceCriteria include:
 - Does `contextFiles` include the idea file (has ASCII mockups)?
 - Does `contextFiles` include styleguide (if exists)?
 - Is `testUrl` set?
+- Is `mcp` set to `["playwright", "devtools"]`?
 
 **Fix any issues you find:**
 
@@ -168,6 +169,7 @@ Does acceptanceCriteria include:
 | List endpoint missing pagination | Add pagination criteria to acceptanceCriteria |
 | Frontend missing contextFiles | Add idea file + styleguide paths |
 | Frontend missing testUrl | Add URL from config |
+| Frontend missing mcp | Add `"mcp": ["playwright", "devtools"]` |
 
 ### Step 7: Reorder if Needed
 
