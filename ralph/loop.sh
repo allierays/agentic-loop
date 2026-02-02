@@ -478,10 +478,13 @@ run_loop() {
       rm -f "$RALPH_DIR/last_failure.txt"
       rm -f "$RALPH_DIR/last_verification.log"
 
+      # Get story title for commit message and completion display
+      local title
+      title=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .title' "$RALPH_DIR/prd.json")
+
       # Auto-commit if git is available
       if command -v git &>/dev/null && [[ -d ".git" ]]; then
-        local title commit_log commit_success
-        title=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .title' "$RALPH_DIR/prd.json")
+        local commit_log commit_success
         commit_log=$(mktemp)
         commit_success=false
 
