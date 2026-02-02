@@ -381,23 +381,42 @@ run_loop() {
     fi
 
     # Run Claude with crash detection and retry logic
-    local claude_output_log claude_exit_code max_crash_retries=3 crash_attempt=0
+    local claude_output_log claude_exit_code max_crash_retries=5 crash_attempt=0
     claude_output_log=$(create_temp_file ".log") || { rm -f "$prompt_file"; return 1; }
+
+    # Filter to hide ugly CLI crash messages from terminal (still captured in log)
+    # Strips: "This error originated...", "Error: No messages", stack traces
+    _filter_cli_noise() {
+      grep -v -E \
+        -e "This error originated either by throwing" \
+        -e "a catch block, or by rejecting a promise" \
+        -e "The promise rejected with the reason:" \
+        -e "Error: No messages returned" \
+        -e "at [A-Za-z0-9_]+ \(/\\\$bunfs/" \
+        -e "at processTicksAndRejections" \
+        -e "unhandled.*promise.*rejection" \
+        || true  # Don't fail if no lines pass filter
+    }
 
     while [[ $crash_attempt -lt $max_crash_retries ]]; do
       claude_exit_code=0
       # Use pipefail to capture Claude's exit code, not tee's
       set -o pipefail
-      cat "$prompt_file" | run_with_timeout "$timeout_seconds" claude "${claude_args[@]}" 2>&1 | tee "$claude_output_log" || claude_exit_code=$?
+      # Capture full output to log, show filtered output to terminal
+      cat "$prompt_file" | run_with_timeout "$timeout_seconds" claude "${claude_args[@]}" 2>&1 | tee "$claude_output_log" | _filter_cli_noise || claude_exit_code=$?
       set +o pipefail
 
-      # Check for recoverable CLI crashes
+      # Check for recoverable CLI crashes (transient API failures)
       if grep -qE "(No messages returned|unhandled.*promise.*rejection)" "$claude_output_log" 2>/dev/null; then
         ((crash_attempt++))
-        print_warning "Claude CLI crashed (attempt $crash_attempt/$max_crash_retries) - retrying..."
-        log_progress "$story" "CLI_CRASH" "Claude crashed, retry $crash_attempt"
+        # Exponential backoff: 5s, 10s, 20s, 40s, 80s
+        local backoff_seconds=$((5 * (2 ** (crash_attempt - 1))))
+        echo ""  # Clean line after any partial output
+        print_warning "API returned empty response - retrying in ${backoff_seconds}s (attempt $crash_attempt/$max_crash_retries)"
+        print_info "This is usually a transient issue with the Claude API"
+        log_progress "$story" "CLI_CRASH" "API empty response, retry $crash_attempt (backoff ${backoff_seconds}s)"
         session_started=false  # Reset session on crash
-        sleep 2  # Brief pause before retry
+        sleep "$backoff_seconds"
         continue
       fi
 
@@ -408,12 +427,13 @@ run_loop() {
     rm -f "$claude_output_log"
 
     if [[ $crash_attempt -ge $max_crash_retries ]]; then
-      print_error "Claude CLI crashed $max_crash_retries times - stopping loop"
-      log_progress "$story" "CLI_CRASH" "Gave up after $max_crash_retries crashes"
-      rm -f "$prompt_file"
       echo ""
-      echo "Claude CLI is unstable. Try again with: ralph run $story"
-      return 1
+      print_warning "Claude API unavailable after $max_crash_retries attempts"
+      print_info "Waiting 60s before retrying... (Ctrl+C to stop, then 'npx agentic-loop run' to restart)"
+      log_progress "$story" "CLI_CRASH" "API unavailable, waiting 60s before next iteration"
+      rm -f "$prompt_file"
+      sleep 60  # Longer cooldown before retrying
+      continue  # Continue main loop instead of stopping
     fi
 
     if [[ $claude_exit_code -ne 0 ]]; then
