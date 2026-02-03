@@ -703,6 +703,8 @@ build_prompt() {
   echo "## Current Story: $story"
   echo ""
   echo "Read full story details from \`.ralph/prd.json\` - it contains everything you need:"
+  echo "- \`story.techStack\` - technologies relevant to this story"
+  echo "- \`story.constraints\` - rules for this story"
   echo "- \`story.files\` - which files to create/modify"
   echo "- \`story.acceptanceCriteria\` - what must be true"
   echo "- \`story.testSteps\` - verification commands"
@@ -711,8 +713,6 @@ build_prompt() {
   echo "- \`story.skills\` - relevant skills to reference"
   echo ""
   echo "Also read:"
-  echo "- \`prd.techStack\` - technologies in use"
-  echo "- \`prd.globalConstraints\` - rules for all stories"
   echo "- \`.ralph/config.json\` - URLs and directories"
 
   # Failure context if retrying

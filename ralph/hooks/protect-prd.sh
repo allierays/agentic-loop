@@ -21,7 +21,7 @@ if [[ "$FILE_PATH" == *"prd.json"* ]]; then
     exit 2  # Exit code 2 = blocking error
   fi
 
-  # Allow all other prd.json edits (adding mcp, originalContext, fixing testSteps, etc.)
+  # Allow all other prd.json edits (adding mcp, constraints, fixing testSteps, etc.)
   echo '{"continue": true}'
   exit 0
 fi

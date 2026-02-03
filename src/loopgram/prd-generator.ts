@@ -12,6 +12,8 @@ interface Story {
   acceptanceCriteria: string[];
   testSteps: string[];
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  techStack?: Record<string, string>;
+  constraints?: string[];
 }
 
 interface PRD {
@@ -35,6 +37,8 @@ Output ONLY valid JSON in this exact format:
       "id": "kebab-case-id",
       "title": "Short title",
       "description": "What needs to be built",
+      "techStack": {"backend": "detected tech"},
+      "constraints": ["relevant rules for this story"],
       "acceptanceCriteria": ["Criterion 1", "Criterion 2"],
       "testSteps": ["npm test", "npm run lint"]
     }

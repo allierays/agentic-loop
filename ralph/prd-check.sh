@@ -192,6 +192,33 @@ validate_prd() {
     fi
   fi
 
+  # Deprecation warnings for old root-level fields
+  local deprecated_fields=""
+  if jq -e '.techStack' "$prd_file" >/dev/null 2>&1; then
+    deprecated_fields+="techStack "
+  fi
+  if jq -e '.globalConstraints' "$prd_file" >/dev/null 2>&1; then
+    deprecated_fields+="globalConstraints "
+  fi
+  if jq -e '.originalContext' "$prd_file" >/dev/null 2>&1; then
+    deprecated_fields+="originalContext "
+  fi
+  if jq -e '.testing' "$prd_file" >/dev/null 2>&1; then
+    deprecated_fields+="testing "
+  fi
+  if jq -e '.architecture' "$prd_file" >/dev/null 2>&1; then
+    deprecated_fields+="architecture "
+  fi
+  if jq -e '.testUsers' "$prd_file" >/dev/null 2>&1; then
+    deprecated_fields+="testUsers "
+  fi
+  if [[ -n "$deprecated_fields" ]]; then
+    echo ""
+    print_warning "Found deprecated root-level fields: $deprecated_fields"
+    echo "  These should be in each story instead. Regenerate with /prd."
+    echo ""
+  fi
+
   # Validate API smoke test configuration
   _validate_api_config "$config"
 
@@ -588,7 +615,7 @@ RULES:
 2. Backend stories MUST have apiContract with endpoint, request, response
 3. Frontend stories MUST have testUrl set to {config.urls.frontend}/[page-path]
    - Derive page path from story title (e.g., 'login form' → '/login', 'dashboard' → '/dashboard')
-4. Frontend stories MUST have contextFiles array (include idea file path from originalContext)
+4. Frontend stories MUST have contextFiles array (include idea file path in each story's contextFiles)
 5. Frontend stories MUST have mcp array with browser tools: [\"playwright\", \"devtools\"]
 6. Auth stories MUST have security acceptanceCriteria:
    - Passwords hashed with bcrypt (cost 10+)
@@ -601,6 +628,8 @@ RULES:
    Example: \"prerequisites\": [{\"name\": \"Reset test DB\", \"command\": \"npm run db:reset:test\", \"when\": \"schema changes\"}]
 9. Frontend/general stories that consume APIs MUST have notes about naming conventions:
    Example: \"notes\": \"Transform API responses from snake_case to camelCase. Create typed interfaces with camelCase properties and map: const user = { userName: data.user_name }\"
+10. Each story should include its own techStack and constraints fields. Do NOT add these at the PRD root level.
+    Move any root-level techStack, globalConstraints, originalContext, testing, architecture, or testUsers into the relevant stories.
 
 CURRENT PRD:
 $(cat "$prd_file")

@@ -6,34 +6,9 @@
     "status": "pending"
   },
 
-  "originalContext": "docs/ideas/auth.md",
-
-  "techStack": {
-    "frontend": "React",
-    "backend": "Node.js",
-    "database": "PostgreSQL"
-  },
-
-  "testing": {
-    "approach": "TDD",
-    "unit": {
-      "frontend": "vitest",
-      "backend": "jest"
-    },
-    "integration": "playwright",
-    "e2e": "playwright"
-  },
-
-  "globalConstraints": [
-    "All API calls must have error handling",
-    "Use existing UI components from src/components/ui",
-    "Never store passwords in plain text",
-    "Sanitize all user input before database operations"
-  ],
-
   "metadata": {
     "createdAt": "2026-01-27T10:00:00Z",
-    "estimatedStories": 2,
+    "estimatedStories": 3,
     "complexity": "medium"
   },
 
@@ -44,6 +19,17 @@
       "title": "Create user registration endpoint",
       "priority": 1,
       "passes": false,
+
+      "techStack": {
+        "backend": "Node.js",
+        "database": "PostgreSQL"
+      },
+
+      "constraints": [
+        "All API calls must have error handling",
+        "Never store passwords in plain text",
+        "Sanitize all user input before database operations"
+      ],
 
       "files": {
         "create": ["src/api/users.ts", "src/api/users.test.ts"],
@@ -69,6 +55,7 @@
       "testing": {
         "types": ["unit", "integration"],
         "approach": "TDD",
+        "runner": "jest",
         "files": {
           "unit": ["src/api/users.test.ts"]
         }
@@ -86,6 +73,15 @@
         "response": {"id": "string", "email": "string"}
       },
 
+      "testUsers": {
+        "admin": {"email": "admin@test.com", "password": "test123"},
+        "user": {"email": "user@test.com", "password": "test123"}
+      },
+
+      "contextFiles": [
+        "docs/ideas/auth.md"
+      ],
+
       "notes": "SECURITY: Use bcrypt with cost 10+. Never log passwords. Validate email format server-side even if validated client-side.",
       "dependsOn": []
     },
@@ -95,6 +91,14 @@
       "title": "Create registration form",
       "priority": 2,
       "passes": false,
+
+      "techStack": {
+        "frontend": "React"
+      },
+
+      "constraints": [
+        "Use existing UI components from src/components/ui"
+      ],
 
       "files": {
         "create": ["src/components/RegisterForm.tsx", "src/components/RegisterForm.test.tsx"],
@@ -122,6 +126,7 @@
       "testing": {
         "types": ["unit", "e2e"],
         "approach": "TDD",
+        "runner": "vitest",
         "files": {
           "unit": ["src/components/RegisterForm.test.tsx"],
           "e2e": ["tests/e2e/register.spec.ts"]
@@ -152,6 +157,15 @@
       "priority": 3,
       "passes": false,
 
+      "techStack": {
+        "backend": "Node.js",
+        "database": "PostgreSQL"
+      },
+
+      "constraints": [
+        "All API calls must have error handling"
+      ],
+
       "files": {
         "create": [],
         "modify": ["src/api/users.ts"],
@@ -176,6 +190,7 @@
       "testing": {
         "types": ["integration"],
         "approach": "TDD",
+        "runner": "jest",
         "files": {}
       },
 
@@ -189,6 +204,10 @@
         "request": {"page": "number (optional)", "limit": "number (optional)"},
         "response": {"data": "User[]", "total": "number", "page": "number", "limit": "number"}
       },
+
+      "contextFiles": [
+        "docs/ideas/auth.md"
+      ],
 
       "notes": "SCALE: Always paginate list endpoints. Enforce max limit to prevent memory issues. Add database index for sort column.",
       "dependsOn": ["TASK-001"]
