@@ -2,9 +2,9 @@
 
 A step-by-step walkthrough from zero to running your first autonomous coding loop.
 
-**The idea:** You think, Claude codes. You use Claude as a thought partner to plan features, talk through decisions, and debug problems. The loop handles the software engineering — writing code, running tests, fixing lint errors, committing. Think of it like CI/CD for AI coding: you define what you want, and the loop builds, verifies, and ships it.
+**The idea:** You think, Claude codes. You use Claude as a thought partner to plan features, talk through decisions, and debug problems. The loop handles the software engineering - writing code, running tests, fixing lint errors, committing. Think of it like CI/CD for AI coding: you define what you want, and the loop builds, verifies, and ships it.
 
-> **Platform note:** This guide is optimized for macOS. It should work on Linux with minor adjustments (e.g., `apt` instead of `brew`). For Windows, we recommend using [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) — or ask Claude for help adapting any step to your environment.
+> **Platform note:** This guide is optimized for macOS. It should work on Linux with minor adjustments (e.g., `apt` instead of `brew`). For Windows, we recommend using [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install) - or ask Claude for help adapting any step to your environment.
 
 ---
 
@@ -18,6 +18,7 @@ Before you start, make sure you have these installed:
 | **Claude Code CLI** | The AI that writes your code | `npm install -g @anthropic-ai/claude-code` |
 | **jq** | JSON parsing (used by Ralph internally) | `brew install jq` (Mac) or `sudo apt install jq` (Linux) |
 | **Git** | Version control and auto-commits | [git-scm.com](https://git-scm.com/) |
+| **Docker** | Isolated environments for databases, services, etc. | [docker.com](https://www.docker.com/get-started/) |
 
 Verify everything is ready:
 
@@ -26,6 +27,7 @@ node --version    # Should be 18+
 claude --version  # Should return a version
 jq --version      # Should return a version
 git --version     # Should return a version
+docker --version  # Should return a version
 ```
 
 ---
@@ -48,7 +50,13 @@ git init
 npm init -y
 ```
 
-Now install agentic-loop and run setup:
+> **Important:** Each project should have its own git repo with its own agentic-loop install. Ralph stores config, progress, and PRDs in `.ralph/` inside the repo, so everything stays isolated per project. Don't try to run multiple projects from the same repository.
+
+---
+
+## Step 3: Set Up Your Project
+
+Install agentic-loop and run setup:
 
 ```bash
 npm install agentic-loop
@@ -56,19 +64,15 @@ npx agentic-loop setup
 ```
 
 Setup auto-detects your project type (Node, Python, Go, etc.) and creates:
-- `.ralph/config.json` — project-specific configuration
-- `.ralph/progress.txt` — execution log
-- `PROMPT.md` — the template prompt Ralph feeds to Claude
+- `.ralph/config.json` - project-specific configuration
+- `.ralph/progress.txt` - execution log
+- `PROMPT.md` - the template prompt Ralph feeds to Claude
 
 > **Note:** If you already have a project with tests, linting, and a dev server, Ralph will pick up on those automatically from your `package.json`, `pyproject.toml`, or equivalent.
 
----
+### Verify the config with Claude
 
-## Step 3: Plan Your Feature (Terminal 1)
-
-This is where you use Claude as a **thought partner**. You're not writing code here — you're thinking out loud about what you want to build, and Claude helps you shape it into something the loop can execute.
-
-Open your first terminal:
+Open your first terminal with Claude:
 
 ```bash
 claude --dangerously-skip-permissions
@@ -76,7 +80,40 @@ claude --dangerously-skip-permissions
 
 > The `--dangerously-skip-permissions` flag lets Claude edit files without asking for confirmation each time. This is needed for autonomous workflows.
 
-Now describe what you want to build:
+Now ask Claude to review your agentic-loop config:
+
+```
+Review .ralph/config.json and make sure it's correct for my project.
+Check the test command, lint command, and dev server. Fix anything that's wrong.
+```
+
+Claude will read the config, compare it to your actual project setup, and fix anything that's off. This is worth doing now - a bad config means the loop will fail on every story.
+
+### Optional: Set your preferences
+
+While you have Claude open, you can optionally personalize how it works with you:
+
+```
+/my-dna
+```
+
+This tells Claude about your coding style, experience level, and how you like to communicate. It saves your preferences so every future session starts with that context.
+
+If your project has a frontend, you can also generate a styleguide:
+
+```
+/styleguide
+```
+
+This creates a visual reference for your project's UI patterns so Claude stays consistent when writing frontend code.
+
+---
+
+## Step 4: Plan Your Feature (Terminal 1)
+
+This is where you use Claude as a **thought partner**. You're not writing code here - you're thinking out loud about what you want to build, and Claude helps you shape it into something the loop can execute.
+
+In the same Claude session from Step 3, describe what you want to build:
 
 ```
 /idea "add a contact form that sends emails"
@@ -84,24 +121,26 @@ Now describe what you want to build:
 
 Claude enters **plan mode**. It will:
 
-1. **Ask clarifying questions** — "Should it have a captcha?" "What email service?" "What fields?"
-2. **Explore your codebase** — Find existing patterns, routes, components, and conventions
-3. **Generate an idea file** — Saved to `docs/ideas/contact-form.md`
-4. **Split into stories** — Small, testable tasks saved to `.ralph/prd.json`
+1. **Ask clarifying questions** - "Should it have a captcha?" "What email service?" "What fields?"
+2. **Explore your codebase** - Find existing patterns, routes, components, and conventions
+3. **Generate an idea file** - Saved to `docs/ideas/contact-form.md`
+4. **Split into stories** - Small, testable tasks saved to `.ralph/prd.json`
 
-Answer Claude's questions honestly. The more specific you are, the better the PRD will be. You don't need to know *how* to build it — just *what* you want. Claude figures out the technical approach.
+Answer Claude's questions honestly. The more specific you are, the better the PRD will be. You don't need to know *how* to build it - just *what* you want. Claude figures out the technical approach. Think about the things a good developer would ask you: How do you want to maintain this long term? What's your budget for infrastructure? How many users does your application have? These are the kinds of conversations to have with your thought partner.
+
+> **Important:** After generating the PRD, Claude will often ask "Do you want me to start building this?" or offer to run the loop for you. **Say no.** Terminal 1 is for thinking and planning only - the loop runs in Terminal 2 (Step 6). If Claude starts writing code in your planning terminal, you lose your thought partner and can't debug failures interactively.
 
 ---
 
-## Step 4: Review the Plan
+## Step 5: Review the Plan
 
 After Claude generates the PRD, it opens `.ralph/prd.json` in TextEdit so you can read through it yourself. This is your chance to eyeball the stories before anything runs.
 
-You don't need to understand everything in this file. Skim it — do the stories make sense at a high level? Does the order feel right? Close TextEdit when you're done.
+You don't need to understand everything in this file. Skim it - do the stories make sense at a high level? Does the order feel right? Close TextEdit when you're done.
 
 ### Talk it through with Claude
 
-Back in **Terminal 1**, use Claude as a sounding board. You don't need to know the technical details — that's Claude's job. Just ask in plain language:
+Back in **Terminal 1**, use Claude as a sounding board. You don't need to know the technical details - that's Claude's job. Just ask in plain language:
 
 ```
 Review the PRD one more time. Does the story order make sense?
@@ -121,7 +160,7 @@ Is the PRD in the right order? Does each story have what it needs from the one b
 ```
 
 ```
-Are all the test steps actually passable? I don't want false positives —
+Are all the test steps actually passable? I don't want false positives -
 make sure each test can really run and verify the story works.
 ```
 
@@ -130,18 +169,18 @@ What are test steps? Are the ones in this PRD good enough?
 ```
 
 ```
-Is this PRD too ambitious? Should we simplify it?
+Are any of these stories too ambitious? Should we split them?
 ```
 
-The point is: **you don't need to know the technical answer yourself.** Ask Claude. It will explain what's going on and fix whatever needs fixing. Your job is to make sure the feature description matches what you actually want — Claude handles the technical correctness.
+The point is: **you don't need to know the technical answer yourself.** Ask Claude. It will explain what's going on and fix whatever needs fixing. Your job is to make sure the feature description matches what you actually want - Claude handles the technical correctness.
 
 Once Claude says the PRD looks good, you're ready to hand it off to the loop.
 
 ---
 
-## Step 5: Run the Loop (Terminal 2)
+## Step 6: Run the Loop (Terminal 2)
 
-This is where the automated engineering happens. The loop takes your plan and turns it into working, tested, committed code — story by story.
+This is where the automated engineering happens. The loop takes your plan and turns it into working, tested, committed code - story by story.
 
 Open a **second terminal** window:
 
@@ -153,19 +192,29 @@ npx agentic-loop run
 Ralph takes over:
 
 ```
-[ralph] PRD check passed ✓
-[ralph] Starting story TASK-001: Create contact form component
-[ralph] Spawning Claude session...
-[ralph] Verification: lint ✓ tests ✓ prd-steps ✓
-[ralph] Committed: feat(TASK-001): Create contact form component
-[ralph] Starting story TASK-002: Add email sending service
-...
+=== Iteration 1/20 ===
+
+┌─────────────────────────────────────────────────────────┐
+│  📦 TASK-001                          [1/4] ██░░░░  │
+│  Create contact form component                         │
+│  Type: frontend                                        │
+└─────────────────────────────────────────────────────────┘
+
+  ┌──────────────────────────────────────────────────────┐
+  │  ✅ STORY COMPLETE                                   │
+  ├──────────────────────────────────────────────────────┤
+  │  TASK-001: Create contact form component             │
+  ├──────────────────────────────────────────────────────┤
+  │  Progress: [██░░░░] 1/4 stories                      │
+  │  Commit:   a1b2c3d (3 files)                         │
+  │  Remaining: 3 stories                                │
+  └──────────────────────────────────────────────────────┘
 ```
 
 For each story, the loop:
 1. Spawns a Claude session with the story requirements
 2. Claude writes the code
-3. Ralph verifies it — lint, tests, and the PRD's own test steps
+3. Ralph verifies it - lint, tests, and the PRD's own test steps
 4. If it passes, Ralph commits and moves to the next story
 5. If it fails, Ralph retries with the error context
 
@@ -183,13 +232,13 @@ You can also stop gracefully at any time:
 npx agentic-loop stop       # Finishes current story, then stops
 ```
 
-Or press `Ctrl+C` to stop immediately. Progress is saved — you can resume with `npx agentic-loop run`.
+Or press `Ctrl+C` to stop immediately. Progress is saved - you can resume with `npx agentic-loop run`.
 
 ---
 
-## Step 6: When the Loop Fails
+## Step 7: When the Loop Fails
 
-The loop will fail sometimes. That's normal — just like CI/CD pipelines fail. Ralph retries automatically up to 8 times per story, but if it keeps hitting the same wall, it will skip the story and move on.
+The loop will fail sometimes. That's normal - just like CI/CD pipelines fail. Ralph retries automatically up to 8 times per story, but if it keeps hitting the same wall, it will skip the story and move on.
 
 Here's where the two-terminal workflow shines: **Terminal 2 runs the code, Terminal 1 helps you think through problems.**
 
@@ -213,7 +262,7 @@ The loop failed on TASK-003 with this error:
 Why did this fail and what should I change so it doesn't fail again?
 ```
 
-Claude will analyze the error and suggest fixes. You don't need to understand the error yourself — just copy-paste it and let Claude explain. Common causes:
+Claude will analyze the error and suggest fixes. You don't need to understand the error yourself - just copy-paste it and let Claude explain. Common causes:
 
 | Error | Likely cause | Fix |
 |-------|-------------|-----|
@@ -229,7 +278,7 @@ If Claude identifies a structural issue (like a missing migration or wrong story
 
 - **PRD issue:** Ask Claude to update `.ralph/prd.json` for you
 - **Code issue:** Let Claude fix the code in Terminal 1, then re-run the loop
-- **Config issue:** Ask Claude to update `.ralph/config.json` (see Step 7)
+- **Config issue:** Ask Claude to update `.ralph/config.json` (see Step 8)
 
 Then re-run:
 
@@ -239,9 +288,15 @@ npx agentic-loop run
 
 Ralph picks up where it left off, skipping completed stories.
 
+### Prevent failures before they happen
+
+Ralph already runs standard preflight checks before each story, but if you keep hitting the same kind of failure, you can add your own. Ask Claude to write you a custom check for whatever pattern keeps causing failures.
+
+Each developer on a team can also have their own global checks in `~/.config/ralph/checks/prd/` that apply across all their projects. See [PRD Check](PRD-CHECK.md) for details on writing custom checks.
+
 ---
 
-## Step 7: Update Your Config
+## Step 8: Update Your Config
 
 After your first loop run, you might want to tweak how Ralph behaves. The good news: you don't need to edit config files by hand. Just ask Claude.
 
@@ -252,7 +307,7 @@ The loop kept timing out on big stories. Can you increase the session timeout?
 ```
 
 ```
-I don't want Ralph to run the linter — my project doesn't have one set up yet.
+I don't want Ralph to run the linter - my project doesn't have one set up yet.
 Can you turn that off in the config?
 ```
 
@@ -272,9 +327,9 @@ npx agentic-loop config show
 
 ---
 
-## Step 8: Teach Ralph with Signs
+## Step 9: Teach Ralph with Signs
 
-**Signs** are learned patterns — things Ralph should always remember across every story and every loop run. They're injected into every Claude prompt automatically.
+**Signs** are learned patterns - things Ralph should always remember across every story and every loop run. They're injected into every Claude prompt automatically.
 
 Think of signs as persistent instructions: "Hey, every time you write code for this project, remember this."
 
@@ -286,10 +341,10 @@ Add a sign when you notice the same mistake happening more than once:
 - Tests fail because Claude forgets to mock a specific dependency
 - Claude uses `var` instead of `const` or forgets a project convention
 
-You can describe these in plain language — you don't need to know the fix, just the pattern you're seeing:
+You can describe these in plain language - you don't need to know the fix, just the pattern you're seeing:
 
 ```
-/sign "Stop using moment.js — use date-fns instead" frontend
+/sign "Stop using moment.js - use date-fns instead" frontend
 ```
 
 ```
@@ -316,11 +371,11 @@ npx agentic-loop unsign "sign-001"       # By ID
 npx agentic-loop unsign "bcrypt"          # By pattern substring match
 ```
 
-Signs live in `.ralph/signs.json` and persist across loop runs. They're one of the most powerful tools for improving loop quality over time — the more you teach Ralph about your project's conventions, the fewer retries you'll need.
+Signs live in `.ralph/signs.json` and persist across loop runs. They're one of the most powerful tools for improving loop quality over time - the more you teach Ralph about your project's conventions, the fewer retries you'll need.
 
 ---
 
-## Step 9: Run the Loop Again
+## Step 10: Run the Loop Again
 
 Now that you've:
 - Fixed any issues from the first run
@@ -344,7 +399,7 @@ Each loop run should go smoother than the last. Over time, your signs and config
 
 ## The Full Picture
 
-Here's how the two terminals work together — you think, the loop builds:
+Here's how the two terminals work together - you think, the loop builds:
 
 ```
 ┌──────────────────────────────┐    ┌──────────────────────────────┐
@@ -374,7 +429,7 @@ Here's how the two terminals work together — you think, the loop builds:
 
 - **Take the tour:** Run `/tour` in Claude Code for a guided walkthrough of all features
 - **Validate your PRD:** Run `/prd-check` to catch story issues before the loop runs
-- **Add custom checks:** Write your own PRD validation rules — see [PRD Check](PRD-CHECK.md)
+- **Add custom checks:** Write your own PRD validation rules - see [PRD Check](PRD-CHECK.md)
 - **Run a quality check:** Use `/vibe-check` after the loop completes to catch AI-generated anti-patterns
 - **Set your preferences:** Run `/my-dna` to tell Claude how you like to work
 - **Explore the commands:** Run `/vibe-list` for a full command reference
