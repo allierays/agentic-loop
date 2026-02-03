@@ -1,6 +1,6 @@
 {
   "name": "agentic-loop",
-  "version": "3.16.0",
+  "version": "3.16.1",
   "description": "Autonomous AI coding loop - PRD-driven development with Claude Code",
   "author": "Allie Jones <allie@allthrive.ai>",
   "license": "MIT",
