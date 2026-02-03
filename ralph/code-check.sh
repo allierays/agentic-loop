@@ -100,6 +100,7 @@ run_verification() {
   export RALPH_STORY_TYPE="$story_type"
 
   local failed=0
+  local failed_step=""
 
   # ========================================
   # STEP 1: Run lint checks
@@ -107,6 +108,7 @@ run_verification() {
   echo "  [1/5] Running lint checks..."
   if ! run_configured_checks "$story_type"; then
     failed=1
+    failed_step="lint"
   fi
 
   # ========================================
@@ -118,8 +120,10 @@ run_verification() {
     # First check that test files exist for new code
     if ! verify_test_files_exist; then
       failed=1
+      failed_step="test files missing"
     elif ! run_unit_tests; then
       failed=1
+      failed_step="unit tests"
     fi
   fi
 
@@ -131,6 +135,7 @@ run_verification() {
     echo "  [3/5] Running PRD test steps..."
     if ! verify_prd_criteria "$story"; then
       failed=1
+      failed_step="PRD test steps"
     fi
   fi
 
@@ -140,6 +145,7 @@ run_verification() {
   if [[ $failed -eq 0 ]]; then
     if ! run_api_smoke_test "$story"; then
       failed=1
+      failed_step="API smoke test"
     fi
   fi
 
@@ -149,6 +155,7 @@ run_verification() {
   if [[ $failed -eq 0 ]]; then
     if ! run_frontend_smoke_test "$story"; then
       failed=1
+      failed_step="frontend smoke test"
     fi
   fi
 
@@ -160,7 +167,7 @@ run_verification() {
     print_success "=== All verification passed ==="
     return 0
   else
-    print_error "=== Verification failed ==="
+    print_error "=== Verification failed at: $failed_step ==="
     save_failure_context "$story"
     return 1
   fi
@@ -194,8 +201,20 @@ save_failure_context() {
     echo ""
     echo "=== Attempt $attempt failed for $story ==="
     echo ""
+    # Include migration failure if present (verification may not have run)
+    if [[ -f "$RALPH_DIR/last_migration_failure.log" ]]; then
+      echo "--- Migration Error ---"
+      tail -30 "$RALPH_DIR/last_migration_failure.log"
+      echo ""
+    fi
+    # Include pre-commit failure if present
+    if [[ -f "$RALPH_DIR/last_precommit_failure.log" ]]; then
+      echo "--- Pre-commit Error ---"
+      tail -30 "$RALPH_DIR/last_precommit_failure.log"
+      echo ""
+    fi
+    # Include verification output (lint, tests, API, etc.)
     if [[ -f "$RALPH_DIR/last_verification.log" ]]; then
-      # Shorter excerpt per attempt since we're accumulating
       tail -50 "$RALPH_DIR/last_verification.log"
     fi
     echo ""

@@ -97,7 +97,72 @@ preflight_checks() {
       echo "Aborted. Fix the issues and try again."
       exit 1
     fi
+    return 1  # Had warnings — don't cache this result
   fi
+}
+
+# ============================================================================
+# PREFLIGHT / PRD CACHE
+# ============================================================================
+# Caches preflight and PRD validation results so restarts within 10 minutes
+# skip the slow connectivity checks and Claude auto-fix.
+# Cache is invalidated by TTL expiry or config/PRD file changes (by hash).
+
+_file_hash() {
+  [[ ! -f "$1" ]] && echo "no_file" && return
+  if command -v md5sum &>/dev/null; then
+    md5sum "$1" 2>/dev/null | cut -d' ' -f1
+  else
+    md5 -q "$1" 2>/dev/null
+  fi
+}
+
+_is_preflight_cached() {
+  local cache_file="$RALPH_DIR/.preflight_cache"
+  [[ ! -f "$cache_file" ]] && return 1
+
+  local cached_time cached_hash
+  read -r cached_time cached_hash < "$cache_file"
+
+  local now
+  now=$(date +%s)
+  [[ $(( now - cached_time )) -gt $PREFLIGHT_CACHE_TTL_SECONDS ]] && return 1
+
+  local config_hash
+  config_hash=$(_file_hash "$RALPH_DIR/config.json")
+  [[ "$cached_hash" != "$config_hash" ]] && return 1
+
+  return 0
+}
+
+_write_preflight_cache() {
+  local config_hash
+  config_hash=$(_file_hash "$RALPH_DIR/config.json")
+  echo "$(date +%s) $config_hash" > "$RALPH_DIR/.preflight_cache"
+}
+
+_is_prd_cached() {
+  local cache_file="$RALPH_DIR/.prd_validated"
+  [[ ! -f "$cache_file" ]] && return 1
+
+  local cached_time cached_hash
+  read -r cached_time cached_hash < "$cache_file"
+
+  local now
+  now=$(date +%s)
+  [[ $(( now - cached_time )) -gt $PREFLIGHT_CACHE_TTL_SECONDS ]] && return 1
+
+  local prd_hash
+  prd_hash=$(_file_hash "$RALPH_DIR/prd.json")
+  [[ "$cached_hash" != "$prd_hash" ]] && return 1
+
+  return 0
+}
+
+_write_prd_cache() {
+  local prd_hash
+  prd_hash=$(_file_hash "$RALPH_DIR/prd.json")
+  echo "$(date +%s) $prd_hash" > "$RALPH_DIR/.prd_validated"
 }
 
 # Check if failure context is trivial (lint/format-only retries)
@@ -341,7 +406,15 @@ run_loop() {
   check_dependencies
 
   # Pre-loop checks to catch issues before wasting iterations
-  preflight_checks
+  if [[ "$fast_mode" == "true" ]]; then
+    print_info "Fast mode: skipping connectivity checks"
+  elif _is_preflight_cached; then
+    print_info "Pre-loop checks passed recently, skipping"
+  else
+    if preflight_checks; then
+      _write_preflight_cache
+    fi
+  fi
 
   if [[ ! -f "$RALPH_DIR/prd.json" ]]; then
     # Check for misplaced PRD in subdirectories
@@ -383,8 +456,17 @@ run_loop() {
   fi
 
   # Validate PRD structure
-  if ! validate_prd "$RALPH_DIR/prd.json"; then
-    return 1
+  if [[ "$fast_mode" == "true" ]]; then
+    print_info "Fast mode: structural PRD check only"
+    validate_prd "$RALPH_DIR/prd.json" "true" || return 1
+  elif _is_prd_cached; then
+    print_info "PRD validated recently, structural check only"
+    validate_prd "$RALPH_DIR/prd.json" "true" || return 1
+  else
+    if ! validate_prd "$RALPH_DIR/prd.json"; then
+      return 1
+    fi
+    _write_prd_cache
   fi
 
   local iteration=0
@@ -481,14 +563,15 @@ run_loop() {
     if [[ $consecutive_failures -gt $max_story_retries ]]; then
       print_error "Story $story has failed $consecutive_failures times - stopping loop"
       echo ""
-      echo "  This usually means:"
-      echo "    - Test steps are too vague or ambiguous"
-      echo "    - Missing prerequisites (DB setup, env vars, etc.)"
-      echo "    - Story scope is too large - consider breaking it up"
-      echo ""
-      echo "  Failure context saved to: $RALPH_DIR/failures/$story.txt"
       mkdir -p "$RALPH_DIR/failures"
       cp "$RALPH_DIR/last_failure.txt" "$RALPH_DIR/failures/$story.txt" 2>/dev/null || true
+      # Show the actual last error instead of generic guesses
+      if [[ -f "$RALPH_DIR/last_failure.txt" ]]; then
+        echo "  Last failure:"
+        tail -20 "$RALPH_DIR/last_failure.txt" | sed 's/^/    /'
+      fi
+      echo ""
+      echo "  Full failure context saved to: $RALPH_DIR/failures/$story.txt"
       local passed failed
       passed=$(jq '[.stories[] | select(.passes==true)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
       failed=$(jq '[.stories[] | select(.passes==false)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
@@ -632,17 +715,21 @@ run_loop() {
       break
     done
 
-    rm -f "$claude_output_log"
-
     if [[ $crash_attempt -ge $max_crash_retries ]]; then
       echo ""
       print_warning "Claude API unavailable after $max_crash_retries attempts"
+      if [[ -f "$claude_output_log" ]]; then
+        echo "  Last error:"
+        tail -5 "$claude_output_log" | sed 's/^/    /'
+      fi
       print_info "Waiting 60s before retrying... (Ctrl+C to stop, then 'npx agentic-loop run' to restart)"
       log_progress "$story" "CLI_CRASH" "API unavailable, waiting 60s before next iteration"
-      rm -f "$prompt_file"
+      rm -f "$prompt_file" "$claude_output_log"
       sleep 60  # Longer cooldown before retrying
       continue  # Continue main loop instead of stopping
     fi
+
+    rm -f "$claude_output_log"
 
     if [[ $claude_exit_code -ne 0 ]]; then
       ((consecutive_timeouts++))
@@ -709,6 +796,8 @@ run_loop() {
 
       # Clear failure context on success
       rm -f "$RALPH_DIR/last_failure.txt"
+      rm -f "$RALPH_DIR"/last_*_failure.log
+      rm -f "$RALPH_DIR"/last_*_check.log
       rm -f "$RALPH_DIR/last_verification.log"
 
       # Get story title for commit message and completion display

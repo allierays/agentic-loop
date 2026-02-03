@@ -85,3 +85,7 @@ yarn-error.log*
 # Loopgram secrets
 .ralph/secrets
 loopgram.log
+
+# Pre-loop check caches (machine-specific, auto-expire)
+.ralph/.preflight_cache
+.ralph/.prd_validated

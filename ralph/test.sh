@@ -134,11 +134,15 @@ run_all_prd_tests() {
       [[ -z "$step" ]] && continue
       ((total++))
 
-      echo -n "  $step... "
+      # Expand config placeholders (e.g., {config.urls.backend})
+      local expanded_step
+      expanded_step=$(_expand_config_vars "$step")
+
+      echo -n "  $expanded_step... "
 
       local step_log
       step_log=$(mktemp)
-      if safe_exec "$step" "$step_log"; then
+      if safe_exec "$expanded_step" "$step_log"; then
         print_success "passed"
         ((passed++))
       else

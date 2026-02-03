@@ -102,6 +102,7 @@
 # Returns 0 if valid (possibly after auto-fix), 1 if unrecoverable error
 validate_prd() {
   local prd_file="$1"
+  local dry_run="${2:-false}"
 
   # Check file exists
   if [[ ! -f "$prd_file" ]]; then
@@ -219,15 +220,17 @@ validate_prd() {
     echo ""
   fi
 
-  # Validate API smoke test configuration
-  _validate_api_config "$config"
+  # Validate API smoke test configuration (skip in fast/cached mode)
+  if [[ "$dry_run" != "true" ]]; then
+    _validate_api_config "$config"
+  fi
 
   # Replace hardcoded paths with config placeholders
   fix_hardcoded_paths "$prd_file" "$config"
 
   # Validate and fix individual stories
-  # $2 is optional dry_run flag — when "true", skip auto-fix
-  _validate_and_fix_stories "$prd_file" "${2:-}" || return 1
+  # dry_run flag — when "true", skip auto-fix
+  _validate_and_fix_stories "$prd_file" "$dry_run" || return 1
 
   return 0
 }
