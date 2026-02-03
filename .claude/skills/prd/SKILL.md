@@ -101,7 +101,7 @@ Break the idea into small, executable stories:
 
 - Each story completable in one Claude session (~10-15 min)
 - Max 3-4 acceptance criteria per story
-- Max 10 stories (suggest phases if more needed)
+- No limit on story count — generate as many stories as the idea needs
 - If appending, start IDs from the next available number
 - **Each story must include its own `techStack`, `constraints`, and `contextFiles`.** Include only what's relevant to that story — don't copy-paste identical context into every story.
 
