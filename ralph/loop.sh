@@ -393,9 +393,9 @@ run_loop() {
   local consecutive_timeouts=0
   local max_story_retries
   local max_timeouts=5  # Skip after 5 consecutive timeouts (likely too large/complex)
-  # Default to 8 retries - enough for transient issues, catches infinite loops
-  # Override with config.json: "maxStoryRetries": 12
-  max_story_retries=$(get_config '.maxStoryRetries' "8")
+  # Default to 5 retries - enough for transient issues, stops before wasting cycles
+  # Override with config.json: "maxStoryRetries": 8
+  max_story_retries=$(get_config '.maxStoryRetries' "5")
   local total_attempts=0
   local skipped_stories=()
   local start_time
@@ -476,12 +476,10 @@ run_loop() {
       '(.stories[] | select(.id==$id)) |= . + {retryCount: $count}' \
       "$RALPH_DIR/prd.json" > "$RALPH_DIR/prd.json.tmp" && mv "$RALPH_DIR/prd.json.tmp" "$RALPH_DIR/prd.json"
 
-    # Circuit breaker: skip to next story after max retries (prevents infinite loops)
-    # Note: This is NOT meant to stop legitimate retrying - 8 attempts is enough.
-    # If a story consistently fails after this many tries, it likely needs manual review
-    # (vague test steps, missing prerequisites, or fundamentally broken requirements).
+    # Circuit breaker: stop the loop after max retries (stories depend on each other)
+    # If a story consistently fails after this many tries, it needs manual review.
     if [[ $consecutive_failures -gt $max_story_retries ]]; then
-      print_error "Story $story has failed $consecutive_failures times - likely needs manual review"
+      print_error "Story $story has failed $consecutive_failures times - stopping loop"
       echo ""
       echo "  This usually means:"
       echo "    - Test steps are too vague or ambiguous"
@@ -491,20 +489,18 @@ run_loop() {
       echo "  Failure context saved to: $RALPH_DIR/failures/$story.txt"
       mkdir -p "$RALPH_DIR/failures"
       cp "$RALPH_DIR/last_failure.txt" "$RALPH_DIR/failures/$story.txt" 2>/dev/null || true
-      rm -f "$RALPH_DIR/last_failure.txt"
-      skipped_stories+=("$story")
-      jq --arg id "$story" '(.stories[] | select(.id==$id)) |= . + {skipped: true, skipReason: "exceeded max retries"}' "$RALPH_DIR/prd.json" > "$RALPH_DIR/prd.json.tmp" && mv "$RALPH_DIR/prd.json.tmp" "$RALPH_DIR/prd.json"
-      last_story=""
-      consecutive_failures=0
-      continue
+      local passed failed
+      passed=$(jq '[.stories[] | select(.passes==true)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+      failed=$(jq '[.stories[] | select(.passes==false)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+      send_notification "🛑 Ralph stopped: $story failed $consecutive_failures times. $passed passed, $failed remaining"
+      print_progress_summary "$start_time" "$total_attempts" "0"
+      return 1
     fi
 
     # Show retry status (but don't make it scary - retrying is normal!)
     if [[ $consecutive_failures -gt 1 ]]; then
       if [[ $consecutive_failures -le 3 ]]; then
         print_info "Attempt $consecutive_failures for $story (normal - refining solution)"
-      elif [[ $consecutive_failures -le 8 ]]; then
-        print_warning "Attempt $consecutive_failures/$max_story_retries for $story"
       else
         print_warning "Attempt $consecutive_failures/$max_story_retries for $story (getting close to limit)"
       fi
