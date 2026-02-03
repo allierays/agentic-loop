@@ -90,7 +90,7 @@ describe('install flow', () => {
         'utils.sh',
         'init.sh',
         'loop.sh',
-        'verify.sh',
+        'code-check.sh',
         'prd.sh',
         'signs.sh',
         'setup.sh',
@@ -102,8 +102,8 @@ describe('install flow', () => {
       })
     })
 
-    it('verify.sh has verification pipeline', () => {
-      const verifyPath = join(ralphDir, 'verify.sh')
+    it('code-check.sh has verification pipeline', () => {
+      const verifyPath = join(ralphDir, 'code-check.sh')
       const content = readFileSync(verifyPath, 'utf-8')
 
       expect(content).toContain('run_verification')

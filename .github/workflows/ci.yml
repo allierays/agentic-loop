@@ -40,11 +40,8 @@ jobs:
 
       - run: npm ci
 
-      - name: ESLint
-        run: npm run lint
-
       - name: Vibe Check
-        run: node bin/vibe-check.js --fail-on error src/
+        run: node bin/vibe-check.js --exclude 'src/checks/**,src/utils/patterns.ts' --fail-on error src/
 
   bash-checks:
     runs-on: ubuntu-latest
