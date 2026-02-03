@@ -10,6 +10,8 @@ readonly MAX_OUTPUT_PREVIEW_LINES=20
 readonly MAX_ERROR_PREVIEW_LINES=40
 readonly MAX_LINT_ERROR_LINES=20
 readonly MAX_PROGRESS_FILE_LINES=1000
+readonly MAX_SIGN_CONTEXT_LINES=150
+readonly MAX_SIGN_DEDUP_EXISTING=20
 
 # Constants - Timeouts (centralized to avoid magic numbers)
 readonly ITERATION_DELAY_SECONDS=0
@@ -19,6 +21,7 @@ readonly CODE_REVIEW_TIMEOUT_SECONDS=120
 readonly BROWSER_TIMEOUT_SECONDS=60
 readonly BROWSER_PAGE_TIMEOUT_MS=30000
 readonly CURL_TIMEOUT_SECONDS=10
+readonly SIGN_EXTRACTION_TIMEOUT_SECONDS=30
 
 # Common project directories (avoid duplication across files)
 readonly FRONTEND_DIRS=("apps/web" "frontend" "client" "web")
@@ -598,7 +601,9 @@ fix_hardcoded_paths() {
   local original_content="$prd_content"
 
   # Check for hardcoded absolute paths (non-portable)
-  if echo "$prd_content" | grep -qE '"/Users/|"/home/|"C:\\|"/var/|"/opt/' ; then
+  # Note: stderr suppressed on echo|grep -q pipes to silence "broken pipe" noise
+  # (grep -q exits early on match, closing the pipe while echo is still writing)
+  if echo "$prd_content" 2>/dev/null | grep -qE '"/Users/|"/home/|"C:\\|"/var/|"/opt/' ; then
     echo "  Removing hardcoded absolute paths..."
     # Remove common absolute path prefixes, keep relative path
     prd_content=$(echo "$prd_content" | sed -E 's|"/Users/[^"]*/([^"]+)"|"\1"|g')
@@ -607,7 +612,7 @@ fix_hardcoded_paths() {
   fi
 
   # Replace hardcoded backend URLs with {config.urls.backend}
-  if [[ -n "$backend_url" ]] && echo "$prd_content" | grep -qF "$backend_url" ; then
+  if [[ -n "$backend_url" ]] && echo "$prd_content" 2>/dev/null | grep -qF "$backend_url" ; then
     echo "  Replacing hardcoded backend URL with {config.urls.backend}..."
     local escaped_url
     escaped_url=$(_escape_sed_pattern "$backend_url")
@@ -616,7 +621,7 @@ fix_hardcoded_paths() {
   fi
 
   # Replace hardcoded frontend URLs with {config.urls.frontend}
-  if [[ -n "$frontend_url" ]] && echo "$prd_content" | grep -qF "$frontend_url" ; then
+  if [[ -n "$frontend_url" ]] && echo "$prd_content" 2>/dev/null | grep -qF "$frontend_url" ; then
     echo "  Replacing hardcoded frontend URL with {config.urls.frontend}..."
     local escaped_url
     escaped_url=$(_escape_sed_pattern "$frontend_url")
@@ -625,7 +630,7 @@ fix_hardcoded_paths() {
   fi
 
   # Replace hardcoded health endpoints with config placeholder
-  if echo "$prd_content" | grep -qE '/api(/v[0-9]+)?/health|/health' ; then
+  if echo "$prd_content" 2>/dev/null | grep -qE '/api(/v[0-9]+)?/health|/health' ; then
     echo "  Replacing hardcoded health endpoints with {config.api.healthEndpoint}..."
     prd_content=$(echo "$prd_content" | sed -E 's|/api/v[0-9]+/health|{config.api.healthEndpoint}|g')
     prd_content=$(echo "$prd_content" | sed -E 's|/api/health|{config.api.healthEndpoint}|g')
@@ -637,7 +642,7 @@ fix_hardcoded_paths() {
   # Note: Use # as delimiter since | appears in regex alternation
   if [[ -z "$backend_url" ]]; then
     # Common backend ports: 8000, 8001, 8080, 3001, 4000, 5000
-    if echo "$prd_content" | grep -qE 'http://localhost:(8000|8001|8080|3001|4000|5000)' ; then
+    if echo "$prd_content" 2>/dev/null | grep -qE 'http://localhost:(8000|8001|8080|3001|4000|5000)' ; then
       echo "  Replacing hardcoded localhost backend URLs with {config.urls.backend}..."
       prd_content=$(echo "$prd_content" | sed -E 's#http://localhost:(8000|8001|8080|3001|4000|5000)#{config.urls.backend}#g')
       modified=true
@@ -646,7 +651,7 @@ fix_hardcoded_paths() {
 
   if [[ -z "$frontend_url" ]]; then
     # Common frontend ports: 3000, 5173, 4200
-    if echo "$prd_content" | grep -qE 'http://localhost:(3000|5173|4200)' ; then
+    if echo "$prd_content" 2>/dev/null | grep -qE 'http://localhost:(3000|5173|4200)' ; then
       echo "  Replacing hardcoded localhost frontend URLs with {config.urls.frontend}..."
       prd_content=$(echo "$prd_content" | sed -E 's#http://localhost:(3000|5173|4200)#{config.urls.frontend}#g')
       modified=true

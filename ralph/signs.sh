@@ -16,6 +16,8 @@ ralph_sign() {
 
   local pattern="$1"
   local category="${2:-general}"
+  local auto_promoted="${3:-false}"
+  local learned_from_override="${4:-}"
 
   # Ensure .ralph directory exists
   if [[ ! -d "$RALPH_DIR" ]]; then
@@ -34,8 +36,11 @@ ralph_sign() {
   local sign_id="sign-$(printf '%03d' $((sign_count + 1)))"
 
   # Get current story if available (for learnedFrom field)
+  # Override can be passed as 4th arg (used by auto-promote, since story is already marked passed)
   local learned_from=""
-  if [[ -f "$RALPH_DIR/prd.json" ]]; then
+  if [[ -n "$learned_from_override" ]]; then
+    learned_from="$learned_from_override"
+  elif [[ -f "$RALPH_DIR/prd.json" ]]; then
     learned_from=$(jq -r '.stories[] | select(.passes==false) | .id' "$RALPH_DIR/prd.json" 2>/dev/null | head -1)
   fi
 
@@ -52,11 +57,13 @@ ralph_sign() {
      --arg category "$category" \
      --arg learnedFrom "$learned_from" \
      --arg createdAt "$timestamp" \
+     --argjson autoPromoted "$( [[ "$auto_promoted" == "true" ]] && echo "true" || echo "false" )" \
      '.signs += [{
        id: $id,
        pattern: $pattern,
        category: $category,
        learnedFrom: (if $learnedFrom == "" then null else $learnedFrom end),
+       autoPromoted: $autoPromoted,
        createdAt: $createdAt
      }]' "$RALPH_DIR/signs.json" > "$tmpfile" && jq -e . "$tmpfile" >/dev/null 2>&1; then
     mv "$tmpfile" "$RALPH_DIR/signs.json"
@@ -100,7 +107,7 @@ ralph_signs() {
     [[ -z "$category" ]] && continue
 
     echo "[$category]"
-    jq -r --arg cat "$category" '.signs[] | select(.category==$cat) | "  - \(.pattern)"' "$RALPH_DIR/signs.json"
+    jq -r --arg cat "$category" '.signs[] | select(.category==$cat) | "  - \(.pattern)\(if .autoPromoted == true then " (auto)" else "" end)"' "$RALPH_DIR/signs.json"
     echo ""
   done <<< "$categories"
 }

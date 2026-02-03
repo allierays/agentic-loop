@@ -2,9 +2,13 @@
 # shellcheck shell=bash
 # loop.sh - The autonomous development loop
 
-# Pre-flight checks to catch common issues before wasting iterations
+# Pre-loop checks to catch common issues before wasting iterations
 preflight_checks() {
-  echo "--- Pre-flight Checks ---"
+  echo ""
+  echo "  ┌──────────────────────────────────┐"
+  echo "  │  ✅ Pre-Loop Checks              │"
+  echo "  └──────────────────────────────────┘"
+  echo ""
   local warnings=0
 
   # Check API connectivity if configured
@@ -86,7 +90,7 @@ preflight_checks() {
 
   echo ""
   if [[ $warnings -gt 0 ]]; then
-    print_warning "$warnings pre-flight warning(s) - loop may fail on connectivity issues"
+    print_warning "$warnings pre-loop warning(s) - loop may fail on connectivity issues"
     echo ""
     read -r -p "Continue anyway? [Y/n] " response
     if [[ "$response" =~ ^[Nn] ]]; then
@@ -94,6 +98,214 @@ preflight_checks() {
       exit 1
     fi
   fi
+}
+
+# Check if failure context is trivial (lint/format-only retries)
+# Returns 0 (trivial) if ALL error lines match trivial patterns
+_is_trivial_failure() {
+  local context="$1"
+
+  # Count non-empty, non-whitespace lines
+  local total_lines
+  total_lines=$(printf '%s\n' "$context" | grep -cE '\S' || echo "0")
+
+  # If very short context, consider trivial
+  [[ "$total_lines" -lt 3 ]] && return 0
+
+  # Count error/warning/fail lines that do NOT match trivial patterns
+  # Trivial patterns: auto-fix, formatting tools, style-only issues
+  local non_trivial_errors
+  non_trivial_errors=$(printf '%s\n' "$context" | grep -iE '(error|warning|fail)' | \
+    grep -cviE '(auto.?fix|prettier|eslint --fix|trailing whitespace|import order|isort|black|ruff format|ruff check.*--fix|no-unused-vars|Missing semicolon|Expected indentation)' \
+    || echo "0")
+
+  # Trivial if no error lines survive the trivial-pattern filter
+  [[ "$non_trivial_errors" -eq 0 ]] && return 0
+
+  return 1
+}
+
+# Check if a proposed sign pattern is a duplicate of existing signs
+# Returns 0 (is duplicate) if pattern is too similar to existing
+_sign_is_duplicate() {
+  local pattern="$1"
+
+  [[ ! -f "$RALPH_DIR/signs.json" ]] && return 1
+
+  # Normalize: lowercase, strip punctuation
+  local normalized
+  normalized=$(printf '%s\n' "$pattern" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9 ]//g' | tr -s ' ')
+
+  # Check each existing sign
+  local existing_patterns
+  existing_patterns=$(jq -r '.signs[].pattern' "$RALPH_DIR/signs.json" 2>/dev/null)
+
+  while IFS= read -r existing; do
+    [[ -z "$existing" ]] && continue
+
+    local existing_normalized
+    existing_normalized=$(printf '%s\n' "$existing" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9 ]//g' | tr -s ' ')
+
+    # Substring match in either direction (only for patterns long enough to be meaningful)
+    local shorter_len=${#normalized}
+    [[ ${#existing_normalized} -lt $shorter_len ]] && shorter_len=${#existing_normalized}
+    if [[ $shorter_len -ge 30 ]]; then
+      if [[ "$normalized" == *"$existing_normalized"* ]] || [[ "$existing_normalized" == *"$normalized"* ]]; then
+        return 0
+      fi
+    fi
+
+    # Keyword overlap: extract words 4+ chars, flag as duplicate if >60% overlap
+    local new_words existing_words
+    new_words=$(printf '%s\n' "$normalized" | tr ' ' '\n' | awk 'length >= 4' | sort -u)
+    existing_words=$(printf '%s\n' "$existing_normalized" | tr ' ' '\n' | awk 'length >= 4' | sort -u)
+
+    local new_count overlap_count
+    new_count=$(printf '%s\n' "$new_words" | grep -cE '\S' || echo "0")
+    [[ "$new_count" -eq 0 ]] && continue
+
+    # Count overlapping words (use -xF for whole-line match, not substring)
+    overlap_count=0
+    while IFS= read -r word; do
+      [[ -z "$word" ]] && continue
+      if printf '%s\n' "$existing_words" | grep -qxF "$word"; then
+        overlap_count=$((overlap_count + 1))
+      fi
+    done <<< "$new_words"
+
+    # >60% overlap = duplicate
+    if [[ $((overlap_count * 100 / new_count)) -gt 60 ]]; then
+      return 0
+    fi
+  done <<< "$existing_patterns"
+
+  return 1
+}
+
+# Auto-promote a sign from retry failure context
+# Called when a story passes after multiple retries
+_maybe_promote_sign() {
+  local story="$1"
+  local retries="$2"
+  local config="$RALPH_DIR/config.json"
+
+  # Check config: read .autoPromoteSigns directly (avoid get_config - its // operator
+  # treats false as falsy and returns the default). Default to true if key is absent/null.
+  if [[ -f "$config" ]]; then
+    local auto_promote
+    auto_promote=$(jq -r '.autoPromoteSigns' "$config" 2>/dev/null)
+    if [[ "$auto_promote" == "false" ]]; then
+      return 0
+    fi
+  fi
+
+  # Read failure context (safety check - caller also gates on file existence)
+  local failure_context
+  if [[ ! -f "$RALPH_DIR/last_failure.txt" ]]; then
+    return 0
+  fi
+  failure_context=$(head -"$MAX_SIGN_CONTEXT_LINES" "$RALPH_DIR/last_failure.txt")
+
+  # Skip trivial failures (lint/format only)
+  if _is_trivial_failure "$failure_context"; then
+    log_progress "$story" "SIGN_AUTO" "Skipped - trivial failure (lint/format only)"
+    return 0
+  fi
+
+  # Load existing sign patterns for dedup context
+  local existing_signs=""
+  if [[ -f "$RALPH_DIR/signs.json" ]]; then
+    existing_signs=$(jq -r '.signs[].pattern' "$RALPH_DIR/signs.json" 2>/dev/null | head -"$MAX_SIGN_DEDUP_EXISTING")
+  fi
+
+  # Build extraction prompt
+  local prompt
+  prompt="You are analyzing a development failure that was resolved after $retries attempts.
+
+Extract ONE reusable pattern (a \"sign\") that would prevent this failure in future stories.
+
+## Failure Context
+\`\`\`
+$failure_context
+\`\`\`
+
+## Existing Signs (do NOT duplicate these)
+$existing_signs
+
+## Rules
+- Extract a single, actionable pattern that prevents this class of failure
+- The pattern should be general enough to apply to future stories, not specific to this one
+- If the failure is trivial, unclear, or you can't extract a useful pattern, respond with just: NONE
+- Category must be one of: backend, frontend, testing, general, database, security
+
+## Good Examples
+CATEGORY: backend
+PATTERN: Always run database migrations before executing test suites
+
+CATEGORY: testing
+PATTERN: Use waitFor() instead of fixed delays when testing async UI updates
+
+CATEGORY: frontend
+PATTERN: Import CSS modules with .module.css extension in Next.js projects
+
+## Bad Examples (too specific, too vague)
+PATTERN: Fix the login button color  (too specific to one story)
+PATTERN: Write better code  (too vague to be actionable)
+PATTERN: Always check for errors  (too vague)
+
+## Response Format
+Respond with exactly two lines (or just NONE):
+CATEGORY: <category>
+PATTERN: <pattern>"
+
+  # Call Claude with timeout (one-shot, non-interactive)
+  local response
+  response=$(printf '%s\n' "$prompt" | run_with_timeout "$SIGN_EXTRACTION_TIMEOUT_SECONDS" claude -p 2>/dev/null) || {
+    log_progress "$story" "SIGN_AUTO" "Skipped - Claude extraction timed out"
+    return 0
+  }
+
+  # Check for NONE response
+  if printf '%s\n' "$response" | grep -qi '^NONE'; then
+    log_progress "$story" "SIGN_AUTO" "Skipped - no actionable pattern found"
+    return 0
+  fi
+
+  # Parse response for CATEGORY: and PATTERN: lines (use sed, not grep -P for macOS)
+  local category pattern
+  category=$(echo "$response" | sed -n 's/^CATEGORY:[[:space:]]*//p' | head -1 | tr -d '\r')
+  pattern=$(echo "$response" | sed -n 's/^PATTERN:[[:space:]]*//p' | head -1 | tr -d '\r')
+
+  # Validate extracted values
+  if [[ -z "$category" || -z "$pattern" ]]; then
+    log_progress "$story" "SIGN_AUTO" "Skipped - could not parse Claude response"
+    return 0
+  fi
+
+  # Validate category
+  case "$category" in
+    backend|frontend|testing|general|database|security) ;;
+    *)
+      log_progress "$story" "SIGN_AUTO" "Skipped - invalid category: $category"
+      return 0
+      ;;
+  esac
+
+  # Check for duplicates before adding
+  if _sign_is_duplicate "$pattern"; then
+    log_progress "$story" "SIGN_AUTO" "Skipped - duplicate of existing sign"
+    return 0
+  fi
+
+  # Add the sign (3rd arg = autoPromoted, 4th arg = learnedFrom override)
+  if ralph_sign "$pattern" "$category" "true" "$story"; then
+    log_progress "$story" "SIGN_AUTO" "Added [$category]: $pattern"
+    print_info "Auto-promoted sign: [$category] $pattern"
+  else
+    log_progress "$story" "SIGN_AUTO" "Failed to add sign"
+  fi
+
+  return 0
 }
 
 run_loop() {
@@ -128,7 +340,7 @@ run_loop() {
   # Validate prerequisites
   check_dependencies
 
-  # Pre-flight checks to catch issues before wasting iterations
+  # Pre-loop checks to catch issues before wasting iterations
   preflight_checks
 
   if [[ ! -f "$RALPH_DIR/prd.json" ]]; then
@@ -493,6 +705,11 @@ run_loop() {
       # Mark story as complete and reset retry count
       update_json "$RALPH_DIR/prd.json" \
         --arg id "$story" '(.stories[] | select(.id==$id)) |= . + {passes: true, retryCount: 0}'
+
+      # Auto-promote sign if story required retries
+      if [[ $consecutive_failures -gt 1 && -f "$RALPH_DIR/last_failure.txt" ]]; then
+        _maybe_promote_sign "$story" "$consecutive_failures"
+      fi
 
       # Clear failure context on success
       rm -f "$RALPH_DIR/last_failure.txt"
