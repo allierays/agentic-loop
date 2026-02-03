@@ -75,8 +75,12 @@ npx agentic-loop run         # Execute PRDs autonomously
 
 > **Tip:** Use two terminals. Plan with Claude in one, run Ralph in the other.
 
+---
+
 > [!NOTE]
 > **New here?** Follow the **[Getting Started Guide](docs/GETTING-STARTED.md)** for a full step-by-step walkthrough — from install to your first autonomous loop run.
+
+---
 
 ## Docs
 
