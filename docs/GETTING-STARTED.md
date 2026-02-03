@@ -300,22 +300,21 @@ Each developer on a team can also have their own global checks in `~/.config/ral
 
 After your first loop run, you might want to tweak how Ralph behaves. The good news: you don't need to edit config files by hand. Just ask Claude.
 
-Back in **Terminal 1**, tell Claude what you want to change:
+Back in **Terminal 1**, just describe the problem you're seeing:
 
 ```
-The loop kept timing out on big stories. Can you increase the session timeout?
-```
-
-```
-I don't want Ralph to run the linter - my project doesn't have one set up yet.
-Can you turn that off in the config?
+The loop keeps timing out before it finishes a story. Why is that happening?
 ```
 
 ```
-Ralph should try more times before giving up on a story. Can you bump up the retry limit?
+The loop fails on linting every time but my code works fine. What's going on?
 ```
 
-Claude will update `.ralph/config.json` for you.
+```
+Ralph gives up on stories too quickly. Can it try more times?
+```
+
+Claude will figure out which config setting to change and update `.ralph/config.json` for you.
 
 If you want to see what's currently configured:
 
@@ -329,49 +328,27 @@ npx agentic-loop config show
 
 ## Step 9: Teach Ralph with Signs
 
-**Signs** are learned patterns - things Ralph should always remember across every story and every loop run. They're injected into every Claude prompt automatically.
+**Signs** are learned patterns - things Ralph should always remember across every story and every loop run. Once added, they're automatically injected into every Claude prompt.
 
-Think of signs as persistent instructions: "Hey, every time you write code for this project, remember this."
-
-### When to add a sign
-
-Add a sign when you notice the same mistake happening more than once:
-
-- Claude keeps using the wrong import path
-- Tests fail because Claude forgets to mock a specific dependency
-- Claude uses `var` instead of `const` or forgets a project convention
-
-You can describe these in plain language - you don't need to know the fix, just the pattern you're seeing:
+Ralph already suggests signs for you. After each story, it analyzes what happened and logs potential patterns to `.ralph/suggested-signs.txt`. Review these suggestions and promote the ones worth keeping:
 
 ```
 /sign "Stop using moment.js - use date-fns instead" frontend
 ```
 
+You can also add signs yourself when you notice the same mistake happening more than once. Describe it in plain language - you don't need to know the fix, just the pattern you're seeing:
+
 ```
 /sign "The database client is at src/lib/db, not src/db" general
 ```
 
-### From the command line
-
-```bash
-npx agentic-loop sign "Always use bcrypt with cost 12 for password hashing" backend
-npx agentic-loop sign "All API responses must include a requestId field" backend
-```
-
-### View your signs
+To see what signs are active:
 
 ```bash
 npx agentic-loop signs
 ```
 
-### Remove a sign
-
-```bash
-npx agentic-loop unsign "sign-001"       # By ID
-npx agentic-loop unsign "bcrypt"          # By pattern substring match
-```
-
-Signs live in `.ralph/signs.json` and persist across loop runs. They're one of the most powerful tools for improving loop quality over time - the more you teach Ralph about your project's conventions, the fewer retries you'll need.
+Signs live in `.ralph/signs.json` and persist across loop runs. The more you teach Ralph about your project's conventions, the fewer retries you'll need.
 
 ---
 
