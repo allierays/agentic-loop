@@ -40,6 +40,9 @@ jobs:
 
       - run: npm ci
 
+      - name: Build
+        run: npm run build
+
       - name: Vibe Check
         run: node bin/vibe-check.js --exclude 'src/checks/**,src/utils/patterns.ts' --fail-on error src/
 
