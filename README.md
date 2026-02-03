@@ -75,11 +75,14 @@ npx agentic-loop run         # Execute PRDs autonomously
 
 > **Tip:** Use two terminals. Plan with Claude in one, run Ralph in the other.
 
+For the full step-by-step walkthrough, see **[Getting Started](docs/GETTING-STARTED.md)**.
+
 ---
 
 ## Docs
 
-- **[Beginners Guide](docs/BEGINNERS.md)** - New to this? Start here (no coding experience required)
+- **[Getting Started](docs/GETTING-STARTED.md)** - Full walkthrough from zero to your first loop run
+- [Beginners Guide](docs/BEGINNERS.md) - New to this? Start here (no coding experience required)
 - [PRD Check](docs/PRD-CHECK.md) - Story validation before coding starts
 - [Code Check](docs/CODE-CHECK.md) - Verification pipeline after each story
 - [Customization](docs/CUSTOMIZATION.md) - Personalization and guardrails

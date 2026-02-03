@@ -77,6 +77,23 @@ Great for new users. Explains:
 
 ---
 
+### `/prd-check`
+
+**Validate your PRD** on demand before running the loop.
+
+```
+/prd-check
+```
+
+Claude will:
+1. Run validation in dry-run mode (no auto-fix)
+2. Present any issues found
+3. Ask if you want to fix them
+
+Use this to catch story quality issues interactively instead of waiting for them to fail during `ralph run`. Also runs any custom checks in `.ralph/checks/prd/`.
+
+---
+
 ### `/vibe-check`
 
 Full code quality audit. Scans for common AI-generated issues.
@@ -235,6 +252,7 @@ Hooks that block will prevent the commit. Warnings let you commit but alert you.
 |---------|---------|
 | `/idea` | Brainstorm → PRD → Ready for Ralph |
 | `/prd` | Generate PRD directly from idea file |
+| `/prd-check` | Validate PRD before running the loop |
 | `/vibe-help` | Quick reference cheatsheet |
 | `/tour` | Interactive walkthrough |
 | `/vibe-check` | Code quality audit |

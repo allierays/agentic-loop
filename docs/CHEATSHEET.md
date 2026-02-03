@@ -29,6 +29,8 @@ npx agentic-loop status        → Check progress
 | `npx agentic-loop test` | Run full test suite + PRD tests |
 | `npx agentic-loop coverage` | Generate test coverage report |
 | `npx agentic-loop ci` | Install GitHub Actions workflows |
+| `npx agentic-loop prd-check` | Validate PRD with auto-fix |
+| `npx agentic-loop prd-check --dry-run` | Validate PRD (report only) |
 | `npx agentic-loop signs` | List learned patterns |
 | `npx agentic-loop sign "pattern" category` | Add a pattern |
 | `npx agentic-loop progress` | Show recent log entries |
@@ -41,6 +43,7 @@ npx agentic-loop status        → Check progress
 |---------|---------|
 | `/idea` | Brainstorm feature → create idea file → generate PRD |
 | `/prd` | Generate PRD directly from idea file or description |
+| `/prd-check` | Validate PRD before running the loop |
 | `/tour` | Interactive walkthrough |
 | `/vibe-check` | Code quality audit |
 | `/review` | Security-focused code review |

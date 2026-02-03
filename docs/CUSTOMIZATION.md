@@ -52,7 +52,7 @@ Project-specific configuration in `.ralph/config.json`:
     "test": true
   },
   "maxSessionSeconds": 600,
-  "maxStoryRetries": 15
+  "maxStoryRetries": 8
 }
 ```
 

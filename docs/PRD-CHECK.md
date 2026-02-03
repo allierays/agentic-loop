@@ -32,6 +32,71 @@ Optimizing test coverage for 3 stories...
 ✓ Test coverage optimized (backup at .ralph/prd.json.20240115-143022.bak)
 ```
 
+## Run On Demand
+
+Use `/prd-check` in Claude Code or from the CLI:
+
+```bash
+npx agentic-loop prd-check              # Validate with auto-fix
+npx agentic-loop prd-check --dry-run    # Report issues without auto-fix
+```
+
+The `/prd-check` skill runs in dry-run mode so you can review issues before deciding what to fix.
+
+---
+
+## Custom Checks
+
+Add your own per-story validation scripts. They run alongside the built-in checks but are excluded from auto-fix (reported for manual review).
+
+### Setup
+
+Place executable scripts in either location:
+
+- `.ralph/checks/prd/check-*` — project-level (checked into repo)
+- `~/.config/ralph/checks/prd/check-*` — user-global (applies to all projects)
+
+### Script Interface
+
+| Input | Source |
+|-------|--------|
+| **stdin** | Story JSON object |
+| **$1** | Story ID |
+| **$2** | PRD file path |
+| **stdout** | Issue descriptions, one per line (empty = pass) |
+
+Scripts can be any language (bash, python, node). They must be executable (`chmod +x`).
+
+### Example
+
+```bash
+#!/usr/bin/env bash
+# .ralph/checks/prd/check-description.sh
+story_json=$(cat)
+has_description=$(echo "$story_json" | jq -r '.description // empty')
+if [[ -z "$has_description" ]]; then
+  echo "missing description field"
+fi
+```
+
+A full example template is at `templates/checks/prd/check-example.sh`.
+
+### Disable a Check
+
+In `.ralph/config.json`:
+
+```json
+{
+  "checks": {
+    "custom": {
+      "check-description": false
+    }
+  }
+}
+```
+
+---
+
 ## Configuration
 
 In `.ralph/config.json`:
@@ -53,6 +118,7 @@ In `.ralph/config.json`:
 | `checks.requireTests` | `true` | Warn if no test directory configured |
 | `api.baseUrl` | - | API URL (enables health check validation) |
 | `api.healthEndpoint` | `/health` | Health endpoint path (empty to disable) |
+| `checks.custom.<name>` | `true` | Enable/disable individual custom checks |
 
 ## See Also
 

@@ -60,7 +60,7 @@ In `.ralph/config.json`:
     "test": true,
     "build": "npm run build"
   },
-  "maxStoryRetries": 15,
+  "maxStoryRetries": 8,
   "maxSessionSeconds": 600
 }
 ```
@@ -70,7 +70,7 @@ In `.ralph/config.json`:
 | `checks.lint` | `true` | Run linting |
 | `checks.test` | `true` | Run tests (`true`, `false`, or `"final"`) |
 | `checks.build` | auto-detect | Build command |
-| `maxStoryRetries` | `15` | Circuit breaker threshold |
+| `maxStoryRetries` | `8` | Circuit breaker threshold |
 | `maxSessionSeconds` | `600` | Claude session timeout |
 
 ## Running Manually

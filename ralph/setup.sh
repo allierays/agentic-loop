@@ -94,6 +94,7 @@ ralph_setup() {
 
   # Run all setup steps
   setup_ralph_dir "$pkg_root"
+  setup_custom_checks
   setup_gitignore
   setup_claude_hooks "$pkg_root"
   setup_slash_commands "$pkg_root"
@@ -245,6 +246,24 @@ setup_ralph_dir() {
   if command -v jq &>/dev/null; then
     auto_configure_project
   fi
+}
+
+# Set up custom PRD checks directory
+setup_custom_checks() {
+  local checks_dir=".ralph/checks/prd"
+
+  # Skip if directory already exists
+  if [[ -d "$checks_dir" ]]; then
+    local count
+    count=$(ls -1 "$checks_dir"/check-* 2>/dev/null | wc -l | tr -d ' ')
+    if [[ "$count" -gt 0 ]]; then
+      echo "  Custom PRD checks: $count script(s) in $checks_dir/"
+    fi
+    return 0
+  fi
+
+  mkdir -p "$checks_dir"
+  echo "  Created $checks_dir/ (add custom check scripts here)"
 }
 
 # Ensure .gitignore has necessary patterns

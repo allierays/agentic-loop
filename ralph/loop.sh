@@ -181,9 +181,9 @@ run_loop() {
   local consecutive_timeouts=0
   local max_story_retries
   local max_timeouts=5  # Skip after 5 consecutive timeouts (likely too large/complex)
-  # Default to 15 retries - generous enough for transient issues, catches infinite loops
-  # Override with config.json: "maxStoryRetries": 25
-  max_story_retries=$(get_config '.maxStoryRetries' "15")
+  # Default to 8 retries - enough for transient issues, catches infinite loops
+  # Override with config.json: "maxStoryRetries": 12
+  max_story_retries=$(get_config '.maxStoryRetries' "8")
   local total_attempts=0
   local skipped_stories=()
   local start_time
@@ -265,7 +265,7 @@ run_loop() {
       "$RALPH_DIR/prd.json" > "$RALPH_DIR/prd.json.tmp" && mv "$RALPH_DIR/prd.json.tmp" "$RALPH_DIR/prd.json"
 
     # Circuit breaker: skip to next story after max retries (prevents infinite loops)
-    # Note: This is NOT meant to stop legitimate retrying - 15 attempts is generous.
+    # Note: This is NOT meant to stop legitimate retrying - 8 attempts is enough.
     # If a story consistently fails after this many tries, it likely needs manual review
     # (vague test steps, missing prerequisites, or fundamentally broken requirements).
     if [[ $consecutive_failures -gt $max_story_retries ]]; then

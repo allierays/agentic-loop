@@ -50,6 +50,11 @@
 #     - Has prerequisites array with DB reset command
 #     - Prevents infinite retries on schema mismatch errors
 #
+#   CUSTOM CHECKS (.ralph/checks/prd/ or ~/.config/ralph/checks/prd/):
+#     - User-provided scripts that receive story JSON on stdin
+#     - Output issue descriptions to stdout (one per line)
+#     - Excluded from auto-fix (reported for manual review)
+#
 # API configuration validation:
 #   - If api.baseUrl configured, checks health endpoint is reachable
 #   - Warns if default /health returns 404 (misconfigured healthEndpoint)
@@ -75,6 +80,9 @@
 #   .tests.directory      - Where tests live (for requireTests check)
 #   .api.baseUrl          - API base URL (enables API config validation)
 #   .api.healthEndpoint   - Health check path (default: /health, empty to disable)
+#   .ralph/checks/prd/check-*     - Project-level custom checks (per-story)
+#   ~/.config/ralph/checks/prd/   - User-global custom checks (per-story)
+#   .checks.custom.<name>         - Enable/disable individual custom checks
 #
 # ============================================================================
 # USAGE
@@ -191,7 +199,8 @@ validate_prd() {
   fix_hardcoded_paths "$prd_file" "$config"
 
   # Validate and fix individual stories
-  _validate_and_fix_stories "$prd_file" || return 1
+  # $2 is optional dry_run flag — when "true", skip auto-fix
+  _validate_and_fix_stories "$prd_file" "${2:-}" || return 1
 
   return 0
 }
@@ -274,8 +283,10 @@ _validate_api_config() {
 }
 
 # Validate individual stories and auto-fix with Claude if needed
+# $1: prd_file  $2: optional "dry_run" — when "true", report issues but skip auto-fix
 _validate_and_fix_stories() {
   local prd_file="$1"
+  local dry_run="${2:-false}"
   local needs_fix=false
   local issues=""
   local story_count=0
@@ -285,8 +296,12 @@ _validate_and_fix_stories() {
   local cnt_frontend_tsc=0 cnt_frontend_url=0 cnt_frontend_context=0 cnt_frontend_mcp=0
   local cnt_auth_security=0 cnt_list_pagination=0 cnt_prose_steps=0
   local cnt_migration_prereq=0 cnt_naming_convention=0 cnt_bare_pytest=0
+  local cnt_custom=0
 
   echo "  Checking test coverage..."
+
+  # Truncate custom check log per validation pass (name says "last", keep only current run)
+  : > "$RALPH_DIR/last_custom_check.log"
 
   # Only validate incomplete stories (skip stories that already passed)
   local story_ids
@@ -429,12 +444,31 @@ _validate_and_fix_stories() {
       fi
     fi
 
+    # Snapshot built-in issues before custom checks append
+    local builtin_story_issues="$story_issues"
+
+    # Check 8: User-defined custom checks (.ralph/checks/prd/ or ~/.config/ralph/checks/prd/)
+    if [[ -d ".ralph/checks/prd" ]] || [[ -d "$HOME/.config/ralph/checks/prd" ]]; then
+      local story_json
+      story_json=$(jq --arg id "$story_id" '.stories[] | select(.id==$id)' "$prd_file")
+      local custom_output
+      custom_output=$(_run_custom_prd_checks "$story_id" "$prd_file" "$story_json")
+      if [[ -n "$custom_output" ]]; then
+        story_issues+="$custom_output"
+        cnt_custom=$((cnt_custom + 1))
+      fi
+    fi
+
     # Track this story if it has issues
     if [[ -n "$story_issues" ]]; then
       needs_fix=true
       story_count=$((story_count + 1))
-      issues+="$story_id: ${story_issues%%, }
+      # Only include built-in issues in auto-fix context
+      # Custom issues are user-defined rules that Claude auto-fix can't meaningfully address
+      if [[ -n "$builtin_story_issues" ]]; then
+        issues+="$story_id: ${builtin_story_issues%%, }
 "
+      fi
     fi
   done <<< "$story_ids"
 
@@ -456,6 +490,12 @@ _validate_and_fix_stories() {
     [[ $cnt_migration_prereq -gt 0 ]] && echo "    ${cnt_migration_prereq}x migration: add prerequisites (DB reset)"
     [[ $cnt_naming_convention -gt 0 ]] && echo "    ${cnt_naming_convention}x API consumer: add camelCase transformation note"
     [[ $cnt_bare_pytest -gt 0 ]] && echo "    ${cnt_bare_pytest}x use 'uv run pytest' not bare 'pytest'"
+    [[ $cnt_custom -gt 0 ]] && echo "    ${cnt_custom} stories with custom check issues"
+
+    # Skip auto-fix in dry-run mode
+    if [[ "$dry_run" == "true" ]]; then
+      return 0
+    fi
 
     # Check if Claude is available for auto-fix
     if command -v claude &>/dev/null; then
@@ -469,6 +509,55 @@ _validate_and_fix_stories() {
   fi
 
   return 0
+}
+
+# Run user-defined custom PRD checks for a story
+# Stdin to script: full story JSON | $1: story_id | $2: prd_file
+# Output: issues on stdout (empty = no issues)
+_run_custom_prd_checks() {
+  local story_id="$1"
+  local prd_file="$2"
+  local story_json="$3"
+  local custom_issues=""
+  local custom_log="$RALPH_DIR/last_custom_check.log"
+
+  local check_dirs=()
+  [[ -d ".ralph/checks/prd" ]] && check_dirs+=(".ralph/checks/prd")
+  [[ -d "$HOME/.config/ralph/checks/prd" ]] && check_dirs+=("$HOME/.config/ralph/checks/prd")
+  [[ ${#check_dirs[@]} -eq 0 ]] && return 0
+
+  for check_dir in "${check_dirs[@]}"; do
+    for check_script in "$check_dir"/check-*; do
+      [[ ! -f "$check_script" || ! -x "$check_script" ]] && continue
+
+      local check_key
+      check_key=$(basename "$check_script")
+      check_key="${check_key%.*}"
+      # Read directly instead of get_config — jq's // operator treats false as falsy
+      local enabled="true"
+      if [[ -f "$RALPH_DIR/config.json" ]]; then
+        local raw
+        raw=$(jq -r --arg key "$check_key" '.checks.custom[$key]' "$RALPH_DIR/config.json" 2>/dev/null)
+        [[ -n "$raw" && "$raw" != "null" ]] && enabled="$raw"
+      fi
+      [[ "$enabled" == "false" ]] && continue
+
+      # Run check — capture stdout for issues, stderr to log for debugging
+      local output=""
+      if ! output=$(echo "$story_json" | run_with_timeout 30 "$check_script" "$story_id" "$prd_file" 2>>"$custom_log"); then
+        # Script failed to execute — warn, don't silently swallow
+        print_warning "Custom check '$check_key' failed for story $story_id (see .ralph/last_custom_check.log)"
+      fi
+
+      if [[ -n "$output" ]]; then
+        while IFS= read -r line; do
+          [[ -n "$line" ]] && custom_issues+="${line}, "
+        done <<< "$output"
+      fi
+    done
+  done
+
+  echo "$custom_issues"
 }
 
 # Optimize story test coverage using Claude
@@ -673,4 +762,54 @@ validate_stories_quick() {
   done <<< "$story_ids"
 
   echo "$issues"
+}
+
+# CLI entry point for on-demand PRD validation
+# Usage: ralph prd-check [--dry-run] [prd-file]
+ralph_prd_check() {
+  local dry_run=false
+  local prd_file=""
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --dry-run) dry_run=true; shift ;;
+      *) prd_file="$1"; shift ;;
+    esac
+  done
+
+  prd_file="${prd_file:-$RALPH_DIR/prd.json}"
+
+  if [[ ! -f "$prd_file" ]]; then
+    print_error "PRD not found: $prd_file"
+    echo "Generate one with: ralph prd  or  /prd"
+    return 1
+  fi
+
+  echo ""
+  print_info "=== PRD Validation ==="
+  echo ""
+
+  if [[ "$dry_run" == "true" ]]; then
+    # Dry run: validate structure + show issues without auto-fix
+    validate_prd "$prd_file" "true"
+    local rc=$?
+    local remaining
+    remaining=$(validate_stories_quick "$prd_file")
+    if [[ -n "$remaining" ]]; then
+      echo ""
+      echo "  Remaining issues:"
+      echo "$remaining" | sed 's/^/    /'
+    fi
+    return $rc
+  else
+    if validate_prd "$prd_file"; then
+      echo ""
+      print_success "PRD validation passed!"
+      return 0
+    else
+      echo ""
+      print_error "PRD validation failed"
+      return 1
+    fi
+  fi
 }

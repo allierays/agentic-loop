@@ -98,45 +98,9 @@ The AI handles the tedious back-and-forth of fixing errors, running tests, and m
 
 ---
 
-## The Basic Setup
+## Ready to Try It?
 
-### 1. Open Two Terminal Windows
-
-A "terminal" is the text-based interface where you type commands. On Mac, it's called "Terminal." On Windows, you can use "Command Prompt" or "PowerShell."
-
-You need two windows because:
-- **Window 1**: Where you talk to Claude (the AI)
-- **Window 2**: Where Ralph runs automatically
-
-### 2. In Window 1, Start Claude
-
-```
-claude --dangerously-skip-permissions
-```
-
-This opens a chat with Claude. The long flag (`--dangerously-skip-permissions`) lets Claude make changes to files without asking permission each time.
-
-### 3. Tell Claude What You Want
-
-Type `/idea` followed by your feature description:
-
-```
-/idea add a contact form that sends emails
-```
-
-Claude will ask questions, explore your project, and create a plan.
-
-### 4. In Window 2, Start Ralph
-
-```
-npx agentic-loop run
-```
-
-Ralph reads the plan and starts building. You'll see progress updates as each task completes.
-
-### 5. Wait
-
-Ralph works autonomously. You can watch the progress or do something else. When it's done, you'll have working code.
+When you're ready to set up and run your first loop, follow the step-by-step walkthrough in [Getting Started](GETTING-STARTED.md). It covers installation, setup, and the full two-terminal workflow.
 
 ---
 
@@ -188,12 +152,9 @@ To use the basic features, no. To customize the results or fix edge cases, some 
 
 ## Next Steps
 
-Once you're comfortable with the basics:
-
-1. **Take the tour**: Run `/tour` in Claude for a guided walkthrough
-2. **Try a small feature**: Start with something simple like "add a button that shows an alert"
-3. **Read the main README**: [README.md](../README.md) has more details
-4. **Explore customization**: [CUSTOMIZATION.md](CUSTOMIZATION.md) explains how to personalize your setup
+1. **Follow the full walkthrough**: [Getting Started](GETTING-STARTED.md) — installation, setup, and your first loop run
+2. **Take the tour**: Run `/tour` in Claude for a guided walkthrough
+3. **Explore customization**: [CUSTOMIZATION.md](CUSTOMIZATION.md) explains how to personalize your setup
 
 ---
 

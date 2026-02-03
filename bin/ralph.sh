@@ -148,6 +148,9 @@ main() {
     check)
       ralph_check "$@"
       ;;
+    prd-check|prdcheck)
+      ralph_prd_check "$@"
+      ;;
     verify)
       if [[ $# -lt 1 ]]; then
         print_error "Usage: ralph verify <story-id>"
