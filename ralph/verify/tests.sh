@@ -226,8 +226,11 @@ run_unit_tests() {
 }
 
 # Expand config placeholders in a string
-# Usage: expand_config_vars "curl {config.urls.backend}/api"
-# Expands: {config.urls.backend}, {config.urls.frontend}, {config.directories.*}
+# Usage: _expand_config_vars "curl {config.urls.backend}/api"
+# Expands any {config.X.Y} placeholder from .ralph/config.json via jq.
+# Known placeholders have fallback paths for backward compatibility:
+#   {config.urls.backend}  -> .urls.backend // .api.baseUrl
+#   {config.urls.frontend} -> .urls.frontend // .testUrlBase
 _expand_config_vars() {
   local input="$1"
   local config="$RALPH_DIR/config.json"
@@ -237,41 +240,38 @@ _expand_config_vars() {
 
   local result="$input"
 
-  # Expand {config.urls.backend}
+  # Known placeholders with backward-compatible fallback paths
   if [[ "$result" == *"{config.urls.backend}"* ]]; then
-    local backend_url
-    backend_url=$(jq -r '.urls.backend // .api.baseUrl // empty' "$config" 2>/dev/null)
-    if [[ -n "$backend_url" ]]; then
-      result="${result//\{config.urls.backend\}/$backend_url}"
-    fi
+    local val
+    val=$(jq -r '.urls.backend // .api.baseUrl // empty' "$config" 2>/dev/null)
+    [[ -n "$val" ]] && result="${result//\{config.urls.backend\}/$val}"
   fi
 
-  # Expand {config.urls.frontend}
   if [[ "$result" == *"{config.urls.frontend}"* ]]; then
-    local frontend_url
-    frontend_url=$(jq -r '.urls.frontend // .testUrlBase // empty' "$config" 2>/dev/null)
-    if [[ -n "$frontend_url" ]]; then
-      result="${result//\{config.urls.frontend\}/$frontend_url}"
-    fi
+    local val
+    val=$(jq -r '.urls.frontend // .testUrlBase // empty' "$config" 2>/dev/null)
+    [[ -n "$val" ]] && result="${result//\{config.urls.frontend\}/$val}"
   fi
 
-  # Expand {config.directories.backend}
-  if [[ "$result" == *"{config.directories.backend}"* ]]; then
-    local backend_dir
-    backend_dir=$(jq -r '.directories.backend // empty' "$config" 2>/dev/null)
-    if [[ -n "$backend_dir" ]]; then
-      result="${result//\{config.directories.backend\}/$backend_dir}"
-    fi
-  fi
+  # Generic expansion for any remaining {config.X.Y.Z} placeholders
+  # Handles {config.urls.app}, {config.api.healthEndpoint}, {config.directories.*}, etc.
+  local max_expansions=10
+  while [[ "$result" =~ \{config\.([a-zA-Z0-9_.]+)\} ]] && [[ $max_expansions -gt 0 ]]; do
+    local placeholder="${BASH_REMATCH[0]}"
+    local config_path="${BASH_REMATCH[1]}"
+    local jq_path=".${config_path}"
 
-  # Expand {config.directories.frontend}
-  if [[ "$result" == *"{config.directories.frontend}"* ]]; then
-    local frontend_dir
-    frontend_dir=$(jq -r '.directories.frontend // empty' "$config" 2>/dev/null)
-    if [[ -n "$frontend_dir" ]]; then
-      result="${result//\{config.directories.frontend\}/$frontend_dir}"
+    local val
+    val=$(jq -r "$jq_path // empty" "$config" 2>/dev/null)
+    if [[ -n "$val" ]]; then
+      result="${result//$placeholder/$val}"
+    else
+      # Unresolvable — warn and stop to avoid infinite loop
+      print_warning "Unresolved config placeholder: $placeholder (key '$config_path' not in config.json)" >&2
+      break
     fi
-  fi
+    ((max_expansions--))
+  done
 
   echo "$result"
 }
