@@ -199,7 +199,7 @@ open -a TextEdit .ralph/prd.json
 Say: "I've {created|updated} the PRD with {N} stories and opened it in TextEdit.
 
 Review the PRD and let me know:
-- **'approved'** - Ready for `ralph run`
+- **'approved'** - Ready to run in your other terminal
 - **'edit [changes]'** - Tell me what to change
 - Or edit the JSON directly and say **'done'**"
 
@@ -214,9 +214,9 @@ Once approved, say:
 **Source:** `{idea-file-path}`
 **PRD:** `.ralph/prd.json` ({N} stories)
 
-To start autonomous development:
+To start autonomous development, open another terminal and run:
 ```bash
-ralph run
+npx agentic-loop run
 ```
 
 Ralph will work through each story, running tests and committing as it goes."
