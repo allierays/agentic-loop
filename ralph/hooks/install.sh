@@ -111,18 +111,6 @@ fi
 # Build hooks config with actual path
 HOOKS_CONFIG=$(cat <<EOF
 {
-  "PreToolUse": [
-    {
-      "matcher": "Edit|Write",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "$SCRIPT_DIR/protect-prd.sh",
-          "timeout": 5
-        }
-      ]
-    }
-  ],
   "PostToolUse": [
     {
       "matcher": "Edit|Write",
@@ -195,7 +183,6 @@ echo "$MERGED" > "$SETTINGS_FILE"
 echo -e "${GREEN}✓ Hooks installed successfully!${NC}"
 echo ""
 echo "Hooks enabled:"
-echo "  • protect-prd.sh      - Blocks edits to prd.json"
 echo "  • warn-debug.sh       - Warns about console.log/debugger"
 echo "  • warn-secrets.sh     - Warns about hardcoded secrets/API keys"
 echo "  • warn-urls.sh        - Warns about hardcoded localhost URLs"

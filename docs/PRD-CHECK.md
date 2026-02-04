@@ -47,43 +47,27 @@ The `/prd-check` skill runs in dry-run mode so you can review issues before deci
 
 ## Custom Checks
 
-Add your own per-story validation scripts. They run alongside the built-in checks but are excluded from auto-fix (reported for manual review).
+You can add your own rules that Ralph checks for in every story. These run alongside the built-in checks but won't be auto-fixed — they're reported so you can decide what to do.
 
-### Setup
+### Adding a custom check
 
-Place executable scripts in either location:
+Tell Claude what you want checked. For example:
 
-- `.ralph/checks/prd/check-*` — project-level (checked into repo)
-- `~/.config/ralph/checks/prd/check-*` — user-global (applies to all projects)
+> "Add a custom PRD check that flags any backend story missing rate limiting in its acceptance criteria"
 
-### Script Interface
+> "Create a PRD check that requires every story to have a description field"
 
-| Input | Source |
-|-------|--------|
-| **stdin** | Story JSON object |
-| **$1** | Story ID |
-| **$2** | PRD file path |
-| **stdout** | Issue descriptions, one per line (empty = pass) |
+> "Add a custom check that makes sure story IDs follow the TASK-NNN format"
 
-Scripts can be any language (bash, python, node). They must be executable (`chmod +x`).
+Claude will create the script in `.ralph/checks/prd/` for you. There's also an example template at `templates/checks/prd/check-example.sh` if you want to see how they work.
 
-### Example
+Custom checks live in two places:
+- `.ralph/checks/prd/` — for this project (commit to your repo so the whole team gets them)
+- `~/.config/ralph/checks/prd/` — for you personally (applies to all your projects)
 
-```bash
-#!/usr/bin/env bash
-# .ralph/checks/prd/check-description.sh
-story_json=$(cat)
-has_description=$(echo "$story_json" | jq -r '.description // empty')
-if [[ -z "$has_description" ]]; then
-  echo "missing description field"
-fi
-```
+### Turning off a check
 
-A full example template is at `templates/checks/prd/check-example.sh`.
-
-### Disable a Check
-
-In `.ralph/config.json`:
+If a check is getting in the way, disable it in `.ralph/config.json`:
 
 ```json
 {
@@ -122,5 +106,6 @@ In `.ralph/config.json`:
 
 ## See Also
 
+- [Customizing Ralph](customizing-ralph.md) - Signs, custom checks, /idea vs /prd
 - [Code Check](CODE-CHECK.md) - Verification after each story
 - [How Ralph Works](RALPH.md) - Full architecture details

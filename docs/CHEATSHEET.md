@@ -77,7 +77,7 @@ Real-time warnings while Claude writes code:
 | `warn-debug.sh` | Warns about console.log/debugger |
 | `warn-secrets.sh` | Warns about hardcoded secrets |
 | `warn-urls.sh` | Warns about localhost URLs |
-| `protect-prd.sh` | Blocks edits to prd.json |
+
 
 ---
 

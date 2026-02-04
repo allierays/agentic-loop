@@ -353,8 +353,7 @@ setup_claude_hooks() {
   }
 
   # Resolve each hook path (project hooks take priority over global)
-  local protect_prd warn_debug warn_secrets warn_urls warn_empty_catch log_tools inject_context save_learnings
-  protect_prd=$(_resolve_hook "protect-prd.sh")
+  local warn_debug warn_secrets warn_urls warn_empty_catch log_tools inject_context save_learnings
   warn_debug=$(_resolve_hook "warn-debug.sh")
   warn_secrets=$(_resolve_hook "warn-secrets.sh")
   warn_urls=$(_resolve_hook "warn-urls.sh")
@@ -364,11 +363,7 @@ setup_claude_hooks() {
   save_learnings=$(_resolve_hook "save-learnings.sh")
 
   # Build hooks arrays using jq for proper JSON
-  local pre_tool_hooks post_edit_hooks post_all_hooks session_start_hooks stop_hooks
-
-  # PreToolUse: protect-prd on Edit|Write
-  pre_tool_hooks="[]"
-  [[ -n "$protect_prd" ]] && pre_tool_hooks=$(jq -n --arg cmd "$protect_prd" '[{"type": "command", "command": $cmd, "timeout": 5}]')
+  local post_edit_hooks post_all_hooks session_start_hooks stop_hooks
 
   # PostToolUse: warn-* hooks on Edit|Write
   post_edit_hooks="[]"
@@ -391,13 +386,11 @@ setup_claude_hooks() {
   # Build the complete hooks config
   local hooks_config
   hooks_config=$(jq -n \
-    --argjson pre_tool "$pre_tool_hooks" \
     --argjson post_edit "$post_edit_hooks" \
     --argjson post_all "$post_all_hooks" \
     --argjson session_start "$session_start_hooks" \
     --argjson stop "$stop_hooks" \
     '{
-      "PreToolUse": [{"matcher": "Edit|Write", "hooks": $pre_tool}],
       "PostToolUse": [
         {"matcher": "Edit|Write", "hooks": $post_edit},
         {"matcher": "*", "hooks": $post_all}

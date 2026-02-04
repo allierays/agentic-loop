@@ -536,12 +536,6 @@ Hooks catch these in real-time as Claude works.
 
 ### Hook Types
 
-**PreToolUse** - Runs BEFORE Claude uses a tool. Can block the action.
-
-| Hook | Triggers on | What it does |
-|------|-------------|--------------|
-| `protect-prd.sh` | Edit, Write | Blocks Claude from marking `passes: true` in prd.json |
-
 **PostToolUse** - Runs AFTER Claude uses a tool. Can warn but not block.
 
 | Hook | Triggers on | What it does |
@@ -677,9 +671,6 @@ Configures Claude Code hooks:
 ```json
 {
   "hooks": {
-    "PreToolUse": [
-      {"matcher": "Edit|Write", "command": ".ralph/hooks/protect-prd.sh"}
-    ],
     "PostToolUse": [
       {"matcher": "Edit|Write", "command": ".ralph/hooks/warn-debug.sh"},
       {"matcher": "Edit|Write", "command": ".ralph/hooks/warn-secrets.sh"}

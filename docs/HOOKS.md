@@ -36,7 +36,6 @@ If you move your project or clone on a new machine, reinstall hooks with `npx ra
 
 | Hook | Event | Purpose |
 |------|-------|---------|
-| `protect-prd.sh` | PreToolUse | Blocks edits to prd.json (Ralph manages it) |
 | `warn-debug.sh` | PostToolUse | Warns about console.log/debugger in new code |
 | `warn-secrets.sh` | PostToolUse | Warns about hardcoded secrets/API keys |
 | `warn-urls.sh` | PostToolUse | Warns about hardcoded localhost URLs |
@@ -70,12 +69,6 @@ If you prefer manual setup, add to `~/.claude/settings.json` or `.claude/setting
 ```json
 {
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [{ "type": "command", "command": "/path/to/protect-prd.sh" }]
-      }
-    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",

@@ -2,18 +2,6 @@
   "_comment": "Copy this 'hooks' section into your ~/.claude/settings.json or .claude/settings.json",
   "_instructions": "Replace VIBE_PATH with the path to your agentic-loop installation",
   "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Edit|Write",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "VIBE_PATH/ralph/hooks/protect-prd.sh",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write",
