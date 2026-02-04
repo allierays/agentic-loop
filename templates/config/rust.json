@@ -1,7 +1,5 @@
 {
   "auth": {
-    "testUser": "",
-    "testPassword": "",
     "loginEndpoint": "/api/auth/login",
     "loginMethod": "POST",
     "tokenType": "jwt",

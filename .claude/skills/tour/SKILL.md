@@ -271,26 +271,30 @@ Edit `.ralph/config.json` if anything needs adjusting."
 ### 2g. Test Credentials (Optional)
 
 ```bash
-cat .ralph/config.json | jq -r '.auth.testUser // empty'
+grep -q "^RALPH_TEST_USER=" .env 2>/dev/null && echo "configured" || echo "not set"
 ```
 
-**If empty**, use AskUserQuestion:
+**If not set**, use AskUserQuestion:
 - **Question:** "Add test credentials? Ralph needs these for authenticated endpoints."
 - **Header:** "Test auth"
 - **Options:**
   - **Yes** - "I'll ask for email and password"
-  - **Skip** - "Edit .ralph/config.json later"
+  - **Skip** - "Add to .env later"
 
 If "Yes":
 - Ask for email, then password
-- Update config:
+- Save to `.env` (gitignored — never committed):
   ```bash
-  jq --arg u "$EMAIL" --arg p "$PASSWORD" '.auth.testUser = $u | .auth.testPassword = $p' .ralph/config.json > .ralph/config.tmp && mv .ralph/config.tmp .ralph/config.json
+  touch .env
+  echo "" >> .env
+  echo "# Test credentials for browser automation" >> .env
+  printf 'RALPH_TEST_USER=%s\n' "$EMAIL" >> .env
+  printf 'RALPH_TEST_PASSWORD=%s\n' "$PASSWORD" >> .env
   ```
-- Say: "✓ Test credentials saved"
+- Say: "Credentials saved to .env (gitignored — never committed to git)"
 
 If "Skip":
-- Say: "No problem! Add credentials to `.ralph/config.json` when needed."
+- Say: "No problem! Add `RALPH_TEST_USER` and `RALPH_TEST_PASSWORD` to `.env` when needed."
 
 **If already set:**
 - Say: "✓ Test credentials configured"

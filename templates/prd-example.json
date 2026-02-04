@@ -73,11 +73,6 @@
         "response": {"id": "string", "email": "string"}
       },
 
-      "testUsers": {
-        "admin": {"email": "admin@test.com", "password": "test123"},
-        "user": {"email": "user@test.com", "password": "test123"}
-      },
-
       "contextFiles": [
         "docs/ideas/auth.md"
       ],

@@ -312,10 +312,6 @@ Ralph will work through each story, running tests and committing as it goes."
         "response": {"field": "type"}
       },
 
-      "testUsers": {
-        "admin": {"email": "admin@test.com", "password": "test123"}
-      },
-
       "prerequisites": [
         "Backend server running",
         "Database seeded"
@@ -372,7 +368,7 @@ Each story is **self-contained** with all the context it needs. No global defaul
 | `contextFiles` | No | Files Claude should read (idea files, styleguides) |
 | `skills` | No | Relevant skills with usage hints |
 | `apiContract` | Backend | Expected request/response format |
-| `testUsers` | No | Test accounts (only for auth stories that need them) |
+| `testUsers` | **Deprecated** | Use `RALPH_TEST_USER` / `RALPH_TEST_PASSWORD` env vars in `.env` instead |
 | `prerequisites` | No | What must be running/ready |
 | `notes` | No | Human guidance for Claude |
 | `scale` | No | small, medium, large |

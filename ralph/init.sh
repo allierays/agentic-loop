@@ -84,7 +84,7 @@ configure_test_auth() {
   print_info "=== Test Authentication Setup ==="
   echo ""
   echo "Ralph needs test credentials to verify authenticated endpoints."
-  echo "(You can skip this and edit .ralph/config.json later)"
+  echo "(You can skip this and add to .env later)"
   echo ""
 
   # Ask if they want to configure auth
@@ -92,7 +92,7 @@ configure_test_auth() {
   echo ""
 
   if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    print_info "Skipped. Edit .ralph/config.json to add credentials later."
+    print_info "Skipped. Add RALPH_TEST_USER and RALPH_TEST_PASSWORD to .env when needed."
     return 0
   fi
 
@@ -103,30 +103,31 @@ configure_test_auth() {
 
   if [[ -z "$test_user" || -z "$test_password" ]]; then
     print_warning "Credentials not provided."
-    echo "  Options to add them later:"
-    echo "    1. Edit .ralph/config.json (stored in plain text)"
-    echo "    2. Set RALPH_TEST_USER and RALPH_TEST_PASSWORD env vars (recommended)"
+    echo "  Add to .env later:"
+    echo "    RALPH_TEST_USER=your-email"
+    echo "    RALPH_TEST_PASSWORD=your-password"
     return 0
   fi
 
-  # Update config.json with credentials
-  local config="$RALPH_DIR/config.json"
-  if [[ -f "$config" ]]; then
+  # Save credentials to .env (gitignored, never committed)
+  if [[ ! -f ".env" ]]; then
+    touch ".env"
+  fi
+
+  # Remove old entries if present
+  if grep -q "^RALPH_TEST_USER=" .env 2>/dev/null; then
     local tmpfile
     tmpfile=$(mktemp)
-    if jq --arg user "$test_user" --arg pass "$test_password" \
-       '.auth.testUser = $user | .auth.testPassword = $pass' \
-       "$config" > "$tmpfile" 2>/dev/null; then
-      mv "$tmpfile" "$config"
-      print_success "Test credentials saved to .ralph/config.json"
-      print_warning "Note: Credentials stored in plain text. Consider using env vars instead:"
-      echo "    export RALPH_TEST_USER='$test_user'"
-      echo "    export RALPH_TEST_PASSWORD='****'"
-    else
-      rm -f "$tmpfile"
-      print_warning "Failed to update config. Edit .ralph/config.json manually."
-    fi
+    grep -v "^RALPH_TEST_USER=\|^RALPH_TEST_PASSWORD=" .env > "$tmpfile" && mv "$tmpfile" .env
   fi
+
+  # Append credentials
+  echo "" >> .env
+  echo "# Test credentials for browser automation (auto-added by ralph init)" >> .env
+  printf 'RALPH_TEST_USER=%s\n' "$test_user" >> .env
+  printf 'RALPH_TEST_PASSWORD=%s\n' "$test_password" >> .env
+
+  print_success "Test credentials saved to .env (gitignored — never committed)"
 }
 
 # Detect the type of project based on files present

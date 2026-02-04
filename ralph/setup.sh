@@ -76,6 +76,48 @@ append_prompt_sections() {
   fi
 }
 
+# Migrate test credentials from config.json to .env
+_migrate_credentials_to_env() {
+  local config=".ralph/config.json"
+  [[ ! -f "$config" ]] && return 0
+
+  local test_user test_password
+  test_user=$(jq -r '.auth.testUser // empty' "$config" 2>/dev/null)
+  test_password=$(jq -r '.auth.testPassword // empty' "$config" 2>/dev/null)
+
+  # Nothing to migrate
+  [[ -z "$test_user" && -z "$test_password" ]] && return 0
+
+  echo ""
+  print_info "Migrating test credentials from config.json to .env..."
+
+  # Write to .env
+  [[ ! -f ".env" ]] && touch ".env"
+
+  if grep -q "^RALPH_TEST_USER=" .env 2>/dev/null; then
+    local tmp
+    tmp=$(mktemp)
+    grep -v "^RALPH_TEST_USER=\|^RALPH_TEST_PASSWORD=" .env > "$tmp" && mv "$tmp" .env
+  fi
+
+  echo "" >> .env
+  echo "# Test credentials (migrated from config.json)" >> .env
+  [[ -n "$test_user" ]] && printf 'RALPH_TEST_USER=%s\n' "$test_user" >> .env
+  [[ -n "$test_password" ]] && printf 'RALPH_TEST_PASSWORD=%s\n' "$test_password" >> .env
+
+  # Remove from config.json
+  local tmpfile
+  tmpfile=$(mktemp)
+  if jq 'del(.auth.testUser, .auth.testPassword)' "$config" > "$tmpfile" 2>/dev/null; then
+    mv "$tmpfile" "$config"
+    print_success "Credentials moved to .env and removed from config.json"
+  else
+    rm -f "$tmpfile"
+    print_warning "Moved to .env but couldn't remove from config.json — edit manually"
+  fi
+  echo ""
+}
+
 ralph_setup() {
   echo ""
   echo "    _                    _   _        _                       "
@@ -118,6 +160,9 @@ ralph_setup() {
       echo ""
     fi
   fi
+
+  # Migrate credentials from config.json to .env if present
+  _migrate_credentials_to_env
 
   # Run all setup steps
   setup_ralph_dir "$pkg_root"

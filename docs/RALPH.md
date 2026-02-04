@@ -428,11 +428,15 @@ Now every future story will see this pattern.
   "styleguide": "docs/styleguide.html",
   "maxSessionSeconds": 600,
   "auth": {
-    "testUser": "test@example.com",
-    "testPassword": "testpass123"
+    "loginEndpoint": "/api/auth/login",
+    "loginMethod": "POST",
+    "tokenType": "session"
   }
 }
 ```
+
+> **Test credentials** (emails, passwords) belong in `.env`, not `config.json`.
+> See [Test Credentials](#test-credentials) below.
 
 | Field | Default | Description |
 |-------|---------|-------------|
@@ -462,6 +466,30 @@ Use `{config.urls.backend}` and `{config.urls.frontend}` in testSteps. Ralph exp
 | `playwright.enabled` | `true` | Enable e2e tests |
 | `styleguide` | `""` | Path to styleguide for frontend stories |
 | `maxSessionSeconds` | `600` | Claude session timeout |
+
+### Test Credentials
+
+Test credentials (emails, passwords) are stored in `.env` — **never** in `config.json`. The `.env` file is gitignored and never committed.
+
+```bash
+# .env (gitignored)
+RALPH_TEST_USER=test@example.com
+RALPH_TEST_PASSWORD=testpass123
+```
+
+Both `ralph init` and `ralph setup` will prompt you to configure these. Your Playwright tests and application code read them from environment variables at runtime.
+
+The `auth` section in `config.json` is for non-secret settings only (login endpoint, token type, etc.):
+
+```json
+"auth": {
+  "loginEndpoint": "/api/auth/login",
+  "loginMethod": "POST",
+  "tokenType": "session",
+  "tokenHeader": "Authorization",
+  "tokenPrefix": "Bearer"
+}
+```
 
 ### Test Detection
 

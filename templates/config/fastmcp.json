@@ -2,8 +2,6 @@
   "projectType": "fastmcp",
 
   "auth": {
-    "testUser": "",
-    "testPassword": "",
     "loginEndpoint": "",
     "loginMethod": "",
     "tokenType": "",
