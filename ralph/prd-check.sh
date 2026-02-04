@@ -326,6 +326,7 @@ _validate_and_fix_stories() {
   local cnt_frontend_tsc=0 cnt_frontend_url=0 cnt_frontend_context=0 cnt_frontend_mcp=0
   local cnt_auth_security=0 cnt_list_pagination=0 cnt_prose_steps=0
   local cnt_migration_prereq=0 cnt_naming_convention=0 cnt_bare_pytest=0
+  local cnt_server_only=0
   local cnt_custom=0
 
   echo "  Checking test coverage..."
@@ -474,6 +475,32 @@ _validate_and_fix_stories() {
       fi
     fi
 
+    # Check 9: Stories where ALL testSteps depend on a live server
+    # If every testStep is a curl/wget/httpie command and none are offline
+    # (npm test, pytest, tsc, playwright, cargo test, go test, etc.),
+    # the story will always fail without a running server.
+    if [[ -n "$test_steps" ]]; then
+      local has_offline_step=false
+      local has_server_step=false
+      local step_list
+      step_list=$(jq -r --arg id "$story_id" \
+        '.stories[] | select(.id==$id) | .testSteps[]?' "$prd_file")
+
+      while IFS= read -r single_step; do
+        [[ -z "$single_step" ]] && continue
+        if echo "$single_step" | grep -qE "^(curl |wget |http )"; then
+          has_server_step=true
+        else
+          has_offline_step=true
+        fi
+      done <<< "$step_list"
+
+      if [[ "$has_server_step" == "true" && "$has_offline_step" == "false" ]]; then
+        story_issues+="all testSteps need a live server (add offline test: npm test, tsc --noEmit, pytest), "
+        cnt_server_only=$((cnt_server_only + 1))
+      fi
+    fi
+
     # Snapshot built-in issues before custom checks append
     local builtin_story_issues="$story_issues"
 
@@ -520,6 +547,7 @@ _validate_and_fix_stories() {
     [[ $cnt_migration_prereq -gt 0 ]] && echo "    ${cnt_migration_prereq}x migration: add prerequisites (DB reset)"
     [[ $cnt_naming_convention -gt 0 ]] && echo "    ${cnt_naming_convention}x API consumer: add camelCase transformation note"
     [[ $cnt_bare_pytest -gt 0 ]] && echo "    ${cnt_bare_pytest}x use 'uv run pytest' not bare 'pytest'"
+    [[ $cnt_server_only -gt 0 ]] && echo "    ${cnt_server_only}x all testSteps need live server (add offline fallback)"
     [[ $cnt_custom -gt 0 ]] && echo "    ${cnt_custom} stories with custom check issues"
 
     # Skip auto-fix in dry-run mode
@@ -633,6 +661,10 @@ RULES:
    Example: \"notes\": \"Transform API responses from snake_case to camelCase. Create typed interfaces with camelCase properties and map: const user = { userName: data.user_name }\"
 10. Each story should include its own techStack and constraints fields. Do NOT add these at the PRD root level.
     Move any root-level techStack, globalConstraints, originalContext, testing, architecture, or testUsers into the relevant stories.
+11. Stories where ALL testSteps are curl commands MUST also include at least one offline test step
+    that can verify code correctness without a running server.
+    Examples: \"npm test\", \"npx tsc --noEmit\", \"pytest tests/unit/\", \"go test ./...\"
+    This prevents wasted retries when the server isn't running.
 
 CURRENT PRD:
 $(cat "$prd_file")
@@ -790,6 +822,24 @@ validate_stories_quick() {
           issues+="$story_id: needs camelCase transformation note, "
         fi
       fi
+    fi
+
+    # Check 8: All testSteps are server-dependent
+    if [[ -n "$test_steps" ]]; then
+      local has_offline=false has_server=false
+      local steps
+      steps=$(jq -r --arg id "$story_id" \
+        '.stories[] | select(.id==$id) | .testSteps[]?' "$prd_file")
+      while IFS= read -r s; do
+        [[ -z "$s" ]] && continue
+        if echo "$s" | grep -qE "^(curl |wget |http )"; then
+          has_server=true
+        else
+          has_offline=true
+        fi
+      done <<< "$steps"
+      [[ "$has_server" == "true" && "$has_offline" == "false" ]] && \
+        issues+="$story_id: all testSteps need live server, "
     fi
   done <<< "$story_ids"
 
