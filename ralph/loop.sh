@@ -88,6 +88,23 @@ preflight_checks() {
     fi
   done
 
+  # Check for timeout utility (critical for session enforcement)
+  printf "  Timeout utility... "
+  if command -v timeout &>/dev/null; then
+    print_success "ok (timeout)"
+  elif command -v gtimeout &>/dev/null; then
+    print_success "ok (gtimeout)"
+  else
+    print_warning "not found (using bash fallback)"
+    echo "    Session timeouts use a bash fallback. For better reliability:"
+    if [[ "$(uname)" == "Darwin" ]]; then
+      echo "    brew install coreutils"
+    else
+      echo "    Install GNU coreutils"
+    fi
+    ((warnings++))
+  fi
+
   echo ""
   if [[ $warnings -gt 0 ]]; then
     print_warning "$warnings pre-loop warning(s) - loop may fail on connectivity issues"

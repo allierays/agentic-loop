@@ -316,8 +316,27 @@ run_with_timeout() {
   elif command -v gtimeout &>/dev/null; then
     gtimeout "$seconds" "$@"
   else
-    # Fallback: just run without timeout (safe - Claude sessions complete on their own)
-    "$@"
+    # Bash-native fallback: background the command, kill after timeout.
+    # Capture stdin to a temp file so the backgrounded process can read it
+    # (backgrounded commands lose access to the pipeline's stdin).
+    local stdin_file
+    stdin_file=$(mktemp)
+    cat > "$stdin_file"
+    "$@" < "$stdin_file" &
+    local cmd_pid=$!
+    rm -f "$stdin_file"
+    ( sleep "$seconds" && kill -TERM "$cmd_pid" 2>/dev/null ) &
+    local watchdog_pid=$!
+    wait "$cmd_pid" 2>/dev/null
+    local exit_code=$?
+    kill "$watchdog_pid" 2>/dev/null
+    wait "$watchdog_pid" 2>/dev/null
+    # If the process received SIGTERM, return 124 (same as GNU timeout).
+    # Note: this cannot distinguish our watchdog from other SIGTERM sources.
+    if [[ $exit_code -eq 143 ]]; then  # 143 = 128 + 15 (SIGTERM)
+      return 124
+    fi
+    return "$exit_code"
   fi
 }
 

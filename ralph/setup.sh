@@ -92,6 +92,33 @@ ralph_setup() {
   local pkg_root
   pkg_root="$(cd "$RALPH_LIB/.." && pwd)"
 
+  # Install timeout utility if missing (critical for session enforcement)
+  if ! command -v timeout &>/dev/null && ! command -v gtimeout &>/dev/null; then
+    if [[ "$(uname)" == "Darwin" ]]; then
+      if command -v brew &>/dev/null; then
+        echo ""
+        echo "  Installing coreutils (provides gtimeout for session enforcement)..."
+        if brew install coreutils 2>/dev/null; then
+          print_success "  coreutils installed"
+        else
+          print_warning "  Failed to install coreutils — session timeouts will use a bash fallback"
+          echo "    Try manually: brew install coreutils"
+        fi
+        echo ""
+      else
+        echo ""
+        print_warning "No timeout utility found — session timeouts will use a bash fallback"
+        echo "  Install Homebrew (https://brew.sh), then: brew install coreutils"
+        echo ""
+      fi
+    else
+      echo ""
+      print_warning "No timeout utility found — session timeouts will use a bash fallback"
+      echo "  Install GNU coreutils for reliable timeout enforcement"
+      echo ""
+    fi
+  fi
+
   # Run all setup steps
   setup_ralph_dir "$pkg_root"
   setup_custom_checks
