@@ -60,14 +60,47 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Build release notes
+        if: steps.check_tag.outputs.exists == 'false'
+        id: notes
+        run: |
+          VERSION="v${{ steps.version.outputs.version }}"
+          # Find the previous tag to diff against
+          PREV_TAG=$(git tag --sort=-v:refname | grep -v "$VERSION" | head -1)
+
+          # Build title from feat/fix commits (skip chore/ci)
+          TITLE=$(git log "${PREV_TAG}..HEAD" --pretty=format:"%s" \
+            | grep -E "^(feat|fix):" \
+            | head -1 \
+            | sed 's/^(feat|fix): //')
+
+          # Fall back to version if no feat/fix commits
+          if [[ -z "$TITLE" ]]; then
+            TITLE="$VERSION"
+          else
+            TITLE="$VERSION — $TITLE"
+          fi
+          echo "title=$TITLE" >> $GITHUB_OUTPUT
+
+          # Build body from all non-chore commits
+          {
+            echo "## Changes"
+            echo ""
+            git log "${PREV_TAG}..HEAD" --pretty=format:"- %s" \
+              | grep -vE "^- chore:" || true
+            echo ""
+            echo ""
+            echo "**Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREV_TAG}...${VERSION}"
+          } > /tmp/release-notes.md
+
       - name: Create GitHub Release
         if: steps.check_tag.outputs.exists == 'false'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release create "v${{ steps.version.outputs.version }}" \
-            --title "v${{ steps.version.outputs.version }}" \
-            --generate-notes
+            --title "${{ steps.notes.outputs.title }}" \
+            --notes-file /tmp/release-notes.md
 
       - name: Skip message
         if: steps.check_tag.outputs.exists == 'true'
