@@ -26,7 +26,7 @@
     "dev": "",
     "install": "",
     "seed": "",
-    "resetDb": ""
+    "migrate": ""
   },
 
   "migrations": {

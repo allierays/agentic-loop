@@ -28,7 +28,7 @@
     "devBackend": "python manage.py runserver",
     "install": "npm install && pip install -r requirements.txt",
     "seed": "",
-    "resetDb": ""
+    "migrate": ""
   },
 
   "migrations": {

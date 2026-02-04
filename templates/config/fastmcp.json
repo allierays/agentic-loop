@@ -32,7 +32,7 @@
     "typecheck": "uv run mypy src/",
     "test": "uv run pytest",
     "seed": "",
-    "resetDb": ""
+    "migrate": ""
   },
 
   "checks": {

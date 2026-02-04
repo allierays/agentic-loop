@@ -46,10 +46,6 @@
 #   LIST ENDPOINTS (get all, index):
 #     - Has pagination criteria (limit, page params)
 #
-#   MIGRATION STORIES (alembic, migrations, models):
-#     - Has prerequisites array with DB reset command
-#     - Prevents infinite retries on schema mismatch errors
-#
 #   CUSTOM CHECKS (.ralph/checks/prd/):
 #     - User-provided scripts that receive story JSON on stdin
 #     - Output issue descriptions to stdout (one per line)
@@ -69,7 +65,6 @@
 #     - Missing mcp on frontend → ["playwright", "devtools"]
 #     - Bare pytest → prefixed with detected runner (uv/poetry/pipenv)
 #     - Missing camelCase note → standard text appended to .notes
-#     - Missing migration prerequisites → template prerequisite array
 #     - Server-only testSteps → offline fallback appended
 #
 #   Tier 2 — Parallel Claude subagents (one per story, concurrent):
@@ -344,7 +339,7 @@ _validate_and_fix_stories() {
   local cnt_no_tests=0 cnt_backend_curl=0 cnt_backend_contract=0
   local cnt_frontend_tsc=0 cnt_frontend_url=0 cnt_frontend_context=0 cnt_frontend_mcp=0
   local cnt_auth_security=0 cnt_list_pagination=0 cnt_prose_steps=0
-  local cnt_migration_prereq=0 cnt_naming_convention=0 cnt_bare_pytest=0
+  local cnt_naming_convention=0 cnt_bare_pytest=0
   local cnt_server_only=0
   local cnt_custom=0
 
@@ -466,19 +461,6 @@ _validate_and_fix_stories() {
       fi
     fi
 
-    # Check 6: Migration stories need DB prerequisites
-    # If story creates migration files or modifies models, it needs resetDb prerequisite
-    local story_files
-    story_files=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | (.files.create // []) + (.files.modify // []) | join(" ")' "$prd_file")
-    if echo "$story_files" | grep -qiE "(alembic/versions|migrations/|\.migration\.|models\.py|models/|schema\.)"; then
-      local has_prereq
-      has_prereq=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .prerequisites // [] | length' "$prd_file")
-      if [[ "$has_prereq" == "0" ]]; then
-        story_issues+="migration story needs prerequisites (DB reset), "
-        cnt_migration_prereq=$((cnt_migration_prereq + 1))
-      fi
-    fi
-
     # Check 7: Frontend stories consuming APIs need naming convention notes
     # If story is frontend/general AND mentions API/fetch/axios, ensure notes include camelCase guidance
     if [[ "$story_type" == "frontend" || "$story_type" == "general" ]]; then
@@ -563,7 +545,6 @@ _validate_and_fix_stories() {
     [[ $cnt_frontend_mcp -gt 0 ]] && echo "    ${cnt_frontend_mcp}x frontend: add mcp browser tools"
     [[ $cnt_auth_security -gt 0 ]] && echo "    ${cnt_auth_security}x auth: add security criteria"
     [[ $cnt_list_pagination -gt 0 ]] && echo "    ${cnt_list_pagination}x list: add pagination"
-    [[ $cnt_migration_prereq -gt 0 ]] && echo "    ${cnt_migration_prereq}x migration: add prerequisites (DB reset)"
     [[ $cnt_naming_convention -gt 0 ]] && echo "    ${cnt_naming_convention}x API consumer: add camelCase transformation note"
     [[ $cnt_bare_pytest -gt 0 ]] && echo "    ${cnt_bare_pytest}x use 'uv run pytest' not bare 'pytest'"
     [[ $cnt_server_only -gt 0 ]] && echo "    ${cnt_server_only}x all testSteps need live server (add offline fallback)"
@@ -737,18 +718,6 @@ _apply_mechanical_fixes() {
               '(.stories[] | select(.id==$id) | .notes) += (" " + $note)' && fixed=$((fixed + 1))
           fi
         fi
-      fi
-    fi
-
-    # Fix: Migration story missing prerequisites
-    local story_files
-    story_files=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | (.files.create // []) + (.files.modify // []) | join(" ")' "$prd_file")
-    if echo "$story_files" | grep -qiE "(alembic/versions|migrations/|\.migration\.|models\.py|models/|schema\.)"; then
-      local has_prereq
-      has_prereq=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .prerequisites // [] | length' "$prd_file")
-      if [[ "$has_prereq" == "0" ]]; then
-        update_json "$prd_file" --arg id "$story_id" \
-          '(.stories[] | select(.id==$id) | .prerequisites) = [{"name": "Reset test DB", "command": "npm run db:reset:test", "when": "schema changes"}]' && fixed=$((fixed + 1))
       fi
     fi
 
@@ -1002,17 +971,6 @@ validate_stories_quick() {
       criteria=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .acceptanceCriteria // [] | join(" ")' "$prd_file")
       if ! echo "$criteria" | grep -qiE "(pagina|limit|page=|per.?page)"; then
         issues+="$story_id: missing pagination criteria, "
-      fi
-    fi
-
-    # Check 6: Migration stories need prerequisites
-    local story_files
-    story_files=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | (.files.create // []) + (.files.modify // []) | join(" ")' "$prd_file")
-    if echo "$story_files" | grep -qiE "(alembic/versions|migrations/|\.migration\.|models\.py|models/|schema\.)"; then
-      local has_prereq
-      has_prereq=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .prerequisites // [] | length' "$prd_file")
-      if [[ "$has_prereq" == "0" ]]; then
-        issues+="$story_id: migration needs prerequisites, "
       fi
     fi
 

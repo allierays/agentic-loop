@@ -247,7 +247,7 @@ _detect_structural_errors() {
   local error_content
   error_content=$(cat "$context_file")
 
-  # Schema/column errors - suggest DB reset
+  # Schema/column errors - detect and flag for Claude context
   # Only show if not already detected (avoid duplicate markers on retry)
   if echo "$error_content" | grep -qiE "(column.*does not exist|relation.*does not exist|no such column|unknown column|undefined column)" && \
      ! grep -q ">>> STRUCTURAL ISSUE: Database schema mismatch" "$context_file" 2>/dev/null; then
@@ -256,28 +256,17 @@ _detect_structural_errors() {
     echo ""
     echo "  The test database is missing columns/tables that the code expects."
     echo "  This usually happens when:"
-    echo "    - Migrations were added but test DB wasn't reset"
+    echo "    - Migrations were added but test DB wasn't updated"
     echo "    - Models were modified without running migrations"
     echo ""
-    echo "  SUGGESTED FIX (don't retry code - fix the schema):"
-    local reset_cmd
-    reset_cmd=$(get_config '.commands.resetDb' "")
-    if [[ -n "$reset_cmd" ]]; then
-      echo "    $reset_cmd"
-    else
-      echo "    # Add to .ralph/config.json:"
-      echo "    {\"commands\": {\"resetDb\": \"npm run db:reset:test\"}}"
-      echo ""
-      echo "    # Or run manually:"
-      echo "    dropdb test_db && createdb test_db && alembic upgrade head"
-    fi
+    echo "  Run pending migrations to fix the schema."
     echo ""
 
     # Append suggestion to failure context for Claude
     {
       echo ""
       echo ">>> STRUCTURAL ISSUE: Database schema mismatch"
-      echo ">>> ACTION NEEDED: Reset test database, don't just retry code"
+      echo ">>> ACTION NEEDED: Run pending migrations to update the schema"
       echo ">>> This is NOT a code bug - the test DB is missing schema changes"
     } >> "$context_file"
   fi

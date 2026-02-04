@@ -266,7 +266,7 @@ Claude will analyze the error and suggest fixes. You don't need to understand th
 
 | Error | Likely cause | Fix |
 |-------|-------------|-----|
-| `column does not exist` | Missing database migration | Run migrations or reset DB |
+| `column does not exist` | Missing database migration | Run pending migrations |
 | `connection refused` | Dev server not running | Start your dev server |
 | `test file not found` | Story references tests that don't exist yet | Reorder stories or add test creation |
 | `lint error` | Code style violations | Usually auto-fixes on retry |
