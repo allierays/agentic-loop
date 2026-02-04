@@ -744,6 +744,8 @@ Commands:
   run                     Run autonomous loop until all stories pass
   run --max <n>           Run with max iterations (default: 20)
   run --fast              Skip code review for faster iterations
+  stop                    Stop loop after current story finishes
+  skip                    Skip the current story, move to next
   status                  Show current feature and story status
   check                   Run verification checks only
   verify <story-id>       Verify a specific story

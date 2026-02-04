@@ -391,9 +391,9 @@ PATTERN: <pattern>"
 }
 
 run_loop() {
-  # Trap Ctrl+C so it stops the entire loop, not just the current child process.
-  # Without this, SIGINT only kills the pipeline (claude|tee) and the while loop continues.
-  trap 'echo ""; print_warning "Ctrl+C received — stopping loop..."; trap - INT; kill -INT $$' INT
+  # Trap Ctrl+C to stop the loop cleanly.
+  # Creates .stop file so the loop exits at the next iteration check, then kills children.
+  trap 'echo ""; print_warning "Ctrl+C received — stopping loop..."; touch "$RALPH_DIR/.stop"; trap - INT; kill -INT $$' INT
 
   local max_iterations="$DEFAULT_MAX_ITERATIONS"
   local specific_story=""
@@ -751,6 +751,33 @@ run_loop() {
     fi
 
     rm -f "$claude_output_log"
+
+    # Check for skip signal (user ran `ralph skip` while Claude was running)
+    if [[ -f "$RALPH_DIR/.skip" ]]; then
+      rm -f "$RALPH_DIR/.skip"
+      print_warning "Skip signal received — skipping $story"
+      log_progress "$story" "SKIPPED" "User requested skip"
+      skipped_stories+=("$story")
+      jq --arg id "$story" '(.stories[] | select(.id==$id)) |= . + {skipped: true, skipReason: "user skipped"}' \
+        "$RALPH_DIR/prd.json" > "$RALPH_DIR/prd.json.tmp" && mv "$RALPH_DIR/prd.json.tmp" "$RALPH_DIR/prd.json"
+      last_story=""
+      consecutive_failures=0
+      consecutive_timeouts=0
+      session_started=false
+      rm -f "$prompt_file"
+      continue
+    fi
+
+    # Check for stop signal (user ran `ralph stop` or Ctrl+C while Claude was running)
+    if [[ -f "$RALPH_DIR/.stop" ]]; then
+      rm -f "$RALPH_DIR/.stop" "$prompt_file"
+      print_warning "Stop signal received. Exiting gracefully."
+      local passed failed
+      passed=$(jq '[.stories[] | select(.passes==true)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+      failed=$(jq '[.stories[] | select(.passes==false)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+      send_notification "🛑 Ralph stopped: $passed passed, $failed remaining"
+      return 0
+    fi
 
     if [[ $claude_exit_code -ne 0 ]]; then
       ((consecutive_timeouts++))

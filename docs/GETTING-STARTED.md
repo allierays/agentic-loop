@@ -226,10 +226,11 @@ npx agentic-loop status     # Current story and progress
 npx agentic-loop progress   # Recent log entries
 ```
 
-You can also stop gracefully at any time:
+You can also control the loop from another terminal:
 
 ```bash
-npx agentic-loop stop       # Finishes current story, then stops
+npx agentic-loop skip       # Skip current story, move to next
+npx agentic-loop stop       # Stop after current story finishes
 ```
 
 Or press `Ctrl+C` to stop immediately. Progress is saved - you can resume with `npx agentic-loop run`.

@@ -142,6 +142,12 @@ main() {
       echo "Stop signal sent. Ralph will stop after current story completes."
       echo "(Use Ctrl+C to force stop immediately)"
       ;;
+    skip)
+      # Signal the loop to skip the current story and move to the next one
+      mkdir -p "$RALPH_DIR"
+      touch "$RALPH_DIR/.skip"
+      echo "Skip signal sent. Ralph will skip the current story when Claude finishes."
+      ;;
     status)
       ralph_status "$@"
       ;;
