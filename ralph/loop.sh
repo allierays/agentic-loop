@@ -391,9 +391,22 @@ PATTERN: <pattern>"
 }
 
 run_loop() {
-  # Trap Ctrl+C to stop the loop cleanly.
-  # Creates .stop file so the loop exits at the next iteration check, then kills children.
-  trap 'echo ""; print_warning "Ctrl+C received — stopping loop..."; touch "$RALPH_DIR/.stop"; trap - INT; kill -INT $$' INT
+  # PID of the currently running Claude pipeline (used by trap to kill it)
+  _CLAUDE_PIPELINE_PID=""
+
+  # Trap Ctrl+C to kill Claude and stop the loop.
+  # When Claude runs as a foreground pipeline, bash defers trap handling until the
+  # pipeline exits — so Ctrl+C just gets swallowed. We solve this by running the
+  # pipeline in a background subshell and `wait`ing for it, which lets the trap
+  # fire immediately. The trap kills the subshell, touches .stop, then exits.
+  trap '
+    echo ""
+    print_warning "Ctrl+C received — stopping loop..."
+    [[ -n "$_CLAUDE_PIPELINE_PID" ]] && kill -TERM "$_CLAUDE_PIPELINE_PID" 2>/dev/null
+    touch "$RALPH_DIR/.stop"
+    kill 0 2>/dev/null
+    exit 130
+  ' INT
 
   local max_iterations="$DEFAULT_MAX_ITERATIONS"
   local specific_story=""
@@ -712,11 +725,16 @@ run_loop() {
 
     while [[ $crash_attempt -lt $max_crash_retries ]]; do
       claude_exit_code=0
-      # Use pipefail to capture Claude's exit code, not tee's
-      set -o pipefail
-      # Capture full output to log, show filtered output to terminal
-      cat "$prompt_file" | run_with_timeout "$timeout_seconds" claude "${claude_args[@]}" 2>&1 | tee "$claude_output_log" | _filter_cli_noise || claude_exit_code=$?
-      set +o pipefail
+      # Run Claude in a background subshell so the INT trap can fire immediately.
+      # Without this, bash defers SIGINT handling until the foreground pipeline exits,
+      # making Ctrl+C unresponsive while Claude is running.
+      (
+        set -o pipefail
+        cat "$prompt_file" | run_with_timeout "$timeout_seconds" claude "${claude_args[@]}" 2>&1 | tee "$claude_output_log" | _filter_cli_noise
+      ) &
+      _CLAUDE_PIPELINE_PID=$!
+      wait "$_CLAUDE_PIPELINE_PID" || claude_exit_code=$?
+      _CLAUDE_PIPELINE_PID=""
 
       # Check for recoverable CLI crashes (transient API failures)
       if grep -qE "(No messages returned|unhandled.*promise.*rejection)" "$claude_output_log" 2>/dev/null; then
@@ -831,8 +849,9 @@ run_loop() {
     echo ""
     # Capture verification output for failure context
     local verify_log="$RALPH_DIR/last_verification.log"
-    set -o pipefail
-    if run_verification "$story" 2>&1 | tee "$verify_log"; then
+    local verify_exit=0
+    run_verification "$story" 2>&1 | tee "$verify_log" || verify_exit=$?
+    if [[ $verify_exit -eq 0 ]]; then
       # Mark story as complete and reset retry count
       update_json "$RALPH_DIR/prd.json" \
         --arg id "$story" '(.stories[] | select(.id==$id)) |= . + {passes: true, retryCount: 0}'
@@ -922,8 +941,19 @@ run_loop() {
       # If running specific story, we're done
       [[ -n "$specific_story" ]] && return 0
     else
-      log_progress "$story" "FAILED" "Verification failed, will retry"
-      print_warning "Verification failed for $story, iterating..."
+      # Show which step failed so users can diagnose stuck loops
+      local failed_at=""
+      if [[ -f "$verify_log" ]]; then
+        # Strip ANSI codes before searching (print_error adds color)
+        failed_at=$(sed 's/\x1b\[[0-9;]*m//g' "$verify_log" | grep -o "Verification failed at: .*" | sed 's/ =*$//' | tail -1)
+      fi
+      if [[ -n "$failed_at" ]]; then
+        log_progress "$story" "FAILED" "$failed_at"
+        print_warning "$failed_at — will retry $story..."
+      else
+        log_progress "$story" "FAILED" "Verification failed, will retry"
+        print_warning "Verification failed for $story, iterating..."
+      fi
 
       # If running specific story, exit on failure
       [[ -n "$specific_story" ]] && return 1
