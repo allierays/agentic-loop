@@ -718,6 +718,8 @@ repos:
         name: Check for hardcoded URLs
       - id: check-debug
         name: Check for debug statements
+      - id: check-signs-secrets
+        name: Check signs.json for credentials
 EOF
     echo "  Created .pre-commit-config.yaml"
   else

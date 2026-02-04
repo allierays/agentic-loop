@@ -25,6 +25,14 @@ ralph_sign() {
     return 1
   fi
 
+  # Reject signs that contain credentials or secrets
+  if echo "$pattern" | grep -qiE '([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|password[[:space:]]*[:=]|[[:space:]][A-Za-z0-9_]*_?(pass|pwd|token|secret|key|api.?key)[[:space:]]*[:=]|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36})'; then
+    print_error "Sign contains what looks like credentials (email, password, token, etc.)"
+    echo "  Signs are saved to .ralph/signs.json which may be committed to git."
+    echo "  Use environment variables instead of hardcoded credentials."
+    return 1
+  fi
+
   # Ensure signs.json exists
   if [[ ! -f "$RALPH_DIR/signs.json" ]]; then
     echo '{"signs": []}' > "$RALPH_DIR/signs.json"

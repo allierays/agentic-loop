@@ -93,6 +93,14 @@
   types_or: [python, javascript, ts, json, yaml]
   pass_filenames: true
 
+# Signs credential check (blocking - prevents committing credentials in learned patterns)
+- id: check-signs-secrets
+  name: Check signs.json for credentials
+  entry: bash -c 'for f in "$@"; do if grep -qiE "([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|password[[:space:]]*[:=]|[[:space:]][A-Za-z0-9_]*_?(pass|pwd|token|secret|key|api.?key)[[:space:]]*[:=]|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36})" "$f"; then echo "ERROR: $f contains credentials (email, password, token, etc.)"; echo "  Signs are committed to git — use environment variables instead."; exit 1; fi; done' --
+  language: system
+  files: 'signs\.json$'
+  pass_filenames: true
+
 # Quality-only check (non-blocking)
 - id: vibe-check-quality
   name: Vibe Check (quality only)

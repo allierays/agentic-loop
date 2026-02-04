@@ -158,6 +158,22 @@ _write_preflight_cache() {
   echo "$(date +%s) $config_hash" > "$RALPH_DIR/.preflight_cache"
 }
 
+_prd_structure_hash() {
+  # Hash only the fields that PRD validation cares about (story structure, testSteps, etc.)
+  # Ignores runtime state (passes, retryCount, skipped) so loop progress doesn't
+  # invalidate the validation cache and trigger expensive re-fixes on every restart.
+  jq '[.stories[] | del(.passes, .retryCount, .skipped, .skipReason)] | sort_by(.id)' \
+    "$RALPH_DIR/prd.json" 2>/dev/null | _file_hash_stdin
+}
+
+_file_hash_stdin() {
+  if command -v md5sum &>/dev/null; then
+    md5sum | cut -d' ' -f1
+  else
+    md5 -q
+  fi
+}
+
 _is_prd_cached() {
   local cache_file="$RALPH_DIR/.prd_validated"
   [[ ! -f "$cache_file" ]] && return 1
@@ -170,7 +186,7 @@ _is_prd_cached() {
   [[ $(( now - cached_time )) -gt $PREFLIGHT_CACHE_TTL_SECONDS ]] && return 1
 
   local prd_hash
-  prd_hash=$(_file_hash "$RALPH_DIR/prd.json")
+  prd_hash=$(_prd_structure_hash)
   [[ "$cached_hash" != "$prd_hash" ]] && return 1
 
   return 0
@@ -178,7 +194,7 @@ _is_prd_cached() {
 
 _write_prd_cache() {
   local prd_hash
-  prd_hash=$(_file_hash "$RALPH_DIR/prd.json")
+  prd_hash=$(_prd_structure_hash)
   echo "$(date +%s) $prd_hash" > "$RALPH_DIR/.prd_validated"
 }
 
@@ -317,6 +333,9 @@ $existing_signs
 ## Rules
 - Extract a single, actionable pattern that prevents this class of failure
 - The pattern should be general enough to apply to future stories, not specific to this one
+- NEVER include credentials, passwords, API keys, tokens, emails, or secrets in the pattern
+  Instead of: "Login with admin@example.com / Password123"
+  Write: "Use Playwright to login with test credentials from environment variables"
 - If the failure is trivial, unclear, or you can't extract a useful pattern, respond with just: NONE
 - Category must be one of: backend, frontend, testing, general, database, security
 
@@ -372,6 +391,12 @@ PATTERN: <pattern>"
       return 0
       ;;
   esac
+
+  # Reject signs that contain credentials or secrets
+  if echo "$pattern" | grep -qiE '([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|password[[:space:]]*[:=]|[[:space:]][A-Za-z0-9_]*_?(pass|pwd|token|secret|key|api.?key)[[:space:]]*[:=]|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36})'; then
+    log_progress "$story" "SIGN_AUTO" "Skipped - pattern contains credentials"
+    return 0
+  fi
 
   # Check for duplicates before adding
   if _sign_is_duplicate "$pattern"; then

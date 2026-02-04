@@ -197,31 +197,19 @@ validate_prd() {
     fi
   fi
 
-  # Deprecation warnings for old root-level fields
+  # Auto-remove deprecated root-level fields (no longer used, safe to strip)
   local deprecated_fields=""
-  if jq -e '.techStack' "$prd_file" >/dev/null 2>&1; then
-    deprecated_fields+="techStack "
-  fi
-  if jq -e '.globalConstraints' "$prd_file" >/dev/null 2>&1; then
-    deprecated_fields+="globalConstraints "
-  fi
-  if jq -e '.originalContext' "$prd_file" >/dev/null 2>&1; then
-    deprecated_fields+="originalContext "
-  fi
-  if jq -e '.testing' "$prd_file" >/dev/null 2>&1; then
-    deprecated_fields+="testing "
-  fi
-  if jq -e '.architecture' "$prd_file" >/dev/null 2>&1; then
-    deprecated_fields+="architecture "
-  fi
-  if jq -e '.testUsers' "$prd_file" >/dev/null 2>&1; then
-    deprecated_fields+="testUsers "
-  fi
+  local deprecated_keys=("techStack" "globalConstraints" "originalContext" "testing" "architecture" "testUsers")
+  for key in "${deprecated_keys[@]}"; do
+    if jq -e ".$key" "$prd_file" >/dev/null 2>&1; then
+      deprecated_fields+="$key "
+    fi
+  done
   if [[ -n "$deprecated_fields" ]]; then
     echo ""
-    print_warning "Found deprecated root-level fields: $deprecated_fields"
-    echo "  These should be in each story instead. Regenerate with /prd."
-    echo ""
+    print_info "Removing deprecated root-level fields: $deprecated_fields"
+    update_json "$prd_file" \
+      'del(.techStack, .globalConstraints, .originalContext, .testing, .architecture, .testUsers)'
   fi
 
   # Validate API smoke test configuration in background (skip in fast/cached mode)
@@ -237,7 +225,7 @@ validate_prd() {
   fix_hardcoded_paths "$prd_file" "$config"
 
   # Validate and fix individual stories
-  # dry_run flag — when "true", skip auto-fix
+  # dry_run flag — when "true", report issues but skip auto-fix
   _validate_and_fix_stories "$prd_file" "$dry_run" || return 1
 
   # Wait for background API health check and print its output
