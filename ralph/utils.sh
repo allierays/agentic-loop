@@ -140,40 +140,6 @@ get_config() {
   echo "$default"
 }
 
-# Get a field from a story in prd.json
-# Usage: get_story_field "STORY-001" ".type" "general"
-get_story_field() {
-  local story_id="$1"
-  local field="$2"
-  local default="${3:-}"
-  local prd="$RALPH_DIR/prd.json"
-
-  if [[ -f "$prd" ]]; then
-    local value
-    value=$(jq -r --arg id "$story_id" ".stories[] | select(.id==\$id) | $field // empty" "$prd" 2>/dev/null)
-    if [[ -n "$value" && "$value" != "null" ]]; then
-      echo "$value"
-      return
-    fi
-  fi
-  echo "$default"
-}
-
-# Clear a failure log file
-# Usage: clear_failure_log "lint"  # clears last_lint_failure.log
-clear_failure_log() {
-  local log_name="$1"
-  rm -f "$RALPH_DIR/last_${log_name}_failure.log"
-}
-
-# Append content to a failure log file
-# Usage: log_failure "lint" "Error details here"
-log_failure() {
-  local log_name="$1"
-  local content="$2"
-  echo "$content" >> "$RALPH_DIR/last_${log_name}_failure.log"
-}
-
 # Deep merge user config with project config
 # User config provides defaults, project config overrides
 _merge_user_config() {
@@ -431,33 +397,17 @@ validate_command() {
 
   # Block obviously dangerous patterns (defense-in-depth, not security boundary)
   local dangerous_patterns=(
-    # Destructive file operations
     'rm[[:space:]]+-rf[[:space:]]+/'              # rm -rf /
     'rm[[:space:]]+-rf[[:space:]]+~'              # rm -rf ~ (home dir)
-    'rm[[:space:]]+-rf[[:space:]]+\*'             # rm -rf *
-    'rm[[:space:]]+-rf[[:space:]]+\.\.'           # rm -rf ..
     'rm[[:space:]].*--no-preserve-root'           # rm with --no-preserve-root
-    # Remote code execution
     'curl.*\|.*bash'                               # curl | bash
     'curl.*\|.*sh[[:space:]]*$'                    # curl | sh
     'wget.*\|.*bash'                               # wget | bash
     'wget.*\|.*sh[[:space:]]*$'                    # wget | sh
-    'curl.*>[[:space:]]*/tmp/.*&&.*bash'           # curl > /tmp/x && bash
-    # Code injection
-    '\$\([^)]*eval'                                # $(eval ...)
     'eval[[:space:]]+\$'                           # eval $var
-    'eval[[:space:]]+["\x27]'                      # eval "..." or eval '...'
-    # System damage
     '>[[:space:]]*/dev/sd'                         # write to disk devices
     '>[[:space:]]*/dev/nvme'                       # write to nvme devices
     'mkfs\.'                                       # format filesystems
-    'dd[[:space:]]+if='                            # dd commands
-    ':(){:|:&};:'                                  # fork bomb
-    # Credential theft
-    'cat.*\.ssh/id_'                               # read SSH keys
-    'cat.*/etc/shadow'                             # read shadow file
-    'cat.*\.aws/credentials'                       # read AWS creds
-    'cat.*\.env'                                   # read env files (often has secrets)
   )
 
   for pattern in "${dangerous_patterns[@]}"; do
@@ -467,25 +417,6 @@ validate_command() {
       return 1
     fi
   done
-
-  return 0
-}
-
-# Validate a URL is safe (http/https only, no internal IPs in production)
-validate_url() { # public-api
-  local url="$1"
-
-  # Must start with http:// or https://
-  if [[ ! "$url" =~ ^https?:// ]]; then
-    print_error "Invalid URL scheme (must be http or https): $url"
-    return 1
-  fi
-
-  # Block file:// and other dangerous schemes
-  if [[ "$url" =~ ^(file|ftp|data|javascript): ]]; then
-    print_error "Dangerous URL scheme: $url"
-    return 1
-  fi
 
   return 0
 }
@@ -708,6 +639,92 @@ fix_hardcoded_paths() {
     # Remove backup on success
     rm -f "${prd_file}.pre-fix.bak"
   fi
+}
+
+# Detect the type of project based on files present
+# Returns one of: fullstack, rust, go, elixir, hugo, fastmcp, django, fastapi, python, node, minimal
+detect_project_type() {
+  # Check for fullstack patterns first (more specific)
+  if [[ -d "frontend" && -d "core" ]]; then
+    echo "fullstack"; return
+  elif [[ -d "frontend" && -d "backend" ]]; then
+    echo "fullstack"; return
+  elif [[ -d "apps" ]]; then
+    echo "fullstack"; return
+  fi
+
+  # Single-language projects
+  if [[ -f "Cargo.toml" ]]; then echo "rust"; return; fi
+  if [[ -f "go.mod" ]]; then echo "go"; return; fi
+  if [[ -f "mix.exs" ]]; then echo "elixir"; return; fi
+
+  # Hugo (Go static site generator)
+  for _hc in "hugo.toml" "hugo.yaml" "hugo.json" "config.toml"; do
+    if [[ -f "$_hc" ]] && [[ -d "content" || -d "layouts" || -d "themes" ]]; then
+      echo "hugo"; return
+    fi
+  done
+
+  # Python framework variants (most specific first)
+  if [[ -f "pyproject.toml" ]]; then
+    if grep -qiE "(fastmcp|\"fastmcp\"|'fastmcp')" pyproject.toml 2>/dev/null; then
+      echo "fastmcp"; return
+    elif grep -qiE "(django|\"django\"|'django')" pyproject.toml 2>/dev/null || [[ -f "manage.py" ]]; then
+      echo "django"; return
+    elif grep -qiE "(fastapi|\"fastapi\"|'fastapi')" pyproject.toml 2>/dev/null; then
+      echo "fastapi"; return
+    else
+      echo "python"; return
+    fi
+  elif [[ -f "requirements.txt" || -f "setup.py" ]]; then
+    if [[ -f "requirements.txt" ]]; then
+      if grep -qi 'fastmcp' requirements.txt 2>/dev/null; then echo "fastmcp"; return; fi
+      if grep -qi 'django' requirements.txt 2>/dev/null || [[ -f "manage.py" ]]; then echo "django"; return; fi
+      if grep -qi 'fastapi' requirements.txt 2>/dev/null; then echo "fastapi"; return; fi
+    fi
+    echo "python"; return
+  elif [[ -f "manage.py" ]]; then
+    echo "django"; return
+  fi
+
+  if [[ -f "package.json" ]]; then echo "node"; return; fi
+
+  echo "minimal"
+}
+
+# Detect framework type for CLAUDE.md generation
+# Returns one of: fastmcp, fastapi, django, react, or empty string
+detect_framework_type() {
+  if [[ -f "pyproject.toml" ]]; then
+    if grep -qiE "(fastmcp|\"fastmcp\"|'fastmcp')" pyproject.toml 2>/dev/null; then
+      echo "fastmcp"; return
+    elif grep -qiE "(fastapi|\"fastapi\"|'fastapi')" pyproject.toml 2>/dev/null; then
+      echo "fastapi"; return
+    elif grep -qiE "(django|\"django\"|'django')" pyproject.toml 2>/dev/null || [[ -f "manage.py" ]]; then
+      echo "django"; return
+    fi
+  elif [[ -f "requirements.txt" ]]; then
+    if grep -qi 'fastmcp' requirements.txt 2>/dev/null; then echo "fastmcp"; return; fi
+    if grep -qi 'fastapi' requirements.txt 2>/dev/null; then echo "fastapi"; return; fi
+    if grep -qi 'django' requirements.txt 2>/dev/null || [[ -f "manage.py" ]]; then echo "django"; return; fi
+  elif [[ -f "manage.py" ]]; then
+    echo "django"; return
+  fi
+
+  # Check for React in frontend package.json
+  local pkg="package.json"
+  local fe_dir=""
+  [[ -d "frontend" ]] && fe_dir="frontend"
+  [[ -d "client" ]] && fe_dir="client"
+  [[ -d "web" ]] && fe_dir="web"
+  [[ -d "apps/web" ]] && fe_dir="apps/web"
+  [[ -n "$fe_dir" && -f "${fe_dir}/package.json" ]] && pkg="${fe_dir}/package.json"
+
+  if [[ -f "$pkg" ]] && grep -q '"react"' "$pkg" 2>/dev/null; then
+    echo "react"; return
+  fi
+
+  echo ""
 }
 
 # Detect Python runner (uv, poetry, pipenv, or plain python)

@@ -314,6 +314,107 @@ _validate_api_config() {
   return 0
 }
 
+# Check a single story for common issues
+# Outputs issue strings to stdout (one per line: "issue description")
+# $1: story_id  $2: prd_file
+_check_story_issues() {
+  local story_id="$1"
+  local prd_file="$2"
+
+  local story_type
+  story_type=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .type // "unknown"' "$prd_file")
+  local story_title
+  story_title=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .title // ""' "$prd_file")
+  local test_steps
+  test_steps=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .testSteps // [] | join(" ")' "$prd_file")
+
+  # Backend must have curl tests
+  if [[ "$story_type" == "backend" ]] && [[ -n "$test_steps" ]] && ! echo "$test_steps" | grep -q "curl "; then
+    echo "backend needs curl tests"
+  fi
+
+  # Frontend must have tsc or playwright
+  if [[ "$story_type" == "frontend" ]] && [[ -n "$test_steps" ]] && ! echo "$test_steps" | grep -qE "(tsc --noEmit|playwright)"; then
+    echo "frontend needs tsc/playwright tests"
+  fi
+
+  # Backend needs apiContract
+  if [[ "$story_type" == "backend" ]]; then
+    local has_contract
+    has_contract=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .apiContract // empty' "$prd_file")
+    if [[ -z "$has_contract" || "$has_contract" == "null" ]]; then
+      echo "missing apiContract"
+    fi
+  fi
+
+  # Frontend needs testUrl, contextFiles, and mcp
+  if [[ "$story_type" == "frontend" ]]; then
+    local has_url
+    has_url=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .testUrl // empty' "$prd_file")
+    [[ -z "$has_url" || "$has_url" == "null" ]] && echo "missing testUrl"
+
+    local context_files
+    context_files=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .contextFiles // [] | length' "$prd_file")
+    [[ "$context_files" == "0" ]] && echo "missing contextFiles"
+
+    local mcp_tools
+    mcp_tools=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .mcp // [] | length' "$prd_file")
+    [[ "$mcp_tools" == "0" ]] && echo "missing mcp (browser tools)"
+  fi
+
+  # Auth stories need security criteria
+  if echo "$story_title" | grep -qiE "(login|auth|password|register|signup|sign.?up)"; then
+    local criteria
+    criteria=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .acceptanceCriteria // [] | join(" ")' "$prd_file")
+    if ! echo "$criteria" | grep -qiE "(hash|bcrypt|sanitiz|inject|rate.?limit)"; then
+      echo "missing security criteria"
+    fi
+  fi
+
+  # List endpoints need pagination criteria
+  if echo "$story_title" | grep -qiE "(list|get all|fetch all|index)"; then
+    local criteria
+    criteria=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .acceptanceCriteria // [] | join(" ")' "$prd_file")
+    if ! echo "$criteria" | grep -qiE "(pagina|limit|page=|per.?page)"; then
+      echo "missing pagination criteria"
+    fi
+  fi
+
+  # API consumer needs camelCase transformation note
+  if [[ "$story_type" == "frontend" || "$story_type" == "general" ]]; then
+    local story_desc
+    story_desc=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | (.title + " " + (.acceptanceCriteria // [] | join(" ")) + " " + (.notes // ""))' "$prd_file")
+    if echo "$story_desc" | grep -qiE "(api|fetch|axios|endpoint|backend|response)"; then
+      local story_notes
+      story_notes=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .notes // ""' "$prd_file")
+      if ! echo "$story_notes" | grep -qiE "(camelCase|snake_case|naming)"; then
+        echo "API consumer needs camelCase transformation note"
+      fi
+    fi
+  fi
+
+  # All testSteps are server-dependent
+  if [[ -n "$test_steps" ]]; then
+    local has_offline=false has_server=false
+    local step_list
+    step_list=$(jq -r --arg id "$story_id" \
+      '.stories[] | select(.id==$id) | .testSteps[]?' "$prd_file")
+
+    while IFS= read -r single_step; do
+      [[ -z "$single_step" ]] && continue
+      if echo "$single_step" | grep -qE "^(curl |wget |http )"; then
+        has_server=true
+      else
+        has_offline=true
+      fi
+    done <<< "$step_list"
+
+    if [[ "$has_server" == "true" && "$has_offline" == "false" ]]; then
+      echo "all testSteps need a live server (add offline test: npm test, tsc --noEmit, pytest)"
+    fi
+  fi
+}
+
 # Validate individual stories and auto-fix with Claude if needed
 # $1: prd_file  $2: optional "dry_run" — when "true", report issues but skip auto-fix
 _validate_and_fix_stories() {
@@ -344,48 +445,22 @@ _validate_and_fix_stories() {
     [[ -z "$story_id" ]] && continue
 
     local story_issues=""
-    local story_type
-    story_type=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .type // "unknown"' "$prd_file")
-    local story_title
-    story_title=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .title // ""' "$prd_file")
-
-    # Check 1: testSteps quality
     local test_steps
     test_steps=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .testSteps // [] | join(" ")' "$prd_file")
 
+    # Checks unique to full validation: empty testSteps, prose detection, bare pytest
     if [[ -z "$test_steps" ]]; then
       story_issues+="no testSteps, "
       cnt_no_tests=$((cnt_no_tests + 1))
     else
-      # Check test steps are executable commands, not prose
-      # Good: "curl -s POST /api/login | jq -e '.token'"
-      # Bad: "Verify the user can log in successfully"
       if ! echo "$test_steps" | grep -qE "(curl |npm |pytest|go test|cargo test|mix test|rails test|bundle exec|python |node |sh |bash |\| jq)"; then
         story_issues+="testSteps look like prose (need executable commands), "
         cnt_prose_steps=$((cnt_prose_steps + 1))
       fi
 
-      # Type-specific checks
-      if [[ "$story_type" == "backend" ]]; then
-        # Backend must have curl, not just npm test/pytest
-        if ! echo "$test_steps" | grep -q "curl "; then
-          story_issues+="backend needs curl tests, "
-          cnt_backend_curl=$((cnt_backend_curl + 1))
-        fi
-      elif [[ "$story_type" == "frontend" ]]; then
-        # Frontend must have tsc or playwright
-        if ! echo "$test_steps" | grep -qE "(tsc --noEmit|playwright)"; then
-          story_issues+="frontend needs tsc/playwright tests, "
-          cnt_frontend_tsc=$((cnt_frontend_tsc + 1))
-        fi
-      fi
-
-      # Check for bare pytest/python in projects using uv/poetry/pipenv
       local py_runner
       py_runner=$(detect_python_runner ".")
       if [[ -n "$py_runner" ]]; then
-        # Project uses a Python runner - check for bare pytest/python commands
-        # Match: "pytest " at start or after space/semicolon, but not preceded by "run "
         if echo "$test_steps" | grep -qE '(^|[; ])pytest ' && ! echo "$test_steps" | grep -qE "(uv run|poetry run|pipenv run) pytest"; then
           story_issues+="use '$py_runner pytest' not bare 'pytest', "
           cnt_bare_pytest=$((cnt_bare_pytest + 1))
@@ -393,107 +468,31 @@ _validate_and_fix_stories() {
       fi
     fi
 
-    # Check 2: Backend needs apiContract
-    if [[ "$story_type" == "backend" ]]; then
-      local has_contract
-      has_contract=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .apiContract // empty' "$prd_file")
-      if [[ -z "$has_contract" || "$has_contract" == "null" ]]; then
-        story_issues+="missing apiContract, "
-        cnt_backend_contract=$((cnt_backend_contract + 1))
-      fi
-    fi
-
-    # Check 3: Frontend needs testUrl, contextFiles, and mcp
-    if [[ "$story_type" == "frontend" ]]; then
-      local has_url
-      has_url=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .testUrl // empty' "$prd_file")
-      if [[ -z "$has_url" || "$has_url" == "null" ]]; then
-        story_issues+="missing testUrl, "
-        cnt_frontend_url=$((cnt_frontend_url + 1))
-      fi
-
-      local context_files
-      context_files=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .contextFiles // [] | length' "$prd_file")
-      if [[ "$context_files" == "0" ]]; then
-        story_issues+="missing contextFiles, "
-        cnt_frontend_context=$((cnt_frontend_context + 1))
-      fi
-
-      # Frontend must have mcp tools for browser verification
-      local mcp_tools
-      mcp_tools=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .mcp // [] | length' "$prd_file")
-      if [[ "$mcp_tools" == "0" ]]; then
-        story_issues+="missing mcp (browser tools), "
-        cnt_frontend_mcp=$((cnt_frontend_mcp + 1))
-      fi
-    fi
-
-    # Check 4: Auth stories need security criteria
-    if echo "$story_title" | grep -qiE "(login|auth|password|register|signup|sign.?up)"; then
-      local criteria
-      criteria=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .acceptanceCriteria // [] | join(" ")' "$prd_file")
-      if ! echo "$criteria" | grep -qiE "(hash|bcrypt|sanitiz|inject|rate.?limit)"; then
-        story_issues+="missing security criteria, "
-        cnt_auth_security=$((cnt_auth_security + 1))
-      fi
-    fi
-
-    # Check 5: List endpoints need scale criteria
-    # Note: "search" excluded - search endpoints often return single/filtered results
-    if echo "$story_title" | grep -qiE "(list|get all|fetch all|index)"; then
-      local criteria
-      criteria=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .acceptanceCriteria // [] | join(" ")' "$prd_file")
-      if ! echo "$criteria" | grep -qiE "(pagina|limit|page=|per.?page)"; then
-        story_issues+="missing pagination criteria, "
-        cnt_list_pagination=$((cnt_list_pagination + 1))
-      fi
-    fi
-
-    # Check 7: Frontend stories consuming APIs need naming convention notes
-    # If story is frontend/general AND mentions API/fetch/axios, ensure notes include camelCase guidance
-    if [[ "$story_type" == "frontend" || "$story_type" == "general" ]]; then
-      local story_desc
-      story_desc=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | (.title + " " + (.acceptanceCriteria // [] | join(" ")) + " " + (.notes // ""))' "$prd_file")
-      if echo "$story_desc" | grep -qiE "(api|fetch|axios|endpoint|backend|response)"; then
-        local story_notes
-        story_notes=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .notes // ""' "$prd_file")
-        if ! echo "$story_notes" | grep -qiE "(camelCase|snake_case|naming)"; then
-          story_issues+="API consumer needs camelCase transformation note, "
-          cnt_naming_convention=$((cnt_naming_convention + 1))
-        fi
-      fi
-    fi
-
-    # Check 9: Stories where ALL testSteps depend on a live server
-    # If every testStep is a curl/wget/httpie command and none are offline
-    # (npm test, pytest, tsc, playwright, cargo test, go test, etc.),
-    # the story will always fail without a running server.
-    if [[ -n "$test_steps" ]]; then
-      local has_offline_step=false
-      local has_server_step=false
-      local step_list
-      step_list=$(jq -r --arg id "$story_id" \
-        '.stories[] | select(.id==$id) | .testSteps[]?' "$prd_file")
-
-      while IFS= read -r single_step; do
-        [[ -z "$single_step" ]] && continue
-        if echo "$single_step" | grep -qE "^(curl |wget |http )"; then
-          has_server_step=true
-        else
-          has_offline_step=true
-        fi
-      done <<< "$step_list"
-
-      if [[ "$has_server_step" == "true" && "$has_offline_step" == "false" ]]; then
-        story_issues+="all testSteps need a live server (add offline test: npm test, tsc --noEmit, pytest), "
-        cnt_server_only=$((cnt_server_only + 1))
-      fi
-    fi
+    # Shared checks (same as validate_stories_quick)
+    local shared_issues
+    shared_issues=$(_check_story_issues "$story_id" "$prd_file")
+    while IFS= read -r issue; do
+      [[ -z "$issue" ]] && continue
+      story_issues+="$issue, "
+      # Count by category for summary display
+      case "$issue" in
+        "backend needs curl tests") cnt_backend_curl=$((cnt_backend_curl + 1)) ;;
+        "frontend needs tsc/playwright tests") cnt_frontend_tsc=$((cnt_frontend_tsc + 1)) ;;
+        "missing apiContract") cnt_backend_contract=$((cnt_backend_contract + 1)) ;;
+        "missing testUrl") cnt_frontend_url=$((cnt_frontend_url + 1)) ;;
+        "missing contextFiles") cnt_frontend_context=$((cnt_frontend_context + 1)) ;;
+        "missing mcp (browser tools)") cnt_frontend_mcp=$((cnt_frontend_mcp + 1)) ;;
+        "missing security criteria") cnt_auth_security=$((cnt_auth_security + 1)) ;;
+        "missing pagination criteria") cnt_list_pagination=$((cnt_list_pagination + 1)) ;;
+        "API consumer needs camelCase transformation note") cnt_naming_convention=$((cnt_naming_convention + 1)) ;;
+        "all testSteps need a live server"*) cnt_server_only=$((cnt_server_only + 1)) ;;
+      esac
+    done <<< "$shared_issues"
 
     # Snapshot built-in issues before custom checks append
     local builtin_story_issues="$story_issues"
 
-    # Check 8: User-defined custom checks (.ralph/checks/prd/)
+    # User-defined custom checks (.ralph/checks/prd/)
     if [[ -d ".ralph/checks/prd" ]]; then
       local story_json
       story_json=$(jq --arg id "$story_id" '.stories[] | select(.id==$id)' "$prd_file")
@@ -898,100 +897,18 @@ validate_stories_quick() {
   local prd_file="$1"
   local issues=""
 
-  # Only check incomplete stories
   local story_ids
   story_ids=$(jq -r '.stories[] | select(.passes != true) | .id' "$prd_file" 2>/dev/null)
 
   while IFS= read -r story_id; do
     [[ -z "$story_id" ]] && continue
 
-    local story_type
-    story_type=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .type // "unknown"' "$prd_file")
-    local story_title
-    story_title=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .title // ""' "$prd_file")
-    local test_steps
-    test_steps=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .testSteps // [] | join(" ")' "$prd_file")
-
-    # Check 1: testSteps quality
-    if [[ "$story_type" == "backend" ]] && ! echo "$test_steps" | grep -q "curl "; then
-      issues+="$story_id: missing curl tests, "
-    fi
-    if [[ "$story_type" == "frontend" ]] && ! echo "$test_steps" | grep -qE "(tsc --noEmit|playwright)"; then
-      issues+="$story_id: missing tsc/playwright tests, "
-    fi
-
-    # Check 2: Backend needs apiContract
-    if [[ "$story_type" == "backend" ]]; then
-      local has_contract
-      has_contract=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .apiContract // empty' "$prd_file")
-      if [[ -z "$has_contract" || "$has_contract" == "null" ]]; then
-        issues+="$story_id: missing apiContract, "
-      fi
-    fi
-
-    # Check 3: Frontend needs testUrl, contextFiles, and mcp
-    if [[ "$story_type" == "frontend" ]]; then
-      local has_url
-      has_url=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .testUrl // empty' "$prd_file")
-      [[ -z "$has_url" || "$has_url" == "null" ]] && issues+="$story_id: missing testUrl, "
-
-      local context_files
-      context_files=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .contextFiles // [] | length' "$prd_file")
-      [[ "$context_files" == "0" ]] && issues+="$story_id: missing contextFiles, "
-
-      local mcp_tools
-      mcp_tools=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .mcp // [] | length' "$prd_file")
-      [[ "$mcp_tools" == "0" ]] && issues+="$story_id: missing mcp, "
-    fi
-
-    # Check 4: Auth stories need security criteria
-    if echo "$story_title" | grep -qiE "(login|auth|password|register|signup|sign.?up)"; then
-      local criteria
-      criteria=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .acceptanceCriteria // [] | join(" ")' "$prd_file")
-      if ! echo "$criteria" | grep -qiE "(hash|bcrypt|sanitiz|inject|rate.?limit)"; then
-        issues+="$story_id: missing security criteria, "
-      fi
-    fi
-
-    # Check 5: List endpoints need scale criteria
-    if echo "$story_title" | grep -qiE "(list|get all|fetch all|index)"; then
-      local criteria
-      criteria=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .acceptanceCriteria // [] | join(" ")' "$prd_file")
-      if ! echo "$criteria" | grep -qiE "(pagina|limit|page=|per.?page)"; then
-        issues+="$story_id: missing pagination criteria, "
-      fi
-    fi
-
-    # Check 7: Frontend/general stories consuming APIs need naming convention notes
-    if [[ "$story_type" == "frontend" || "$story_type" == "general" ]]; then
-      local story_desc
-      story_desc=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | (.title + " " + (.acceptanceCriteria // [] | join(" ")) + " " + (.notes // ""))' "$prd_file")
-      if echo "$story_desc" | grep -qiE "(api|fetch|axios|endpoint|backend|response)"; then
-        local story_notes
-        story_notes=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .notes // ""' "$prd_file")
-        if ! echo "$story_notes" | grep -qiE "(camelCase|snake_case|naming)"; then
-          issues+="$story_id: needs camelCase transformation note, "
-        fi
-      fi
-    fi
-
-    # Check 8: All testSteps are server-dependent
-    if [[ -n "$test_steps" ]]; then
-      local has_offline=false has_server=false
-      local steps
-      steps=$(jq -r --arg id "$story_id" \
-        '.stories[] | select(.id==$id) | .testSteps[]?' "$prd_file")
-      while IFS= read -r s; do
-        [[ -z "$s" ]] && continue
-        if echo "$s" | grep -qE "^(curl |wget |http )"; then
-          has_server=true
-        else
-          has_offline=true
-        fi
-      done <<< "$steps"
-      [[ "$has_server" == "true" && "$has_offline" == "false" ]] && \
-        issues+="$story_id: all testSteps need live server, "
-    fi
+    local story_issues
+    story_issues=$(_check_story_issues "$story_id" "$prd_file")
+    while IFS= read -r issue; do
+      [[ -z "$issue" ]] && continue
+      issues+="$story_id: $issue, "
+    done <<< "$story_issues"
   done <<< "$story_ids"
 
   echo "$issues"

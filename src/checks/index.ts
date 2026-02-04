@@ -53,19 +53,9 @@ export const hooks: Hook[] = [
   checkSignsSecrets,
 ];
 
-/** Get a hook by its ID */
-export function getHook(id: string): Hook | undefined {
-  return hooks.find((hook) => hook.id === id);
-}
-
 /** Get hooks filtered by file extension */
 export function getHooksForFile(extension: string): Hook[] {
   return hooks.filter((hook) => hook.fileTypes.includes(extension));
-}
-
-/** Get all hook IDs */
-export function getHookIds(): string[] {
-  return hooks.map((hook) => hook.id);
 }
 
 export {

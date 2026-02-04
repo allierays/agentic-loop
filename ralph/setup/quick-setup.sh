@@ -96,22 +96,8 @@ show_completion_with_tour() {
   echo ""
 }
 
-detect_project_type() {
-  # Django + React (AllThrive pattern)
-  [[ -d "frontend" && -d "core" ]] && echo "django-react" && return
-  # Django alone
-  [[ -f "manage.py" ]] && echo "django" && return
-  # Rust
-  [[ -f "Cargo.toml" ]] && echo "rust" && return
-  # Go
-  [[ -f "go.mod" ]] && echo "go" && return
-  # Python
-  [[ -f "pyproject.toml" || -f "requirements.txt" ]] && echo "python" && return
-  # Node/TypeScript
-  [[ -f "package.json" ]] && echo "node" && return
-  # Minimal/unknown
-  echo "minimal"
-}
+# Source shared detect_project_type from utils.sh
+source "$VIBE_ROOT/ralph/utils.sh"
 
 install_claude_skills() {
   echo -e "  ${CYAN}Installing Claude skills...${NC}"

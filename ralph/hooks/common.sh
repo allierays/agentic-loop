@@ -87,3 +87,50 @@ hook_block() {
     "message": $msg
   }'
 }
+
+# Run a warn-* hook with shared boilerplate
+# Usage: run_warn_hook <extensions> <check_fn> [--skip-tests] [--block]
+#   extensions: comma-separated file extensions to match (e.g., "ts,tsx,js,jsx,py")
+#   check_fn:   function name that sets WARNINGS variable
+#   --skip-tests: skip test files
+#   --block:      use hook_block instead of hook_warn on warning
+run_warn_hook() {
+  local extensions="$1"
+  local check_fn="$2"
+  shift 2
+
+  local skip_tests=false
+  local block=false
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      --skip-tests) skip_tests=true ;;
+      --block) block=true ;;
+    esac
+    shift
+  done
+
+  parse_hook_input
+
+  if [[ "$skip_tests" == "true" ]] && is_test_file; then
+    hook_allow
+    exit 0
+  fi
+
+  if ! is_code_file "$extensions"; then
+    hook_allow
+    exit 0
+  fi
+
+  WARNINGS=""
+  "$check_fn"
+
+  if [[ -n "$WARNINGS" ]]; then
+    if [[ "$block" == "true" ]]; then
+      hook_block "$WARNINGS"
+    else
+      hook_warn "$WARNINGS"
+    fi
+  else
+    hook_allow
+  fi
+}

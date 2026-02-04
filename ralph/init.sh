@@ -130,60 +130,6 @@ configure_test_auth() {
   print_success "Test credentials saved to .env (gitignored — never committed)"
 }
 
-# Detect the type of project based on files present
-detect_project_type() {
-  local project_type="minimal"
-
-  # Check for fullstack patterns first (more specific)
-  if [[ -d "frontend" && -d "core" ]]; then
-    project_type="fullstack"
-  elif [[ -d "frontend" && -d "backend" ]]; then
-    project_type="fullstack"
-  elif [[ -d "apps" ]]; then
-    project_type="fullstack"  # Monorepo
-  # Then check for single-language projects
-  elif [[ -f "Cargo.toml" ]]; then
-    project_type="rust"
-  elif [[ -f "go.mod" ]]; then
-    project_type="go"
-  elif [[ -f "mix.exs" ]]; then
-    project_type="elixir"
-  # Check for Python framework variants (more specific first)
-  elif [[ -f "pyproject.toml" ]]; then
-    # FastMCP detection (check for fastmcp in any quote style)
-    if grep -qiE "(fastmcp|\"fastmcp\"|'fastmcp')" pyproject.toml 2>/dev/null; then
-      project_type="fastmcp"
-    # Django detection
-    elif grep -qiE "(django|\"django\"|'django')" pyproject.toml 2>/dev/null || [[ -f "manage.py" ]]; then
-      project_type="django"
-    # FastAPI detection
-    elif grep -qiE "(fastapi|\"fastapi\"|'fastapi')" pyproject.toml 2>/dev/null; then
-      project_type="fastapi"
-    else
-      project_type="python"
-    fi
-  elif [[ -f "requirements.txt" || -f "setup.py" ]]; then
-    # Check requirements.txt for frameworks
-    if [[ -f "requirements.txt" ]]; then
-      if grep -qi 'fastmcp' requirements.txt 2>/dev/null; then
-        project_type="fastmcp"
-      elif grep -qi 'django' requirements.txt 2>/dev/null || [[ -f "manage.py" ]]; then
-        project_type="django"
-      elif grep -qi 'fastapi' requirements.txt 2>/dev/null; then
-        project_type="fastapi"
-      else
-        project_type="python"
-      fi
-    else
-      project_type="python"
-    fi
-  elif [[ -f "package.json" ]]; then
-    project_type="node"
-  fi
-
-  echo "$project_type"
-}
-
 # Auto-detect and configure project-specific settings
 auto_configure_project() {
   local config="$RALPH_DIR/config.json"

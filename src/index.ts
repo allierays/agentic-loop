@@ -18,9 +18,7 @@ export type {
 // Export hooks
 export {
   hooks,
-  getHook,
   getHooksForFile,
-  getHookIds,
 } from './checks/index.js';
 
 // Export main check function

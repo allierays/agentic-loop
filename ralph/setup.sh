@@ -201,61 +201,19 @@ setup_ralph_dir() {
 
   # Copy config template based on detected project type
   if [[ ! -f ".ralph/config.json" ]]; then
-    local config_template=""
     local detected_type=""
-    # Check for Go projects
-    if [[ -f "go.mod" ]]; then
-      config_template="$pkg_root/templates/config/go.json"
-      detected_type="go"
-    # Check for Rust projects
-    elif [[ -f "Cargo.toml" ]]; then
-      config_template="$pkg_root/templates/config/rust.json"
-      detected_type="rust"
-    # Check for Hugo projects
-    elif [[ -f "hugo.toml" || -f "hugo.yaml" || -f "config.toml" ]] && [[ -d "content" || -d "layouts" || -d "themes" ]]; then
-      config_template="$pkg_root/templates/config/go.json"
-      detected_type="hugo"
-    # Check for Python framework variants (more specific first)
-    elif [[ -f "pyproject.toml" ]]; then
-      if grep -qiE "(fastmcp|\"fastmcp\"|'fastmcp')" pyproject.toml 2>/dev/null; then
-        config_template="$pkg_root/templates/config/fastmcp.json"
-        detected_type="fastmcp"
-      elif grep -qiE "(fastapi|\"fastapi\"|'fastapi')" pyproject.toml 2>/dev/null; then
-        config_template="$pkg_root/templates/config/python.json"
-        detected_type="fastapi"
-      elif grep -qiE "(django|\"django\"|'django')" pyproject.toml 2>/dev/null || [[ -f "manage.py" ]]; then
-        config_template="$pkg_root/templates/config/python.json"
-        detected_type="django"
-      else
-        config_template="$pkg_root/templates/config/python.json"
-        detected_type="python"
-      fi
-    elif [[ -f "requirements.txt" ]]; then
-      if grep -qi 'fastmcp' requirements.txt 2>/dev/null; then
-        config_template="$pkg_root/templates/config/fastmcp.json"
-        detected_type="fastmcp"
-      elif grep -qi 'fastapi' requirements.txt 2>/dev/null; then
-        config_template="$pkg_root/templates/config/python.json"
-        detected_type="fastapi"
-      elif grep -qi 'django' requirements.txt 2>/dev/null || [[ -f "manage.py" ]]; then
-        config_template="$pkg_root/templates/config/python.json"
-        detected_type="django"
-      else
-        config_template="$pkg_root/templates/config/python.json"
-        detected_type="python"
-      fi
-    elif [[ -f "manage.py" ]]; then
-      config_template="$pkg_root/templates/config/python.json"
-      detected_type="django"
-    # Check for fullstack projects
-    elif [[ -d "frontend" ]] && [[ -d "backend" || -d "core" || -d "apps" ]]; then
-      config_template="$pkg_root/templates/config/fullstack.json"
-      detected_type="fullstack"
-    # Check for Node projects
-    elif [[ -f "package.json" ]]; then
-      config_template="$pkg_root/templates/config/node.json"
-      detected_type="node"
-    fi
+    detected_type=$(detect_project_type)
+
+    # Map project type to config template
+    local config_template=""
+    case "$detected_type" in
+      go|hugo)    config_template="$pkg_root/templates/config/go.json" ;;
+      rust)       config_template="$pkg_root/templates/config/rust.json" ;;
+      fastmcp)    config_template="$pkg_root/templates/config/fastmcp.json" ;;
+      django|fastapi|python) config_template="$pkg_root/templates/config/python.json" ;;
+      fullstack)  config_template="$pkg_root/templates/config/fullstack.json" ;;
+      node)       config_template="$pkg_root/templates/config/node.json" ;;
+    esac
 
     if [[ -n "$config_template" ]] && [[ -f "$config_template" ]]; then
       cp "$config_template" ".ralph/config.json"
@@ -537,32 +495,15 @@ setup_claude_md() {
     grep -q '"express"' "$pkg" 2>/dev/null && framework="${framework:+$framework + }Express"
   fi
 
-  # Detect Python frameworks (more specific detection)
-  if [[ -f "pyproject.toml" ]]; then
-    if grep -qiE "(fastmcp|\"fastmcp\"|'fastmcp')" pyproject.toml 2>/dev/null; then
-      framework="${framework:+$framework + }FastMCP"
-      framework_type="fastmcp"
-    elif grep -qiE "(fastapi|\"fastapi\"|'fastapi')" pyproject.toml 2>/dev/null; then
-      framework="${framework:+$framework + }FastAPI"
-      framework_type="fastapi"
-    elif grep -qiE "(django|\"django\"|'django')" pyproject.toml 2>/dev/null || [[ -f "manage.py" ]]; then
-      framework="${framework:+$framework + }Django"
-      framework_type="django"
-    fi
-  elif [[ -f "requirements.txt" ]]; then
-    if grep -qi 'fastmcp' requirements.txt 2>/dev/null; then
-      framework="${framework:+$framework + }FastMCP"
-      framework_type="fastmcp"
-    elif grep -qi 'fastapi' requirements.txt 2>/dev/null; then
-      framework="${framework:+$framework + }FastAPI"
-      framework_type="fastapi"
-    elif grep -qi 'django' requirements.txt 2>/dev/null || [[ -f "manage.py" ]]; then
-      framework="${framework:+$framework + }Django"
-      framework_type="django"
-    fi
-  elif [[ -f "manage.py" ]]; then
-    framework="${framework:+$framework + }Django"
-    framework_type="django"
+  # Detect Python/MCP frameworks
+  framework_type=$(detect_framework_type)
+  if [[ -n "$framework_type" ]]; then
+    case "$framework_type" in
+      fastmcp) framework="${framework:+$framework + }FastMCP" ;;
+      fastapi) framework="${framework:+$framework + }FastAPI" ;;
+      django)  framework="${framework:+$framework + }Django" ;;
+      react)   ;; # Already detected above from package.json
+    esac
   fi
 
   # Detect Hugo (Go static site generator)

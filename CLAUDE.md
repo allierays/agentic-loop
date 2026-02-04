@@ -67,5 +67,4 @@ ralph/
 ## Security
 - Never store credentials in plain text if avoidable — prefer env vars
 - Use `validate_command()` for any user-provided commands
-- Use `validate_url()` for any user-provided URLs
 - Escape strings before embedding in AppleScript/SQL/etc.
