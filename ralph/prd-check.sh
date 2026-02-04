@@ -50,7 +50,7 @@
 #     - Has prerequisites array with DB reset command
 #     - Prevents infinite retries on schema mismatch errors
 #
-#   CUSTOM CHECKS (.ralph/checks/prd/ or ~/.config/ralph/checks/prd/):
+#   CUSTOM CHECKS (.ralph/checks/prd/):
 #     - User-provided scripts that receive story JSON on stdin
 #     - Output issue descriptions to stdout (one per line)
 #     - Excluded from auto-fix (reported for manual review)
@@ -63,12 +63,22 @@
 # ============================================================================
 # AUTO-FIX
 # ============================================================================
-# When issues are found, Claude is invoked to fix them automatically:
+# When issues are found, a two-tier fix runs automatically:
 #
-#   1. Issues are summarized (e.g., "3x backend: add curl tests")
-#   2. Claude receives the PRD + issues + fix rules
-#   3. Fixed PRD is validated and saved
-#   4. Timestamped backup preserved (prd.json.20240115-143022.bak)
+#   Tier 1 — Mechanical fixes (instant, no LLM):
+#     - Missing mcp on frontend → ["playwright", "devtools"]
+#     - Bare pytest → prefixed with detected runner (uv/poetry/pipenv)
+#     - Missing camelCase note → standard text appended to .notes
+#     - Missing migration prerequisites → template prerequisite array
+#     - Server-only testSteps → offline fallback appended
+#
+#   Tier 2 — Parallel Claude subagents (one per story, concurrent):
+#     - For issues needing creative input (apiContract, prose testSteps, etc.)
+#     - Each story gets a small prompt with just its JSON + specific issues
+#     - All stories fix in parallel (wall-clock = time for 1 story)
+#     - Results merged back via update_json; failures left unchanged
+#
+#   Timestamped backup preserved before any modifications.
 #
 # If Claude is unavailable or fix fails, loop continues with warnings.
 #
@@ -81,7 +91,6 @@
 #   .api.baseUrl          - API base URL (enables API config validation)
 #   .api.healthEndpoint   - Health check path (default: /health, empty to disable)
 #   .ralph/checks/prd/check-*     - Project-level custom checks (per-story)
-#   ~/.config/ralph/checks/prd/   - User-global custom checks (per-story)
 #   .checks.custom.<name>         - Enable/disable individual custom checks
 #
 # ============================================================================
@@ -220,9 +229,13 @@ validate_prd() {
     echo ""
   fi
 
-  # Validate API smoke test configuration (skip in fast/cached mode)
+  # Validate API smoke test configuration in background (skip in fast/cached mode)
+  # Capture output to a temp file to avoid garbled terminal output
+  local api_check_pid="" api_check_output=""
   if [[ "$dry_run" != "true" ]]; then
-    _validate_api_config "$config"
+    api_check_output=$(create_temp_file ".api-check.out")
+    _validate_api_config "$config" > "$api_check_output" 2>&1 &
+    api_check_pid=$!
   fi
 
   # Replace hardcoded paths with config placeholders
@@ -231,6 +244,12 @@ validate_prd() {
   # Validate and fix individual stories
   # dry_run flag — when "true", skip auto-fix
   _validate_and_fix_stories "$prd_file" "$dry_run" || return 1
+
+  # Wait for background API health check and print its output
+  if [[ -n "$api_check_pid" ]]; then
+    wait "$api_check_pid" 2>/dev/null
+    [[ -s "$api_check_output" ]] && cat "$api_check_output"
+  fi
 
   return 0
 }
@@ -504,8 +523,8 @@ _validate_and_fix_stories() {
     # Snapshot built-in issues before custom checks append
     local builtin_story_issues="$story_issues"
 
-    # Check 8: User-defined custom checks (.ralph/checks/prd/ or ~/.config/ralph/checks/prd/)
-    if [[ -d ".ralph/checks/prd" ]] || [[ -d "$HOME/.config/ralph/checks/prd" ]]; then
+    # Check 8: User-defined custom checks (.ralph/checks/prd/)
+    if [[ -d ".ralph/checks/prd" ]]; then
       local story_json
       story_json=$(jq --arg id "$story_id" '.stories[] | select(.id==$id)' "$prd_file")
       local custom_output
@@ -555,12 +574,32 @@ _validate_and_fix_stories() {
       return 0
     fi
 
-    # Check if Claude is available for auto-fix
-    if command -v claude &>/dev/null; then
-      _fix_stories_with_claude "$prd_file" "$issues"
+    # Create backup before any modifications
+    local backup_file="${prd_file}.$(date +%Y%m%d-%H%M%S).bak"
+    cp "$prd_file" "$backup_file"
+
+    # Tier 1: Instant mechanical fixes (no LLM needed)
+    _apply_mechanical_fixes "$prd_file"
+
+    # Re-check what's still broken after mechanical fixes
+    # validate_stories_quick returns "ID: issue, ID: issue, ..." on one line
+    # Group into one line per story for _fix_stories_parallel
+    local remaining_raw
+    remaining_raw=$(validate_stories_quick "$prd_file")
+    local remaining_grouped=""
+    [[ -n "$remaining_raw" ]] && remaining_grouped=$(_group_issues_by_story "$remaining_raw")
+
+    if [[ -n "$remaining_grouped" ]]; then
+      # Tier 2: Parallel Claude subagents for creative fixes
+      if command -v claude &>/dev/null; then
+        _fix_stories_parallel "$prd_file" "$remaining_grouped" "$backup_file"
+      else
+        print_warning "Claude CLI not found - mechanical fixes applied, but some stories need manual review"
+        echo "  Backup at: $backup_file"
+        return 0
+      fi
     else
-      print_warning "Claude CLI not found - run manually to optimize test coverage"
-      return 1
+      print_success "All issues resolved with mechanical fixes (backup at $backup_file)"
     fi
   else
     print_success "Test coverage looks good"
@@ -579,49 +618,188 @@ _run_custom_prd_checks() {
   local custom_issues=""
   local custom_log="$RALPH_DIR/last_custom_check.log"
 
-  local check_dirs=()
-  [[ -d ".ralph/checks/prd" ]] && check_dirs+=(".ralph/checks/prd")
-  [[ -d "$HOME/.config/ralph/checks/prd" ]] && check_dirs+=("$HOME/.config/ralph/checks/prd")
-  [[ ${#check_dirs[@]} -eq 0 ]] && return 0
+  local check_dir=".ralph/checks/prd"
+  [[ ! -d "$check_dir" ]] && return 0
 
-  for check_dir in "${check_dirs[@]}"; do
-    for check_script in "$check_dir"/check-*; do
-      [[ ! -f "$check_script" || ! -x "$check_script" ]] && continue
+  for check_script in "$check_dir"/check-*; do
+    [[ ! -f "$check_script" || ! -x "$check_script" ]] && continue
 
-      local check_key
-      check_key=$(basename "$check_script")
-      check_key="${check_key%.*}"
-      # Read directly instead of get_config — jq's // operator treats false as falsy
-      local enabled="true"
-      if [[ -f "$RALPH_DIR/config.json" ]]; then
-        local raw
-        raw=$(jq -r --arg key "$check_key" '.checks.custom[$key]' "$RALPH_DIR/config.json" 2>/dev/null)
-        [[ -n "$raw" && "$raw" != "null" ]] && enabled="$raw"
-      fi
-      [[ "$enabled" == "false" ]] && continue
+    local check_key
+    check_key=$(basename "$check_script")
+    check_key="${check_key%.*}"
+    # Read directly instead of get_config — jq's // operator treats false as falsy
+    local enabled="true"
+    if [[ -f "$RALPH_DIR/config.json" ]]; then
+      local raw
+      raw=$(jq -r --arg key "$check_key" '.checks.custom[$key]' "$RALPH_DIR/config.json" 2>/dev/null)
+      [[ -n "$raw" && "$raw" != "null" ]] && enabled="$raw"
+    fi
+    [[ "$enabled" == "false" ]] && continue
 
-      # Run check — capture stdout for issues, stderr to log for debugging
-      local output=""
-      if ! output=$(echo "$story_json" | run_with_timeout 30 "$check_script" "$story_id" "$prd_file" 2>>"$custom_log"); then
-        # Script failed to execute — warn, don't silently swallow
-        print_warning "Custom check '$check_key' failed for story $story_id (see .ralph/last_custom_check.log)"
-      fi
+    # Run check — capture stdout for issues, stderr to log for debugging
+    local output=""
+    if ! output=$(echo "$story_json" | run_with_timeout 30 "$check_script" "$story_id" "$prd_file" 2>>"$custom_log"); then
+      # Script failed to execute — warn, don't silently swallow
+      print_warning "Custom check '$check_key' failed for story $story_id (see .ralph/last_custom_check.log)"
+    fi
 
-      if [[ -n "$output" ]]; then
-        while IFS= read -r line; do
-          [[ -n "$line" ]] && custom_issues+="${line}, "
-        done <<< "$output"
-      fi
-    done
+    if [[ -n "$output" ]]; then
+      while IFS= read -r line; do
+        [[ -n "$line" ]] && custom_issues+="${line}, "
+      done <<< "$output"
+    fi
   done
 
   echo "$custom_issues"
 }
 
-# Optimize story test coverage using Claude
-_fix_stories_with_claude() {
+# Group flat "ID: issue, ID: issue, ..." string into one line per story
+# Input:  "S1: missing curl tests, S1: missing apiContract, S2: missing testUrl, "
+# Output: "S1: missing curl tests, missing apiContract\nS2: missing testUrl"
+_group_issues_by_story() {
+  local raw="$1"
+  # Split on ", " boundaries that precede a story ID pattern (word: )
+  # Use awk to accumulate issues per story ID
+  echo "$raw" | tr ',' '\n' | sed 's/^ *//' | while IFS= read -r entry; do
+    [[ -z "$entry" ]] && continue
+    if [[ "$entry" =~ ^([A-Za-z0-9._-]+):\ (.+) ]]; then
+      echo "${BASH_REMATCH[1]}	${BASH_REMATCH[2]}"
+    fi
+  done | awk -F'\t' '{
+    if (seen[$1]) {
+      issues[$1] = issues[$1] ", " $2
+    } else {
+      seen[$1] = 1
+      issues[$1] = $2
+      order[++n] = $1
+    }
+  } END {
+    for (i = 1; i <= n; i++) {
+      print order[i] ": " issues[order[i]]
+    }
+  }'
+}
+
+# Apply instant mechanical fixes using jq (no LLM needed)
+# Fixes: missing mcp, bare pytest, missing camelCase note, missing migration prerequisites,
+# server-only testSteps
+_apply_mechanical_fixes() {
+  local prd_file="$1"
+  local fixed=0
+
+  # Detect Python runner once for bare pytest fixes
+  local py_runner
+  py_runner=$(detect_python_runner ".")
+
+  local story_ids
+  story_ids=$(jq -r '.stories[] | select(.passes != true) | .id' "$prd_file" 2>/dev/null)
+
+  while IFS= read -r story_id; do
+    [[ -z "$story_id" ]] && continue
+
+    local story_type
+    story_type=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .type // "unknown"' "$prd_file")
+
+    # Fix: Frontend missing mcp → set to ["playwright", "devtools"]
+    if [[ "$story_type" == "frontend" ]]; then
+      local mcp_len
+      mcp_len=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .mcp // [] | length' "$prd_file")
+      if [[ "$mcp_len" == "0" ]]; then
+        update_json "$prd_file" --arg id "$story_id" \
+          '(.stories[] | select(.id==$id) | .mcp) = ["playwright", "devtools"]' && fixed=$((fixed + 1))
+      fi
+    fi
+
+    # Fix: Bare pytest → prefix with detected runner
+    if [[ -n "$py_runner" ]]; then
+      local test_steps_raw
+      test_steps_raw=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .testSteps // [] | join("\n")' "$prd_file")
+      if echo "$test_steps_raw" | grep -qE '(^|[; ])pytest ' && ! echo "$test_steps_raw" | grep -qE "(uv run|poetry run|pipenv run) pytest"; then
+        update_json "$prd_file" --arg id "$story_id" --arg runner "$py_runner" \
+          '(.stories[] | select(.id==$id) | .testSteps) |= [.[]? | gsub("(?<pre>^|[; ])pytest "; "\(.pre)\($runner) pytest ")]' && fixed=$((fixed + 1))
+      fi
+    fi
+
+    # Fix: Frontend/general API consumer missing camelCase note
+    if [[ "$story_type" == "frontend" || "$story_type" == "general" ]]; then
+      local story_desc
+      story_desc=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | (.title + " " + (.acceptanceCriteria // [] | join(" ")) + " " + (.notes // ""))' "$prd_file")
+      if echo "$story_desc" | grep -qiE "(api|fetch|axios|endpoint|backend|response)"; then
+        local story_notes
+        story_notes=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .notes // ""' "$prd_file")
+        if ! echo "$story_notes" | grep -qiE "(camelCase|snake_case|naming)"; then
+          local camel_note="Transform API responses from snake_case to camelCase. Create typed interfaces with camelCase properties."
+          if [[ -z "$story_notes" ]]; then
+            update_json "$prd_file" --arg id "$story_id" --arg note "$camel_note" \
+              '(.stories[] | select(.id==$id) | .notes) = $note' && fixed=$((fixed + 1))
+          else
+            update_json "$prd_file" --arg id "$story_id" --arg note "$camel_note" \
+              '(.stories[] | select(.id==$id) | .notes) += (" " + $note)' && fixed=$((fixed + 1))
+          fi
+        fi
+      fi
+    fi
+
+    # Fix: Migration story missing prerequisites
+    local story_files
+    story_files=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | (.files.create // []) + (.files.modify // []) | join(" ")' "$prd_file")
+    if echo "$story_files" | grep -qiE "(alembic/versions|migrations/|\.migration\.|models\.py|models/|schema\.)"; then
+      local has_prereq
+      has_prereq=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .prerequisites // [] | length' "$prd_file")
+      if [[ "$has_prereq" == "0" ]]; then
+        update_json "$prd_file" --arg id "$story_id" \
+          '(.stories[] | select(.id==$id) | .prerequisites) = [{"name": "Reset test DB", "command": "npm run db:reset:test", "when": "schema changes"}]' && fixed=$((fixed + 1))
+      fi
+    fi
+
+    # Fix: All testSteps are server-dependent → append offline test step
+    local test_steps
+    test_steps=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .testSteps // [] | join(" ")' "$prd_file")
+    if [[ -n "$test_steps" ]]; then
+      local has_offline=false has_server=false
+      local step_list
+      step_list=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .testSteps[]?' "$prd_file")
+      while IFS= read -r single_step; do
+        [[ -z "$single_step" ]] && continue
+        if echo "$single_step" | grep -qE "^(curl |wget |http )"; then
+          has_server=true
+        else
+          has_offline=true
+        fi
+      done <<< "$step_list"
+
+      if [[ "$has_server" == "true" && "$has_offline" == "false" ]]; then
+        # Pick an offline step based on story type and project tooling
+        local offline_step="npx tsc --noEmit"
+        if [[ "$story_type" == "backend" ]]; then
+          if [[ -n "$py_runner" ]]; then
+            offline_step="$py_runner pytest tests/unit/"
+          elif [[ -f "go.mod" ]]; then
+            offline_step="go test ./..."
+          else
+            offline_step="npm test"
+          fi
+        fi
+        update_json "$prd_file" --arg id "$story_id" --arg step "$offline_step" \
+          '(.stories[] | select(.id==$id) | .testSteps) += [$step]' && fixed=$((fixed + 1))
+      fi
+    fi
+
+  done <<< "$story_ids"
+
+  if [[ $fixed -gt 0 ]]; then
+    echo "    Applied $fixed mechanical fixes (no LLM needed)"
+  fi
+
+  return 0
+}
+
+# Fix stories with remaining issues using parallel Claude subagents (one per story)
+# $1: prd_file  $2: newline-separated "story_id: issues" lines  $3: backup file path
+_fix_stories_parallel() {
   local prd_file="$1"
   local issues="$2"
+  local backup_file="$3"
 
   # Read config values for context
   local config_file="$RALPH_DIR/config.json"
@@ -631,102 +809,129 @@ _fix_stories_with_claude() {
     frontend_url=$(jq -r '.urls.frontend // .playwright.baseUrl // "http://localhost:3000"' "$config_file" 2>/dev/null)
   fi
 
-  local fix_prompt="Enhance test coverage for these stories. Output the COMPLETE updated prd.json.
+  # Parse issues into per-story fix jobs
+  local pids=()
+  local story_ids_to_fix=()
+  local output_files=()
 
-STORIES TO OPTIMIZE:
-$issues
+  while IFS= read -r line; do
+    [[ -z "$line" ]] && continue
+    local sid="${line%%:*}"
+    local story_issues="${line#*: }"
+    [[ -z "$sid" || -z "$story_issues" ]] && continue
 
-CONFIG VALUES (use these):
+    # Extract this story's JSON
+    local story_json
+    story_json=$(jq --arg id "$sid" '.stories[] | select(.id==$id)' "$prd_file" 2>/dev/null)
+    [[ -z "$story_json" ]] && continue
+
+    # Build a small per-story prompt
+    local prompt_file
+    prompt_file=$(create_temp_file ".prompt.txt")
+    local output_file
+    output_file=$(create_temp_file ".fix.json")
+
+    cat > "$prompt_file" <<PROMPT_EOF
+Fix this story's issues. Output ONLY the fixed story JSON object (not the full PRD).
+
+STORY JSON:
+$story_json
+
+ISSUES TO FIX:
+$story_issues
+
+CONFIG VALUES:
 - Backend URL: $backend_url (use as {config.urls.backend} in testSteps)
 - Frontend URL: $frontend_url (use as {config.urls.frontend} in testUrl)
 
 RULES:
-1. Backend stories MUST have testSteps with curl commands that hit real endpoints
-   Example: curl -s -X POST {config.urls.backend}/api/users -d '...' | jq -e '.id'
-2. Backend stories MUST have apiContract with endpoint, request, response
-3. Frontend stories MUST have testUrl set to {config.urls.frontend}/[page-path]
-   - Derive page path from story title (e.g., 'login form' → '/login', 'dashboard' → '/dashboard')
-4. Frontend stories MUST have contextFiles array (include idea file path in each story's contextFiles)
-5. Frontend stories MUST have mcp array with browser tools: [\"playwright\", \"devtools\"]
-6. Auth stories MUST have security acceptanceCriteria:
-   - Passwords hashed with bcrypt (cost 10+)
-   - Passwords NEVER in API responses
-   - Rate limiting on login attempts
-7. List endpoints MUST have pagination acceptanceCriteria:
-   - Returns paginated results (max 100 per page)
-   - Accepts ?page=N&limit=N query params
-8. Migration stories (creating alembic/versions, migrations/, or modifying models) MUST have prerequisites:
-   Example: \"prerequisites\": [{\"name\": \"Reset test DB\", \"command\": \"npm run db:reset:test\", \"when\": \"schema changes\"}]
-9. Frontend/general stories that consume APIs MUST have notes about naming conventions:
-   Example: \"notes\": \"Transform API responses from snake_case to camelCase. Create typed interfaces with camelCase properties and map: const user = { userName: data.user_name }\"
-10. Each story should include its own techStack and constraints fields. Do NOT add these at the PRD root level.
-    Move any root-level techStack, globalConstraints, originalContext, testing, architecture, or testUsers into the relevant stories.
-11. Stories where ALL testSteps are curl commands MUST also include at least one offline test step
-    that can verify code correctness without a running server.
-    Examples: \"npm test\", \"npx tsc --noEmit\", \"pytest tests/unit/\", \"go test ./...\"
-    This prevents wasted retries when the server isn't running.
+- Backend stories MUST have testSteps with curl commands hitting real endpoints
+  Example: curl -s -X POST {config.urls.backend}/api/users -d '...' | jq -e '.id'
+- Backend stories MUST have apiContract with endpoint, request, response
+- Frontend stories MUST have testUrl set to {config.urls.frontend}/[page-path]
+- Frontend stories MUST have contextFiles array
+- Auth stories MUST have security acceptanceCriteria (bcrypt, rate limiting)
+- List endpoints MUST have pagination acceptanceCriteria (?page=N&limit=N)
+- Stories with only curl testSteps MUST also have an offline test step (npm test, tsc --noEmit, pytest)
+- Keep ALL existing fields. Only add/fix what's missing.
 
-CURRENT PRD:
-$(cat "$prd_file")
+Output ONLY the fixed story JSON object. Start with { and end with }.
+PROMPT_EOF
 
-Output ONLY the fixed JSON, no explanation. Start with { and end with }."
+    # Background a Claude call for this story
+    ( run_with_timeout 60 claude -p < "$prompt_file" > "$output_file" 2>/dev/null ) &
+    pids+=($!)
+    story_ids_to_fix+=("$sid")
+    output_files+=("$output_file")
+  done <<< "$issues"
 
-  local raw_response
-  raw_response=$(echo "$fix_prompt" | run_with_timeout "$CODE_REVIEW_TIMEOUT_SECONDS" claude -p 2>/dev/null)
-
-  # Extract JSON from response (Claude often wraps in markdown code fences)
-  local fixed_prd
-  # First strip markdown code fences if present
-  fixed_prd=$(echo "$raw_response" | sed 's/^```json//; s/^```$//' | sed -n '/^[[:space:]]*{/,/^[[:space:]]*}[[:space:]]*$/p' | head -1000)
-
-  # If sed extraction failed, try removing fences and using raw
-  if [[ -z "$fixed_prd" ]]; then
-    fixed_prd=$(echo "$raw_response" | sed 's/^```json//; s/^```//; s/```$//')
+  local job_count=${#pids[@]}
+  if [[ $job_count -eq 0 ]]; then
+    return 0
   fi
 
-  # Create backup BEFORE any validation/write attempts
-  local backup_file="${prd_file}.$(date +%Y%m%d-%H%M%S).bak"
-  cp "$prd_file" "$backup_file"
+  echo "    Fixing $job_count stories in parallel..."
 
-  # Get original story count for validation
-  local orig_story_count
-  orig_story_count=$(jq '.stories | length' "$prd_file" 2>/dev/null || echo "0")
+  # Wait for all background jobs
+  for pid in "${pids[@]}"; do
+    wait "$pid" 2>/dev/null
+  done
 
-  # Validate the response is valid JSON with required structure
-  if echo "$fixed_prd" | jq -e '.stories' >/dev/null 2>&1; then
-    # Critical: Check story count is preserved (not just that .stories exists)
-    local new_story_count
-    new_story_count=$(echo "$fixed_prd" | jq '.stories | length' 2>/dev/null || echo "0")
-    if [[ "$new_story_count" -lt "$orig_story_count" ]]; then
-      print_warning "Fixed PRD has fewer stories ($orig_story_count -> $new_story_count) - keeping original"
-      echo "  Backup preserved at: $backup_file"
-      return 0
+  # Merge results back into PRD
+  local merged=0 failed=0
+  for i in "${!story_ids_to_fix[@]}"; do
+    local sid="${story_ids_to_fix[$i]}"
+    local output_file="${output_files[$i]}"
+
+    [[ ! -s "$output_file" ]] && { failed=$((failed + 1)); continue; }
+
+    # Extract JSON from response (strip markdown fences if present)
+    local raw_response
+    raw_response=$(cat "$output_file")
+    local fixed_story
+    fixed_story=$(echo "$raw_response" | sed 's/^```json//; s/^```$//' | sed -n '/^[[:space:]]*{/,/^[[:space:]]*}[[:space:]]*$/p')
+
+    if [[ -z "$fixed_story" ]]; then
+      fixed_story=$(echo "$raw_response" | sed 's/^```json//; s/^```//; s/```$//')
     fi
 
-    # Safety check: ensure we're not writing drastically smaller content
-    local orig_size new_size
-    orig_size=$(wc -c < "$prd_file" | tr -d ' ')
-    new_size=${#fixed_prd}
-    if [[ $new_size -lt $((orig_size / 3)) ]]; then
-      print_warning "Fixed PRD seems too small ($orig_size -> $new_size bytes) - keeping original"
-      echo "  Backup preserved at: $backup_file"
-      return 0
+    # Validate it's a valid JSON object with an id field matching this story
+    local response_id
+    response_id=$(echo "$fixed_story" | jq -r '.id // empty' 2>/dev/null)
+    if [[ "$response_id" != "$sid" ]]; then
+      # Try to salvage: if valid JSON, force the correct id
+      if echo "$fixed_story" | jq -e '.' >/dev/null 2>&1; then
+        fixed_story=$(echo "$fixed_story" | jq --arg id "$sid" '.id = $id')
+        response_id="$sid"
+      else
+        failed=$((failed + 1))
+        continue
+      fi
     fi
 
-    # Write fixed PRD
-    echo "$fixed_prd" > "$prd_file"
-    print_success "Test coverage optimized (backup at $backup_file)"
-
-    # Re-validate to confirm
-    local remaining_issues
-    remaining_issues=$(validate_stories_quick "$prd_file")
-    if [[ -n "$remaining_issues" ]]; then
-      echo "  Some stories may need manual review"
+    # Merge fixed story back into PRD using update_json
+    local fixed_story_escaped
+    fixed_story_escaped=$(echo "$fixed_story" | jq -c '.')
+    if update_json "$prd_file" --arg id "$sid" --argjson fixed "$fixed_story_escaped" \
+      '(.stories[] | select(.id==$id)) = $fixed'; then
+      merged=$((merged + 1))
+    else
+      failed=$((failed + 1))
     fi
-  else
-    print_warning "Could not auto-optimize - continuing with current PRD"
-    echo "  Backup preserved at: $backup_file"
-    return 0  # Don't fail, just continue
+  done
+
+  if [[ $merged -gt 0 ]]; then
+    print_success "Fixed $merged stories with Claude (backup at $backup_file)"
+  fi
+  if [[ $failed -gt 0 ]]; then
+    print_warning "$failed stories could not be auto-fixed — review with /prd"
+  fi
+
+  # Final validation pass
+  local remaining_issues
+  remaining_issues=$(validate_stories_quick "$prd_file")
+  if [[ -n "$remaining_issues" ]]; then
+    echo "  Some stories may still need manual review"
   fi
 }
 

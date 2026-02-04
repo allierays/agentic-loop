@@ -140,6 +140,7 @@ run_frontend_smoke_test() {
   # 3. Story-specific testUrl from PRD
   local test_url
   test_url=$(jq -r --arg id "$story" '.stories[] | select(.id==$id) | .testUrl // empty' "$RALPH_DIR/prd.json" 2>/dev/null)
+  test_url=$(_expand_config_vars "$test_url")
   if [[ -n "$test_url" ]]; then
     # testUrl can be full URL or just path
     if [[ "$test_url" =~ ^https?:// ]]; then
