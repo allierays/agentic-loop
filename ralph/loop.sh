@@ -391,6 +391,10 @@ PATTERN: <pattern>"
 }
 
 run_loop() {
+  # Trap Ctrl+C so it stops the entire loop, not just the current child process.
+  # Without this, SIGINT only kills the pipeline (claude|tee) and the while loop continues.
+  trap 'echo ""; print_warning "Ctrl+C received — stopping loop..."; trap - INT; kill -INT $$' INT
+
   local max_iterations="$DEFAULT_MAX_ITERATIONS"
   local specific_story=""
   local fast_mode=false
@@ -950,6 +954,36 @@ startup_checklist() {
   fi
 }
 
+# Helper: Check if files listed in a story's files.create/files.modify already exist on disk
+# Returns newline-separated list of existing files (empty string if none)
+_check_story_files_exist() {
+  local story_id="$1"
+  local prd_file="$RALPH_DIR/prd.json"
+  [[ ! -f "$prd_file" ]] && return
+
+  local file_list
+  file_list=$(jq -r --arg id "$story_id" '
+    .stories[] | select(.id == $id) |
+    ((.files.create // []) + (.files.modify // [])) | .[]
+  ' "$prd_file" 2>/dev/null) || return
+
+  [[ -z "$file_list" ]] && return
+
+  local existing=""
+  while IFS= read -r f; do
+    [[ -z "$f" ]] && continue
+    if [[ -f "$f" ]]; then
+      if [[ -z "$existing" ]]; then
+        existing="$f"
+      else
+        existing="$existing"$'\n'"$f"
+      fi
+    fi
+  done <<< "$file_list"
+
+  [[ -n "$existing" ]] && echo "$existing"
+}
+
 # Helper: Build delta prompt for continuing session
 # Minimal context - just story ID + any failure info
 _build_delta_prompt() {
@@ -964,6 +998,15 @@ _build_delta_prompt() {
   if [[ -n "$failure_context" ]]; then
     echo "## Retry: Fix the errors below"
     echo ""
+
+    # Check if story files already exist — if so, skip re-implementation
+    local existing_files
+    existing_files=$(_check_story_files_exist "$story")
+    if [[ -n "$existing_files" ]]; then
+      echo "**The code is ALREADY WRITTEN.** Do NOT rewrite. Fix ONLY the errors below, then verify."
+      echo ""
+    fi
+
     echo "Read \`.ralph/last_failure.txt\` for full error details."
     echo ""
     echo '```'
@@ -1039,6 +1082,20 @@ build_prompt() {
     echo ""
     echo "## Previous Iteration Failed"
     echo ""
+
+    # Check if story files already exist — if so, skip re-implementation
+    local existing_files
+    existing_files=$(_check_story_files_exist "$story")
+    if [[ -n "$existing_files" ]]; then
+      echo "**IMPORTANT: The code for this story is ALREADY WRITTEN.** These files exist:"
+      echo '```'
+      echo "$existing_files"
+      echo '```'
+      echo "Do NOT rewrite or re-implement. Read the existing code, then fix ONLY the"
+      echo "specific errors below. Go straight to verification after fixing."
+      echo ""
+    fi
+
     echo "Read \`.ralph/last_failure.txt\` for details. Key error:"
     echo ""
     echo '```'
