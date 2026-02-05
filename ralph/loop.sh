@@ -29,7 +29,7 @@ preflight_checks() {
 
   # Check frontend connectivity if configured
   local test_url
-  test_url=$(get_config '.testUrlBase' "")
+  test_url=$(get_config '.urls.frontend' "")
   if [[ -n "$test_url" ]]; then
     printf "  Frontend connectivity ($test_url)... "
     if curl -sf --connect-timeout 5 "$test_url" >/dev/null 2>&1; then
@@ -48,8 +48,8 @@ preflight_checks() {
     # Check for alembic migrations
     if [[ -d "$backend_dir/alembic" ]] || [[ -d "$backend_dir/migrations" ]]; then
       printf "  Database migrations... "
-      # Detect Python runner
-      local py_runner="python"
+      # Detect Python runner (python3 for macOS compatibility)
+      local py_runner="python3"
       if [[ -f "$backend_dir/uv.lock" ]]; then
         py_runner="uv run"
       elif [[ -f "$backend_dir/poetry.lock" ]]; then
@@ -415,6 +415,209 @@ PATTERN: <pattern>"
   return 0
 }
 
+# Generate a starter docker-compose.yml based on detected project type
+_generate_docker_compose() {
+  local project_type
+  project_type=$(detect_project_type)
+
+  local compose_content=""
+
+  case "$project_type" in
+    fullstack|django|fastapi|python|node)
+      compose_content="services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app_dev
+    ports:
+      - \"5432:5432\"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [\"CMD-SHELL\", \"pg_isready -U app\"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - \"6379:6379\"
+    healthcheck:
+      test: [\"CMD\", \"redis-cli\", \"ping\"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:"
+      ;;
+    go|rust)
+      compose_content="services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+      POSTGRES_DB: app_dev
+    ports:
+      - \"5432:5432\"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [\"CMD-SHELL\", \"pg_isready -U app\"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:"
+      ;;
+    elixir)
+      compose_content="services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app_dev
+    ports:
+      - \"5432:5432\"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [\"CMD-SHELL\", \"pg_isready -U postgres\"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  pgdata:"
+      ;;
+    fastmcp)
+      compose_content="services:
+  app:
+    build: .
+    ports:
+      - \"8000:8000\"
+    volumes:
+      - .:/app
+    environment:
+      - LOG_LEVEL=debug"
+      ;;
+    *)
+      # minimal or unknown — shouldn't reach here but handle gracefully
+      print_warning "No Docker template for project type: $project_type"
+      return 1
+      ;;
+  esac
+
+  echo "$compose_content" > docker-compose.yml
+  print_success "Generated docker-compose.yml for $project_type project"
+  echo ""
+  echo "  Services:"
+  grep -E '^[[:space:]]{2}[a-z]' docker-compose.yml | sed 's/:$//' | sed 's/^/    /'
+  echo ""
+  echo "  Next steps:"
+  echo "    docker compose up -d"
+  echo "    docker compose ps        # verify services are healthy"
+  echo ""
+  echo "  Update your .env to point at the Docker services:"
+  case "$project_type" in
+    elixir)
+      echo "    DATABASE_URL=ecto://postgres:postgres@localhost:5432/app_dev"
+      ;;
+    fastmcp)
+      ;;
+    *)
+      echo "    DATABASE_URL=postgresql://app:app@localhost:5432/app_dev"
+      echo "    REDIS_URL=redis://localhost:6379"
+      ;;
+  esac
+  echo ""
+}
+
+# Check for Docker compose files and warn if missing
+# Called from run_loop() before preflight checks
+_docker_safety_warning() {
+  # Skip if env var is set
+  [[ "${RALPH_SKIP_DOCKER_WARNING:-}" == "1" ]] && return 0
+
+  # Skip if docker.enabled is true in config
+  local docker_enabled
+  docker_enabled=$(get_config '.docker.enabled' "false")
+  if [[ "$docker_enabled" == "true" ]]; then
+    return 0
+  fi
+
+  # Skip if project type doesn't need services
+  local project_type
+  project_type=$(detect_project_type)
+  if [[ "$project_type" == "minimal" || "$project_type" == "hugo" ]]; then
+    return 0
+  fi
+
+  # Check for any compose file
+  for compose_file in "docker-compose.yml" "docker-compose.yaml" "compose.yml" "compose.yaml"; do
+    if [[ -f "$compose_file" ]]; then
+      return 0
+    fi
+  done
+
+  # No compose file found — show warning
+  echo ""
+  echo "  ╔══════════════════════════════════════════════════════════════════╗"
+  echo "  ║                                                                  ║"
+  echo "  ║   ⚠️  YOUR PROJECT IS NOT USING DOCKER                          ║"
+  echo "  ║                                                                  ║"
+  echo "  ║   The loop runs Claude autonomously — it writes code, runs       ║"
+  echo "  ║   migrations, and executes commands without asking.              ║"
+  echo "  ║                                                                  ║"
+  echo "  ║   Without Docker, your local databases and services have         ║"
+  echo "  ║   no safety net. A bad migration can corrupt real data.          ║"
+  echo "  ║                                                                  ║"
+  echo "  ║   With Docker, everything is disposable:                         ║"
+  echo "  ║     docker compose down -v && docker compose up -d               ║"
+  echo "  ║   ...and you're back to a clean state.                           ║"
+  echo "  ║                                                                  ║"
+  echo "  ║   Suppress: RALPH_SKIP_DOCKER_WARNING=1 npx agentic-loop run    ║"
+  echo "  ║                                                                  ║"
+  echo "  ╚══════════════════════════════════════════════════════════════════╝"
+  echo ""
+
+  local response
+  read -r -p "  [S]et up Docker now  |  [C]ontinue without Docker  |  [Q]uit: " response
+
+  case "$response" in
+    [Ss])
+      echo ""
+      if ! _generate_docker_compose; then
+        print_info "You can create a docker-compose.yml manually, or continue without Docker."
+      fi
+      ;;
+    [Qq])
+      echo ""
+      echo "  Exiting. Set up Docker and try again, or suppress with:"
+      echo "    RALPH_SKIP_DOCKER_WARNING=1 npx agentic-loop run"
+      echo ""
+      exit 0
+      ;;
+    *)
+      # Default: continue
+      echo ""
+      print_info "Continuing without Docker. Suppress future warnings with:"
+      echo "    RALPH_SKIP_DOCKER_WARNING=1 npx agentic-loop run"
+      echo ""
+      ;;
+  esac
+}
+
 run_loop() {
   # PID of the currently running Claude pipeline (used by trap to kill it)
   _CLAUDE_PIPELINE_PID=""
@@ -463,6 +666,9 @@ run_loop() {
 
   # Validate prerequisites
   check_dependencies
+
+  # Warn if no Docker compose file (safety net for autonomous execution)
+  _docker_safety_warning
 
   # Pre-loop checks to catch issues before wasting iterations
   if [[ "$fast_mode" == "true" ]]; then
@@ -537,6 +743,9 @@ run_loop() {
   # Default to 5 retries - enough for transient issues, stops before wasting cycles
   # Override with config.json: "maxStoryRetries": 8
   max_story_retries=$(get_config '.maxStoryRetries' "5")
+  # Read timeout once at loop start — not per iteration, so Claude can't extend it mid-run
+  local timeout_seconds
+  timeout_seconds=$(get_config '.maxSessionSeconds' "$DEFAULT_TIMEOUT_SECONDS")
   local total_attempts=0
   local skipped_stories=()
   local start_time
@@ -721,8 +930,9 @@ run_loop() {
     echo "└─────────────────────────────────────────────────────────┘"
     echo ""
 
-    local timeout_seconds
-    timeout_seconds=$(get_config '.maxSessionSeconds' "$DEFAULT_TIMEOUT_SECONDS")
+    # Snapshot PRD passes state before Claude runs (detect tampering after)
+    local passes_before
+    passes_before=$(jq '[.stories[] | {id, passes}]' "$RALPH_DIR/prd.json" 2>/dev/null)
 
     # Run Claude - first story gets fresh session, subsequent continue the session
     local -a claude_args=(-p --dangerously-skip-permissions --verbose)
@@ -811,6 +1021,28 @@ run_loop() {
       continue
     fi
 
+    # Check for blocked signal (Claude created .blocked to indicate it's stuck)
+    if [[ -f "$RALPH_DIR/.blocked" ]]; then
+      local block_reason
+      block_reason=$(cat "$RALPH_DIR/.blocked" 2>/dev/null | head -1)
+      rm -f "$RALPH_DIR/.blocked"
+      print_error "Story $story blocked — ${block_reason:-no reason given}"
+      log_progress "$story" "BLOCKED" "${block_reason:-Claude signaled blocked}"
+      echo ""
+      echo "  Claude signaled it cannot complete this story."
+      echo "  Check .ralph/progress.txt for details on what was attempted."
+      echo ""
+      mkdir -p "$RALPH_DIR/failures"
+      echo "${block_reason:-Claude signaled blocked}" > "$RALPH_DIR/failures/$story.txt"
+      local passed failed
+      passed=$(jq '[.stories[] | select(.passes==true)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+      failed=$(jq '[.stories[] | select(.passes==false)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+      send_notification "🛑 Ralph stopped: $story blocked. $passed passed, $failed remaining"
+      print_progress_summary "$start_time" "$total_attempts" "0"
+      rm -f "$prompt_file"
+      return 1
+    fi
+
     # Check for stop signal (user ran `ralph stop` or Ctrl+C while Claude was running)
     if [[ -f "$RALPH_DIR/.stop" ]]; then
       rm -f "$RALPH_DIR/.stop" "$prompt_file"
@@ -831,24 +1063,27 @@ run_loop() {
       # Session may be broken - reset for next attempt
       session_started=false
 
-      # Skip on repeated timeouts (story is too large/complex for single session)
+      # Stop loop on repeated timeouts — story needs manual intervention
       if [[ $consecutive_timeouts -ge $max_timeouts ]]; then
-        print_error "Story $story timed out $max_timeouts times - needs to be broken up"
+        print_error "Story $story timed out $max_timeouts consecutive times — stopping loop"
         echo ""
-        echo "  Consecutive timeouts indicate the story is too large for a single"
-        echo "  Claude session (${timeout_seconds}s). Consider:"
-        echo "    - Breaking it into smaller, focused stories"
-        echo "    - Increasing maxSessionSeconds in config.json"
+        echo "  The story timed out ${max_timeouts}x (${timeout_seconds}s each). This usually means:"
+        echo "    - The story is too large for a single Claude session"
+        echo "    - Claude is stuck in a retry loop within the session"
+        echo ""
+        echo "  To fix:"
+        echo "    - Break the story into smaller stories"
+        echo "    - Increase maxSessionSeconds in .ralph/config.json"
+        echo "    - Check .ralph/progress.txt for what Claude was attempting"
         echo ""
         mkdir -p "$RALPH_DIR/failures"
         echo "Story $story timed out $max_timeouts consecutive times (${timeout_seconds}s each)" > "$RALPH_DIR/failures/$story.txt"
-        echo "Consider breaking this story into smaller pieces." >> "$RALPH_DIR/failures/$story.txt"
-        skipped_stories+=("$story")
-        jq --arg id "$story" '(.stories[] | select(.id==$id)) |= . + {skipped: true, skipReason: "repeated timeouts"}' "$RALPH_DIR/prd.json" > "$RALPH_DIR/prd.json.tmp" && mv "$RALPH_DIR/prd.json.tmp" "$RALPH_DIR/prd.json"
-        last_story=""
-        consecutive_failures=0
-        consecutive_timeouts=0
-        continue
+        local passed failed
+        passed=$(jq '[.stories[] | select(.passes==true)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+        failed=$(jq '[.stories[] | select(.passes==false)] | length' "$RALPH_DIR/prd.json" 2>/dev/null || echo "0")
+        send_notification "🛑 Ralph stopped: $story timed out ${max_timeouts}x. $passed passed, $failed remaining"
+        print_progress_summary "$start_time" "$total_attempts" "0"
+        return 1
       fi
 
       # If running specific story, exit on failure
@@ -861,6 +1096,19 @@ run_loop() {
 
     rm -f "$prompt_file"
     session_started=true  # Mark session as active for subsequent stories
+
+    # Reset any story state changes Claude made — Ralph owns passes/retryCount/skipped
+    local passes_after
+    passes_after=$(jq '[.stories[] | {id, passes}]' "$RALPH_DIR/prd.json" 2>/dev/null)
+    if [[ "$passes_before" != "$passes_after" ]]; then
+      print_info "Resetting story state — verification will determine pass/fail"
+      log_progress "$story" "RESET" "Story state modified during session, restored before verification"
+      local restored
+      restored=$(jq --argjson before "$passes_before" '
+        .stories |= [.[] | . as $s | ($before[] | select(.id == $s.id)) as $orig |
+          if $orig then $s + {passes: $orig.passes} else $s end]
+      ' "$RALPH_DIR/prd.json") && echo "$restored" > "$RALPH_DIR/prd.json"
+    fi
 
     # 5. Run migrations BEFORE verification (tests need DB schema)
     if ! run_migrations_if_needed "$pre_story_sha"; then
@@ -1184,6 +1432,18 @@ build_prompt() {
     echo "$failure_context" | head -30
     echo '```'
   fi
+
+  # Session boundaries — Ralph controls story state, not Claude
+  echo ""
+  echo "## Session Rules"
+  echo ""
+  echo "- **When done implementing, stop.** Ralph runs verification (lint, tests, build) after your session and marks the story."
+  echo "- **Don't edit prd.json** — Ralph manages story state. Any changes to passes/retryCount/skipped are reset before verification."
+  echo "- **If blocked**, write the reason and stop:"
+  echo '  ```'
+  echo '  echo "BLOCKED: [describe the issue]" > .ralph/.blocked'
+  echo '  ```'
+  echo "  Ralph will stop the loop so the issue can be resolved."
 
   # Signs are critical - always inject to prevent repeated mistakes
   _inject_signs
