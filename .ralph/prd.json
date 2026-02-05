@@ -1,7 +1,8 @@
 {
   "feature": {
     "name": "Loop Smoke Test",
-    "description": "Simple test to verify the Ralph loop is working correctly"
+    "description": "Simple test to verify the Ralph loop is working correctly",
+    "status": "complete"
   },
   "stories": [
     {
