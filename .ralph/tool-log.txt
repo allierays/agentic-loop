@@ -4401,3 +4401,8 @@ refactor: Remove over-engineering across 10 files
 [12:12:48] BASH: source ralph/utils.sh && [[ "$RALPH_VERSION" == $(jq -r .version package.json) ]
 [12:12:52] READ: ralph/utils.sh
 [12:13:02] BASH: echo "$(date): Completed TEST-001 - Added RALPH_VERSION constant to ralph/utils.
+[12:13:40] BASH: RALPH_SKIP_DOCKER_WARNING=1 ./bin/ralph.sh run --max 3 2>&1
+[13:26:50] BASH: git status
+[13:26:50] BASH: git log --oneline -5
+[13:26:50] BASH: git diff
+[13:27:05] BASH: git status --short
