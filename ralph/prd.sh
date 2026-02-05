@@ -69,9 +69,10 @@ ralph_prd() {
   echo "Claude will ask clarifying questions to refine the PRD."
   echo ""
 
-  # Get testUrlBase from config (default to localhost:3000)
+  # Get frontend URL from config
   local test_url_base
-  test_url_base=$(get_config "testUrlBase" "http://localhost:3000")
+  test_url_base=$(get_config '.urls.frontend' "")
+  [[ -z "$test_url_base" ]] && test_url_base=$(get_config '.playwright.baseUrl' "http://localhost:3000")
 
   # Create the PRD generation prompt using printf to avoid heredoc issues
   local prompt_file
@@ -130,6 +131,8 @@ ralph_prd() {
   printf '%s\n' "GOOD: cd frontend && npx tsc --noEmit" >> "$prompt_file"
   printf '%s\n' "GOOD: npx playwright test tests/e2e/dashboard.spec.ts" >> "$prompt_file"
   printf '%s\n' "GOOD: npx playwright test --grep 'login flow'" >> "$prompt_file"
+  printf '%s\n' "GOOD: python3 -m pytest tests/ (use python3, NOT python — macOS has no 'python')" >> "$prompt_file"
+  printf '%s\n' "GOOD: uv run pytest tests/ (when project uses uv)" >> "$prompt_file"
   printf '\n%s\n' "For UI/visual checks, use Playwright tests that can verify:" >> "$prompt_file"
   printf '%s\n' "- Element visibility and positioning" >> "$prompt_file"
   printf '%s\n' "- Console errors (no errors in DevTools)" >> "$prompt_file"

@@ -1,0 +1,27 @@
+{
+  "feature": {
+    "name": "Loop Smoke Test",
+    "description": "Simple test to verify the Ralph loop is working correctly"
+  },
+  "stories": [
+    {
+      "id": "TEST-001",
+      "title": "Add version constant to utils",
+      "type": "backend",
+      "description": "Add a RALPH_VERSION constant to ralph/utils.sh that reads from package.json. This helps with debugging version issues.",
+      "acceptanceCriteria": [
+        "RALPH_VERSION constant exists in ralph/utils.sh",
+        "Version is read from package.json using jq",
+        "Constant is defined near other constants at the top of the file"
+      ],
+      "testSteps": [
+        "grep -q 'RALPH_VERSION' ralph/utils.sh",
+        "source ralph/utils.sh && [[ -n \"$RALPH_VERSION\" ]]"
+      ],
+      "files": [
+        "ralph/utils.sh"
+      ],
+      "passes": false
+    }
+  ]
+}

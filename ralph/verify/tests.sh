@@ -195,7 +195,9 @@ run_unit_tests() {
     if [[ -f "package.json" ]] && grep -q '"test"' package.json; then
       test_cmd="npm test"
     elif [[ -f "pytest.ini" ]] || [[ -f "pyproject.toml" ]]; then
-      test_cmd="pytest"
+      local py_runner
+      py_runner=$(detect_python_runner ".")
+      test_cmd="${py_runner}${py_runner:+ }pytest"
     elif [[ -f "Cargo.toml" ]]; then
       test_cmd="cargo test"
     elif [[ -f "go.mod" ]]; then
@@ -228,9 +230,9 @@ run_unit_tests() {
 # Expand config placeholders in a string
 # Usage: _expand_config_vars "curl {config.urls.backend}/api"
 # Expands any {config.X.Y} placeholder from .ralph/config.json via jq.
-# Known placeholders have fallback paths for backward compatibility:
+# Known placeholders with fallback paths:
 #   {config.urls.backend}  -> .urls.backend // .api.baseUrl
-#   {config.urls.frontend} -> .urls.frontend // .testUrlBase
+#   {config.urls.frontend} -> .urls.frontend
 _expand_config_vars() {
   local input="$1"
   local config="$RALPH_DIR/config.json"
@@ -249,7 +251,7 @@ _expand_config_vars() {
 
   if [[ "$result" == *"{config.urls.frontend}"* ]]; then
     local val
-    val=$(jq -r '.urls.frontend // .testUrlBase // empty' "$config" 2>/dev/null)
+    val=$(jq -r '.urls.frontend // empty' "$config" 2>/dev/null)
     [[ -n "$val" ]] && result="${result//\{config.urls.frontend\}/$val}"
   fi
 

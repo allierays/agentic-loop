@@ -23,14 +23,14 @@
 
   "commands": {
     "devFrontend": "cd frontend && npm run dev",
-    "devBackend": "python manage.py runserver",
+    "devBackend": "python3 manage.py runserver",
     "install": "npm install && pip install -r requirements.txt",
     "seed": "",
     "migrate": ""
   },
 
   "migrations": {
-    "command": "python manage.py migrate",
+    "command": "python3 manage.py migrate",
     "pattern": "migrations/.*\\.py$"
   },
 

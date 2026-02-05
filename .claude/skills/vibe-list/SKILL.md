@@ -170,7 +170,9 @@ npx ralph unsign "camelCase"
     "test": "npm test",
     "build": "npm run build"
   },
-  "testUrlBase": "http://localhost:3000",
+  "urls": {
+    "frontend": "http://localhost:3000"
+  },
   "maxSessionSeconds": 600
 }
 ```

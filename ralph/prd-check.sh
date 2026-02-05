@@ -428,7 +428,7 @@ _validate_and_fix_stories() {
   local cnt_no_tests=0 cnt_backend_curl=0 cnt_backend_contract=0
   local cnt_frontend_tsc=0 cnt_frontend_url=0 cnt_frontend_context=0 cnt_frontend_mcp=0
   local cnt_auth_security=0 cnt_list_pagination=0 cnt_prose_steps=0
-  local cnt_naming_convention=0 cnt_bare_pytest=0
+  local cnt_naming_convention=0 cnt_bare_pytest=0 cnt_bare_python=0
   local cnt_server_only=0
   local cnt_custom=0
 
@@ -465,6 +465,16 @@ _validate_and_fix_stories() {
           story_issues+="use '$py_runner pytest' not bare 'pytest', "
           cnt_bare_pytest=$((cnt_bare_pytest + 1))
         fi
+      fi
+
+      # Check for bare 'python' (fails on macOS which only has python3)
+      if echo "$test_steps" | grep -qE '(^|[;&| ])python ' && ! echo "$test_steps" | grep -qE "(uv run|poetry run|pipenv run|python3) "; then
+        if [[ -n "$py_runner" ]]; then
+          story_issues+="use '$py_runner python' not bare 'python', "
+        else
+          story_issues+="use 'python3' not bare 'python' (macOS has no 'python'), "
+        fi
+        cnt_bare_python=$((cnt_bare_python + 1))
       fi
     fi
 
@@ -533,7 +543,8 @@ _validate_and_fix_stories() {
     [[ $cnt_auth_security -gt 0 ]] && echo "    ${cnt_auth_security}x auth: add security criteria"
     [[ $cnt_list_pagination -gt 0 ]] && echo "    ${cnt_list_pagination}x list: add pagination"
     [[ $cnt_naming_convention -gt 0 ]] && echo "    ${cnt_naming_convention}x API consumer: add camelCase transformation note"
-    [[ $cnt_bare_pytest -gt 0 ]] && echo "    ${cnt_bare_pytest}x use 'uv run pytest' not bare 'pytest'"
+    [[ $cnt_bare_pytest -gt 0 ]] && echo "    ${cnt_bare_pytest}x use '${py_runner:-python3} pytest' not bare 'pytest'"
+    [[ $cnt_bare_python -gt 0 ]] && echo "    ${cnt_bare_python}x use 'python3' not bare 'python' (macOS compatibility)"
     [[ $cnt_server_only -gt 0 ]] && echo "    ${cnt_server_only}x all testSteps need live server (add offline fallback)"
     [[ $cnt_custom -gt 0 ]] && echo "    ${cnt_custom} stories with custom check issues"
 
@@ -649,8 +660,8 @@ _group_issues_by_story() {
 }
 
 # Apply instant mechanical fixes using jq (no LLM needed)
-# Fixes: missing mcp, bare pytest, missing camelCase note, missing migration prerequisites,
-# server-only testSteps
+# Fixes: missing mcp, bare pytest, bare python (macOS compat), missing camelCase note,
+# missing migration prerequisites, server-only testSteps
 _apply_mechanical_fixes() {
   local prd_file="$1"
   local fixed=0
@@ -685,6 +696,19 @@ _apply_mechanical_fixes() {
       if echo "$test_steps_raw" | grep -qE '(^|[; ])pytest ' && ! echo "$test_steps_raw" | grep -qE "(uv run|poetry run|pipenv run) pytest"; then
         update_json "$prd_file" --arg id "$story_id" --arg runner "$py_runner" \
           '(.stories[] | select(.id==$id) | .testSteps) |= [.[]? | gsub("(?<pre>^|[; ])pytest "; "\(.pre)\($runner) pytest ")]' && fixed=$((fixed + 1))
+      fi
+    fi
+
+    # Fix: Bare python → prefix with runner or replace with python3 (macOS compat)
+    local test_steps_for_python
+    test_steps_for_python=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .testSteps // [] | join("\n")' "$prd_file")
+    if echo "$test_steps_for_python" | grep -qE '(^|[;&| ])python ' && ! echo "$test_steps_for_python" | grep -qE "(uv run|poetry run|pipenv run|python3) "; then
+      if [[ -n "$py_runner" ]]; then
+        update_json "$prd_file" --arg id "$story_id" --arg runner "$py_runner" \
+          '(.stories[] | select(.id==$id) | .testSteps) |= [.[]? | gsub("(?<pre>^|[;&| ])python "; "\(.pre)\($runner) python ")]' && fixed=$((fixed + 1))
+      else
+        update_json "$prd_file" --arg id "$story_id" \
+          '(.stories[] | select(.id==$id) | .testSteps) |= [.[]? | gsub("(?<pre>^|[;&| ])python "; "\(.pre)python3 ")]' && fixed=$((fixed + 1))
       fi
     fi
 

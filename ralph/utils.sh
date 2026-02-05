@@ -2,6 +2,14 @@
 # shellcheck shell=bash
 # utils.sh - Shared utility functions for ralph
 
+# Get utils.sh directory to locate package.json
+_UTILS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_PACKAGE_JSON="$_UTILS_DIR/../package.json"
+
+# Version constant (read from package.json)
+RALPH_VERSION="$(jq -r '.version' "$_PACKAGE_JSON" 2>/dev/null || echo "unknown")"
+readonly RALPH_VERSION
+
 # Constants - Output limits
 readonly MAX_LOG_LINES=30
 readonly MAX_PROGRESS_LINES=10
@@ -138,6 +146,26 @@ get_config() {
     fi
   fi
   echo "$default"
+}
+
+# Migrate deprecated config fields in-place
+# Safe to call multiple times - only writes if changes are needed
+_migrate_config() {
+  local config="$RALPH_DIR/config.json"
+  [[ ! -f "$config" ]] && return 0
+
+  # testUrlBase -> urls.frontend
+  local legacy_url
+  legacy_url=$(jq -r '.testUrlBase // empty' "$config" 2>/dev/null)
+  if [[ -n "$legacy_url" ]]; then
+    local current_frontend
+    current_frontend=$(jq -r '.urls.frontend // empty' "$config" 2>/dev/null)
+    if [[ -z "$current_frontend" ]]; then
+      jq --arg url "$legacy_url" '.urls.frontend = $url | del(.testUrlBase)' "$config" > "${config}.tmp" && mv "${config}.tmp" "$config"
+    else
+      jq 'del(.testUrlBase)' "$config" > "${config}.tmp" && mv "${config}.tmp" "$config"
+    fi
+  fi
 }
 
 # Deep merge user config with project config
@@ -749,7 +777,7 @@ detect_python_runner() {
     return 0
   fi
 
-  # Default to plain command (assumes activated venv or global)
+  # Default to plain command (no runner detected)
   echo ""
   return 0
 }
@@ -778,9 +806,11 @@ detect_migration_tool() {
     return 0
   fi
 
-  # Django
+  # Django (use python3 for macOS compatibility when no runner detected)
   if [[ -f "$search_dir/manage.py" ]] && [[ -d "$search_dir" ]] && find "$search_dir" -type d -name "migrations" -print -quit | grep -q .; then
-    echo "cd $search_dir && ${py_runner}${py_runner:+ }python manage.py migrate"
+    local python_cmd="python3"
+    [[ -n "$py_runner" ]] && python_cmd="python"
+    echo "cd $search_dir && ${py_runner}${py_runner:+ }${python_cmd} manage.py migrate"
     return 0
   fi
 

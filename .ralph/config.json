@@ -1,4 +1,10 @@
 {
+  "commands": {
+    "test": "uv run pytest"
+  },
+  "test": {
+    "value": "works"
+  },
   "checks": {
     "lint": true,
     "typecheck": true,

@@ -1,0 +1,26 @@
+
+> agentic-loop@3.13.0 brainstorm
+> tsx src/brainstorm/index.ts
+
+🧠 Brainstorm bot starting...
+Model: claude-opus-4-20250514
+Configured projects: agentic-loop, gopa
+Allowed users: 1 configured
+[context] Generating search terms for: mcp
+[context] Search terms: mcp, message control protocol, mcp, messagecontrolprotocol, mcp_client, mcp_server, mcp_handler, mcp_protocol
+[search] Running: grep -r -i -l "mcp" "/Users/allierays/Sites/gopa" --include="*.py" --include="*.ts" --include="*.js" --include="*.md" --include="*.json" --include="*.sh" 2>/dev/null | grep -v node_modules | grep -v __pycache__ | grep -v ".git" | head -20 || true
+[search] Found 20 files for "mcp"
+[search] Running: grep -r -i -l "message control protocol" "/Users/allierays/Sites/gopa" --include="*.py" --include="*.ts" --include="*.js" --include="*.md" --include="*.json" --include="*.sh" 2>/dev/null | grep -v node_modules | grep -v __pycache__ | grep -v ".git" | head -20 || true
+[search] Found 0 files for "message control protocol"
+[search] Running: grep -r -i -l "mcp" "/Users/allierays/Sites/gopa" --include="*.py" --include="*.ts" --include="*.js" --include="*.md" --include="*.json" --include="*.sh" 2>/dev/null | grep -v node_modules | grep -v __pycache__ | grep -v ".git" | head -20 || true
+[search] Found 20 files for "mcp"
+[search] Running: grep -r -i -l "messagecontrolprotocol" "/Users/allierays/Sites/gopa" --include="*.py" --include="*.ts" --include="*.js" --include="*.md" --include="*.json" --include="*.sh" 2>/dev/null | grep -v node_modules | grep -v __pycache__ | grep -v ".git" | head -20 || true
+[search] Found 0 files for "messagecontrolprotocol"
+[search] Running: grep -r -i -l "mcp_client" "/Users/allierays/Sites/gopa" --include="*.py" --include="*.ts" --include="*.js" --include="*.md" --include="*.json" --include="*.sh" 2>/dev/null | grep -v node_modules | grep -v __pycache__ | grep -v ".git" | head -20 || true
+[search] Found 0 files for "mcp_client"
+[search] Running: grep -r -i -l "mcp_server" "/Users/allierays/Sites/gopa" --include="*.py" --include="*.ts" --include="*.js" --include="*.md" --include="*.json" --include="*.sh" 2>/dev/null | grep -v node_modules | grep -v __pycache__ | grep -v ".git" | head -20 || true
+[search] Found 20 files for "mcp_server"
+[search] Running: grep -r -i -l "mcp_handler" "/Users/allierays/Sites/gopa" --include="*.py" --include="*.ts" --include="*.js" --include="*.md" --include="*.json" --include="*.sh" 2>/dev/null | grep -v node_modules | grep -v __pycache__ | grep -v ".git" | head -20 || true
+[search] Found 0 files for "mcp_handler"
+[search] Running: grep -r -i -l "mcp_protocol" "/Users/allierays/Sites/gopa" --include="*.py" --include="*.ts" --include="*.js" --include="*.md" --include="*.json" --include="*.sh" 2>/dev/null | grep -v node_modules | grep -v __pycache__ | grep -v ".git" | head -20 || true
+[search] Found 8 files for "mcp_protocol"

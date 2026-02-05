@@ -408,7 +408,6 @@ Now every future story will see this pattern.
   "urls": {
     "frontend": "http://localhost:3000",
     "backend": "http://localhost:8000",
-    "testUrlBase": "http://localhost:3000"
   },
   "commands": {
     "dev": "npm run dev"
@@ -443,7 +442,6 @@ Now every future story will see this pattern.
 | `paths.frontend` | `"."` | Frontend source directory |
 | `paths.backend` | `""` | Backend source directory |
 | `urls.frontend` | `"http://localhost:3000"` | Frontend dev server URL |
-| `urls.testUrlBase` | (frontend URL) | Base URL for relative testUrl paths |
 
 ### URL Expansion
 

@@ -162,7 +162,7 @@ auto_configure_project() {
     fi
   fi
 
-  # 2. Detect testUrlBase by parsing actual config files for port values
+  # 2. Detect urls.frontend by parsing actual config files for port values
   local base_url=""
   local web_port=""
 
@@ -228,11 +228,11 @@ auto_configure_project() {
   fi
 
   if [[ -n "$base_url" ]]; then
-    if jq -e '.testUrlBase' "$tmpfile" >/dev/null 2>&1 && [[ "$(jq -r '.testUrlBase' "$tmpfile")" != "" ]]; then
-      : # Already set
-    else
-      jq --arg url "$base_url" '.testUrlBase = $url' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
-      echo "  Auto-detected testUrlBase: $base_url"
+    local existing_frontend
+    existing_frontend=$(jq -r '.urls.frontend // empty' "$tmpfile" 2>/dev/null)
+    if [[ -z "$existing_frontend" ]]; then
+      jq --arg url "$base_url" '.urls.frontend = $url' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+      echo "  Auto-detected urls.frontend: $base_url"
       updated=true
     fi
   fi
@@ -395,7 +395,7 @@ auto_configure_project() {
       if ! jq -e '.mcp.serverModule' "$tmpfile" >/dev/null 2>&1 || [[ "$(jq -r '.mcp.serverModule' "$tmpfile")" == "" ]]; then
         jq --arg mod "$mcp_module" '.mcp.serverModule = $mod' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
         # Also update the dev command
-        jq --arg cmd "python -m ${mcp_module}.server" '.commands.dev = $cmd' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+        jq --arg cmd "python3 -m ${mcp_module}.server" '.commands.dev = $cmd' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
         echo "  Auto-detected mcp.serverModule: $mcp_module"
         updated=true
       fi
@@ -533,11 +533,13 @@ auto_configure_project() {
       updated=true
     fi
   else
-    # No tests found - check if warning is suppressed
+    # No tests found by auto-detection - check if already configured or warning suppressed
     local require_tests
     require_tests=$(jq -r '.checks.requireTests // true' "$tmpfile" 2>/dev/null)
+    local existing_test_dir
+    existing_test_dir=$(jq -r '.tests.directory // empty' "$tmpfile" 2>/dev/null)
 
-    if [[ "$require_tests" == "true" ]]; then
+    if [[ "$require_tests" == "true" && -z "$existing_test_dir" ]]; then
       echo ""
       print_warning "No test directory or test files found."
       echo "  Without tests, Ralph relies on lint, type-checking, and PRD test steps."
@@ -577,6 +579,20 @@ auto_configure_project() {
         echo "  Auto-updated commands.dev: $new_dev"
         updated=true
       fi
+    else
+      # No runner detected — convert bare 'python' to 'python3' for macOS compat
+      local current_dev
+      current_dev=$(jq -r '.commands.dev // ""' "$tmpfile" 2>/dev/null)
+      if [[ "$current_dev" == "python "* ]]; then
+        local new_dev="python3 ${current_dev#python }"
+        jq --arg dev "$new_dev" '.commands.dev = $dev' "$tmpfile" > "${tmpfile}.new" && mv "${tmpfile}.new" "$tmpfile"
+        echo "  Auto-updated commands.dev: $new_dev (macOS compat)"
+        updated=true
+      fi
+      echo ""
+      echo "  Tip: No Python package manager detected. Consider uv for faster deps & consistent environments:"
+      echo "       curl -LsSf https://astral.sh/uv/install.sh | sh"
+      echo "       https://docs.astral.sh/uv/"
     fi
   fi
 

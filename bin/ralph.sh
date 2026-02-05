@@ -103,6 +103,9 @@ source "$RALPH_LIB/signs.sh"
 source "$RALPH_LIB/test.sh"
 source "$RALPH_LIB/ci.sh"
 
+# Migrate deprecated config fields (e.g., testUrlBase -> urls.frontend)
+_migrate_config
+
 # Run auto-config if config.json was just created
 if [[ "${_ralph_needs_autoconfig:-}" == "true" ]]; then
   echo "Auto-detecting project configuration..." >&2
