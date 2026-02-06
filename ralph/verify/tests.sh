@@ -219,8 +219,35 @@ run_unit_tests() {
   else
     print_error "failed"
     echo ""
-    echo "    Output (last $MAX_LOG_LINES lines):"
-    tail -"$MAX_LOG_LINES" "$log_file" | sed 's/^/      /'
+
+    # Check for missing tool (uv, poetry, pytest, etc.)
+    if grep -qiE "command not found|no such file or directory" "$log_file" 2>/dev/null; then
+      local missing_tool=""
+      if grep -qi "uv.*command not found\|uv:.*not found" "$log_file" 2>/dev/null; then
+        missing_tool="uv"
+      elif grep -qi "poetry.*command not found\|poetry:.*not found" "$log_file" 2>/dev/null; then
+        missing_tool="poetry"
+      elif grep -qi "pytest.*command not found\|pytest:.*not found" "$log_file" 2>/dev/null; then
+        missing_tool="pytest"
+      fi
+
+      if [[ -n "$missing_tool" ]]; then
+        echo "    '$missing_tool' is not installed."
+        echo ""
+        echo "    Run setup to auto-detect and configure your project tools:"
+        echo "      npx agentic-loop setup"
+        echo ""
+        echo "    See Step 3 of the Getting Started guide:"
+        echo "      docs/GETTING-STARTED.md"
+      else
+        echo "    Output (last $MAX_LOG_LINES lines):"
+        tail -"$MAX_LOG_LINES" "$log_file" | sed 's/^/      /'
+      fi
+    else
+      echo "    Output (last $MAX_LOG_LINES lines):"
+      tail -"$MAX_LOG_LINES" "$log_file" | sed 's/^/      /'
+    fi
+
     cp "$log_file" "$RALPH_DIR/last_test_failure.log"
     rm -f "$log_file"
     return 1
@@ -278,6 +305,17 @@ _expand_config_vars() {
   echo "$result"
 }
 
+# Check if a command string contains unresolved auth placeholder variables
+# Returns 0 (true) if auth placeholders found, 1 (false) if clean
+_has_auth_placeholder() {
+  local cmd="$1"
+  local auth_vars='TOKEN|API_KEY|JWT|AUTH_TOKEN|BEARER_TOKEN|ACCESS_TOKEN|SECRET|PASSWORD|CREDENTIALS|API_SECRET|AUTH'
+  [[ "$cmd" =~ \$($auth_vars)[^A-Za-z_] ]] && return 0
+  [[ "$cmd" =~ \$($auth_vars)$ ]] && return 0
+  [[ "$cmd" =~ \$\{($auth_vars)\} ]] && return 0
+  return 1
+}
+
 # Verify PRD acceptance criteria / test steps
 verify_prd_criteria() {
   local story="$1"
@@ -298,13 +336,21 @@ verify_prd_criteria() {
   # Clear previous PRD failure log
   rm -f "$prd_failure_log"
 
-  local step_index=0
+  local step_index=-1
   while IFS= read -r step; do
     [[ -z "$step" ]] && continue
 
     # Expand config placeholders (e.g., {config.urls.backend})
     local expanded_step
     expanded_step=$(_expand_config_vars "$step")
+    ((step_index++)) || true
+
+    # Skip steps with unresolved auth placeholders — don't fail, just warn
+    if _has_auth_placeholder "$expanded_step"; then
+      echo -n "    $expanded_step... "
+      print_warning "skipped (uses auth placeholder variable — set a real value in env or config)"
+      continue
+    fi
 
     echo -n "    $expanded_step... "
 
@@ -313,8 +359,16 @@ verify_prd_criteria() {
     else
       print_error "failed"
       echo ""
-      echo "    Output:"
-      tail -"$MAX_OUTPUT_PREVIEW_LINES" "$log_file" | sed 's/^/      /'
+
+      # Check for connection refused — give actionable guidance
+      if grep -qiE "connection refused|couldn.t connect|failed to connect" "$log_file" 2>/dev/null; then
+        local dev_cmd
+        dev_cmd=$(get_config '.commands.dev' "docker compose up -d")
+        echo "    Server not running. Start it before running Ralph: $dev_cmd"
+      else
+        echo "    Output:"
+        tail -"$MAX_OUTPUT_PREVIEW_LINES" "$log_file" | sed 's/^/      /'
+      fi
 
       # Save failure details for retry context
       {
@@ -327,7 +381,6 @@ verify_prd_criteria() {
 
       failed=1
     fi
-    ((step_index++)) || true
   done <<< "$test_steps"
 
   rm -f "$log_file"

@@ -1,0 +1,1 @@
+../skills/setup-review/SKILL.md

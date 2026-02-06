@@ -134,6 +134,24 @@ main() {
       ralph_prd "$@"
       ;;
     run)
+      # Check if setup has been run (progress.txt is created by setup/init)
+      if [[ ! -f "$RALPH_DIR/progress.txt" ]]; then
+        print_error "Setup hasn't been run yet."
+        echo ""
+        echo "  You need to run setup once before your first loop:"
+        echo ""
+        echo "    npx agentic-loop setup"
+        echo ""
+        echo "  Then review your config with Claude — every project is"
+        echo "  different, so Claude can fine-tune the setup to your needs:"
+        echo ""
+        echo "    claude --dangerously-skip-permissions"
+        echo "    > /setup-review"
+        echo ""
+        echo "  Full walkthrough: docs/GETTING-STARTED.md"
+        echo ""
+        exit 1
+      fi
       # Clear any previous stop signal
       rm -f "$RALPH_DIR/.stop"
       run_loop "$@"

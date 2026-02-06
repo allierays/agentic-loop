@@ -80,14 +80,13 @@ claude --dangerously-skip-permissions
 
 > The `--dangerously-skip-permissions` flag lets Claude edit files without asking for confirmation each time. This is needed for autonomous workflows.
 
-Now ask Claude to review your agentic-loop config:
+Now run the setup review:
 
 ```
-Review .ralph/config.json and make sure it's correct for my project.
-Check the test command, lint command, and dev server. Fix anything that's wrong.
+/setup-review
 ```
 
-Claude will read the config, compare it to your actual project setup, and fix anything that's off. This is worth doing now - a bad config means the loop will fail on every story.
+Claude reads your config, checks every setting against your actual project (test runner, linter, ports, directories, package manager), and fixes anything that's off. This is worth doing now - a bad config means the loop will fail on every story.
 
 ### Optional: Set your preferences
 
