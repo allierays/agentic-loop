@@ -379,9 +379,10 @@ Now every future story will see this pattern.
 
 | Command | What it does |
 |---------|--------------|
-| `npx agentic-loop run` | Start the loop |
+| `npx agentic-loop run` | Start the loop (shows live activity feed) |
 | `npx agentic-loop run --story TASK-001` | Run specific story only |
 | `npx agentic-loop run --max 5` | Limit to 5 iterations |
+| `npx agentic-loop run --quiet` | Suppress the live activity feed |
 | `npx agentic-loop stop` | Stop after current story |
 | `npx agentic-loop status` | Show story progress |
 | `npx agentic-loop check` | Run verification without Claude |

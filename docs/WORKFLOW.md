@@ -73,6 +73,8 @@ In your terminal:
 ralph run
 ```
 
+Ralph shows a live activity feed as it works — what files it's reading, what code it's writing, and why. Use `--quiet` to suppress it.
+
 Ralph works through stories autonomously:
 
 ```

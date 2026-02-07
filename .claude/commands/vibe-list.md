@@ -47,9 +47,10 @@ Print this complete reference for the user. Do not add any commentary.
 ### Autonomous Loop
 | Command | Description |
 |---------|-------------|
-| `npx ralph run` | Run loop until all stories pass |
+| `npx ralph run` | Run loop until all stories pass (shows live activity feed) |
 | `npx ralph run --max 10` | Limit to N iterations (default: 20) |
 | `npx ralph run --story TASK-001` | Run for specific task only |
+| `npx ralph run --quiet` | Suppress the live activity feed |
 | `npx ralph stop` | Stop after current story completes |
 
 ### Verification

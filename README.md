@@ -71,7 +71,10 @@ claude --dangerously-skip-permissions
 **Terminal 2 - Ralph Loop:**
 ```bash
 npx agentic-loop run         # Execute PRDs autonomously
+npx agentic-loop run --quiet # Same, but suppress activity feed
 ```
+
+Ralph shows a live activity feed as it works — what files it's reading, what code it's writing, and why. Use `--quiet` to suppress it.
 
 > **Tip:** Use two terminals. Plan with Claude in one, run Ralph in the other.
 
