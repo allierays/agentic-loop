@@ -2,7 +2,7 @@
   "feature": {
     "name": "Activity Feed Smoke Test",
     "description": "Test story to verify the live activity feed displays tool usage during the loop",
-    "status": "pending"
+    "status": "complete"
   },
   "stories": [
     {
