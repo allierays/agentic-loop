@@ -189,6 +189,23 @@ If validation found dependency issues, reorder stories:
 
 **After reordering, re-run Step 6 validation to confirm the new order works.**
 
+### Step 7b: Assign Batch Numbers
+
+After reordering, assign a `batch` number to every story. Batches group independent stories that could theoretically run in parallel.
+
+1. Stories with no `dependsOn` → **batch 1**
+2. Stories whose deps are ALL in batch N → **batch N+1** (use the highest dep batch)
+3. Within each batch level, check `files.create` and `files.modify` overlap — if two stories share any create/modify files, bump one to the next batch
+4. Add `"batch": N` to every story
+
+**Example:**
+```
+TASK-001: batch 1  (no deps)
+TASK-002: batch 2  (depends on TASK-001, creates RegisterForm)
+TASK-003: batch 2  (depends on TASK-001, modifies src/api/users.ts)
+```
+TASK-002 and TASK-003 are in the same batch because they don't depend on each other and don't share create/modify files.
+
 ### Step 8: Present Final PRD
 
 Open the PRD for review:
@@ -326,7 +343,8 @@ Ralph will work through each story, running tests and committing as it goes."
         "constraints": ["No Redux"]
       },
 
-      "dependsOn": []
+      "dependsOn": [],
+      "batch": 1
     }
   ]
 }
@@ -374,6 +392,7 @@ Each story is **self-contained** with all the context it needs. No global defaul
 | `scale` | No | small, medium, large |
 | `architecture` | No | Story-specific patterns/constraints |
 | `dependsOn` | No | Story IDs that must complete first |
+| `batch` | Yes | Batch number for parallel grouping (1 = no deps, higher = later) |
 
 ---
 

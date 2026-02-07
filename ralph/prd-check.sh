@@ -221,6 +221,18 @@ validate_prd() {
     api_check_pid=$!
   fi
 
+  # Validate batch assignments (warn, don't block)
+  local batch_errors batch_rc=0
+  batch_errors=$(validate_batch_assignments "$prd_file" 2>/dev/null) || batch_rc=$?
+  if [[ $batch_rc -ne 0 && -n "$batch_errors" ]]; then
+    echo ""
+    print_warning "Batch assignment issues:"
+    echo "$batch_errors" | while IFS= read -r line; do
+      [[ -n "$line" ]] && echo "    $line"
+    done
+    echo ""
+  fi
+
   # Replace hardcoded paths with config placeholders
   fix_hardcoded_paths "$prd_file" "$config"
 

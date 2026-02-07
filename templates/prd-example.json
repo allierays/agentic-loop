@@ -78,7 +78,8 @@
       ],
 
       "notes": "SECURITY: Use bcrypt with cost 10+. Never log passwords. Validate email format server-side even if validated client-side.",
-      "dependsOn": []
+      "dependsOn": [],
+      "batch": 1
     },
     {
       "id": "TASK-002",
@@ -143,7 +144,8 @@
       "mcp": ["playwright", "devtools"],
 
       "notes": "IMPORTANT: Reference the ASCII mockup in docs/ideas/auth.md for layout. Use existing Button and Input components from ui folder per styleguide.",
-      "dependsOn": ["TASK-001"]
+      "dependsOn": ["TASK-001"],
+      "batch": 2
     },
     {
       "id": "TASK-003",
@@ -205,7 +207,8 @@
       ],
 
       "notes": "SCALE: Always paginate list endpoints. Enforce max limit to prevent memory issues. Add database index for sort column.",
-      "dependsOn": ["TASK-001"]
+      "dependsOn": ["TASK-001"],
+      "batch": 2
     }
   ]
 }

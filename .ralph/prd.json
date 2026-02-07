@@ -1,30 +1,39 @@
 {
   "feature": {
-    "name": "Loop Smoke Test",
-    "description": "Simple test to verify the Ralph loop is working correctly",
-    "status": "complete"
+    "name": "Activity Feed Smoke Test",
+    "description": "Test story to verify the live activity feed displays tool usage during the loop",
+    "status": "pending"
   },
   "stories": [
     {
-      "id": "TEST-001",
-      "title": "Add version constant to utils",
+      "id": "FEED-001",
+      "title": "Add RALPH_LOOP_VERSION constant to utils.sh",
       "type": "config",
-      "description": "Add a RALPH_VERSION constant to ralph/utils.sh that reads from package.json. This helps with debugging version issues.",
+      "description": "Add a RALPH_LOOP_VERSION constant set to '2' in ralph/utils.sh, near the existing RALPH_VERSION constant. This tracks the loop protocol version for the stream-json activity feed.",
       "acceptanceCriteria": [
-        "RALPH_VERSION constant exists in ralph/utils.sh",
-        "Version is read from package.json using jq",
-        "Constant is defined near other constants at the top of the file"
+        "RALPH_LOOP_VERSION constant exists in ralph/utils.sh",
+        "Value is set to the string '2'",
+        "Constant is readonly",
+        "Constant is defined near RALPH_VERSION at the top of the file"
       ],
       "testSteps": [
-        "grep -q 'RALPH_VERSION' ralph/utils.sh",
-        "source ralph/utils.sh && [[ -n \"$RALPH_VERSION\" ]]",
-        "source ralph/utils.sh && [[ \"$RALPH_VERSION\" == $(jq -r .version package.json) ]]"
+        "grep -q 'RALPH_LOOP_VERSION' ralph/utils.sh",
+        "grep -q 'readonly RALPH_LOOP_VERSION' ralph/utils.sh",
+        "source ralph/utils.sh 2>/dev/null; [[ \"$RALPH_LOOP_VERSION\" == \"2\" ]]"
       ],
-      "files": [
-        "ralph/utils.sh"
+      "files": {
+        "modify": [
+          "ralph/utils.sh"
+        ]
+      },
+      "constraints": [
+        "Do not modify any other constants",
+        "Place the new constant immediately after the RALPH_VERSION lines"
       ],
       "passes": true,
-      "retryCount": 0
+      "retryCount": 0,
+      "dependsOn": [],
+      "batch": 1
     }
   ]
 }

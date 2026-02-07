@@ -10,6 +10,10 @@ _PACKAGE_JSON="$_UTILS_DIR/../package.json"
 RALPH_VERSION="$(jq -r '.version' "$_PACKAGE_JSON" 2>/dev/null || echo "unknown")"
 readonly RALPH_VERSION
 
+# Loop protocol version (for stream-json activity feed)
+RALPH_LOOP_VERSION="2"
+readonly RALPH_LOOP_VERSION
+
 # Constants - Output limits
 readonly MAX_LOG_LINES=30
 readonly MAX_PROGRESS_LINES=10
@@ -857,6 +861,85 @@ find_all_migration_tools() {
 
   # Return unique tools
   printf '%s\n' "${tools[@]}" | sort -u
+}
+
+# Validate batch assignments in a PRD file
+# Returns 0 if valid (or no batches), 1 with error messages if invalid
+# Checks: all-or-none batch field, dependency ordering, file overlap within batch
+validate_batch_assignments() {
+  local prd_file="$1"
+  local errors=""
+  local error_count=0
+
+  # Count stories with and without batch
+  local total_stories with_batch without_batch
+  total_stories=$(jq '.stories | length' "$prd_file" 2>/dev/null || echo "0")
+  with_batch=$(jq '[.stories[] | select(.batch != null)] | length' "$prd_file" 2>/dev/null || echo "0")
+  without_batch=$((total_stories - with_batch))
+
+  # No batches at all — valid, nothing to check
+  [[ "$with_batch" -eq 0 ]] && return 0
+
+  # Some but not all stories have batch — error
+  if [[ "$without_batch" -gt 0 ]]; then
+    local missing_ids
+    missing_ids=$(jq -r '[.stories[] | select(.batch == null) | .id] | join(", ")' "$prd_file" 2>/dev/null)
+    errors+="batch field missing on: $missing_ids\n"
+    error_count=$((error_count + 1))
+  fi
+
+  # Check dependency ordering: no dependsOn pointing to same or later batch
+  local dep_violations
+  dep_violations=$(jq -r '
+    .stories as $all |
+    [.stories[] | . as $s |
+      ($s.dependsOn // [])[] as $dep |
+      ($all[] | select(.id == $dep)) as $dep_story |
+      select($dep_story.batch != null and $s.batch != null and $dep_story.batch >= $s.batch) |
+      "\($s.id) (batch \($s.batch)) depends on \($dep) (batch \($dep_story.batch))"
+    ] | .[]' "$prd_file" 2>/dev/null)
+
+  if [[ -n "$dep_violations" ]]; then
+    while IFS= read -r violation; do
+      [[ -z "$violation" ]] && continue
+      errors+="$violation\n"
+      error_count=$((error_count + 1))
+    done <<< "$dep_violations"
+  fi
+
+  # Check file overlap within same batch (create/modify only)
+  local file_overlaps
+  file_overlaps=$(jq -r '
+    . as $root |
+    [$root.stories[] | select(.batch != null) | .batch] | unique | .[] as $b |
+    [$root.stories[] | select(.batch == $b)] |
+    if length < 2 then empty
+    else
+      . as $stories |
+      range(length) as $i | range($i+1; length) as $j |
+      $stories[$i] as $a | $stories[$j] as $b_story |
+      (($a.files.create // []) + ($a.files.modify // [])) as $files_a |
+      (($b_story.files.create // []) + ($b_story.files.modify // [])) as $files_b |
+      ($files_a | map(select(. as $f | $files_b | any(. == $f)))) as $shared |
+      select(($shared | length) > 0) |
+      "batch \($b): \($a.id) and \($b_story.id) share files: \($shared | join(", "))"
+    end
+  ' "$prd_file" 2>/dev/null)
+
+  if [[ -n "$file_overlaps" ]]; then
+    while IFS= read -r overlap; do
+      [[ -z "$overlap" ]] && continue
+      errors+="$overlap\n"
+      error_count=$((error_count + 1))
+    done <<< "$file_overlaps"
+  fi
+
+  if [[ $error_count -gt 0 ]]; then
+    echo -e "$errors"
+    return 1
+  fi
+
+  return 0
 }
 
 # Ensure database migrations are applied before verification

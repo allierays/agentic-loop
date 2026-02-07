@@ -576,15 +576,17 @@ _docker_safety_warning() {
   echo "  ║                                                                  ║"
   echo "  ║   ⚠️  YOUR PROJECT IS NOT USING DOCKER                          ║"
   echo "  ║                                                                  ║"
-  echo "  ║   The loop runs Claude autonomously — it writes code, runs       ║"
-  echo "  ║   migrations, and executes commands without asking.              ║"
+  echo "  ║   Ralph runs autonomously — it writes code, runs commands,       ║"
+  echo "  ║   and executes migrations without asking.                        ║"
   echo "  ║                                                                  ║"
-  echo "  ║   Without Docker, your local databases and services have         ║"
-  echo "  ║   no safety net. A bad migration can corrupt real data.          ║"
+  echo "  ║   Without Docker, Ralph operates directly on your local          ║"
+  echo "  ║   machine. A bad migration can corrupt real databases.           ║"
+  echo "  ║   A runaway command can affect services outside this repo.       ║"
   echo "  ║                                                                  ║"
-  echo "  ║   With Docker, everything is disposable:                         ║"
-  echo "  ║     docker compose down -v && docker compose up -d               ║"
-  echo "  ║   ...and you're back to a clean state.                           ║"
+  echo "  ║   With Docker, Ralph is sandboxed to this project:               ║"
+  echo "  ║     - Databases, caches, and services are isolated               ║"
+  echo "  ║     - Nothing outside the container is touched                   ║"
+  echo "  ║     - Reset anytime: docker compose down -v && up -d             ║"
   echo "  ║                                                                  ║"
   echo "  ║   Suppress: RALPH_SKIP_DOCKER_WARNING=1 npx agentic-loop run    ║"
   echo "  ║                                                                  ║"
@@ -639,6 +641,8 @@ run_loop() {
   local max_iterations="$DEFAULT_MAX_ITERATIONS"
   local specific_story=""
   local fast_mode=false
+  local quiet_mode
+  quiet_mode=$(get_config '.quiet' "false")
 
   # Parse arguments
   while [[ $# -gt 0 ]]; do
@@ -653,6 +657,10 @@ run_loop() {
         ;;
       --fast)
         fast_mode=true
+        shift
+        ;;
+      --quiet)
+        quiet_mode=true
         shift
         ;;
       *)
@@ -947,7 +955,7 @@ run_loop() {
     passes_before=$(jq '[.stories[] | {id, passes}]' "$RALPH_DIR/prd.json" 2>/dev/null)
 
     # Run Claude - first story gets fresh session, subsequent continue the session
-    local -a claude_args=(-p --dangerously-skip-permissions --verbose)
+    local -a claude_args=(-p --dangerously-skip-permissions --verbose --output-format stream-json)
     if [[ "$session_started" == "true" ]]; then
       claude_args=(--continue "${claude_args[@]}")
     fi
@@ -956,18 +964,90 @@ run_loop() {
     local claude_output_log claude_exit_code max_crash_retries=5 crash_attempt=0
     claude_output_log=$(create_temp_file ".log") || { rm -f "$prompt_file"; return 1; }
 
-    # Filter to hide ugly CLI crash messages from terminal (still captured in log)
-    # Strips: "This error originated...", "Error: No messages", stack traces
-    _filter_cli_noise() {
-      grep -v -E \
-        -e "This error originated either by throwing" \
-        -e "a catch block, or by rejecting a promise" \
-        -e "The promise rejected with the reason:" \
-        -e "Error: No messages returned" \
-        -e "at [A-Za-z0-9_]+ \(/\\\$bunfs/" \
-        -e "at processTicksAndRejections" \
-        -e "unhandled.*promise.*rejection" \
-        || true  # Don't fail if no lines pass filter
+    # Parse stream-json output from Claude CLI and display a live activity feed.
+    # Shows tool usage (Read, Edit, Bash, etc.) as clean one-line summaries.
+    # Non-JSON lines (crash messages) are passed through for crash detection.
+    # Usage: _parse_stream_activity "true"|"false"
+    _parse_stream_activity() {
+      local quiet="${1:-false}"
+      local dim=$'\033[2m' green=$'\033[0;32m' nc=$'\033[0m'
+      local line
+      while IFS= read -r line; do
+        # Non-JSON lines (crash messages, errors) — always pass through
+        if [[ "$line" != "{"* ]]; then
+          echo "$line"
+          continue
+        fi
+
+        # In quiet mode, skip all JSON parsing (activity suppressed)
+        if [[ "$quiet" == "true" ]]; then
+          continue
+        fi
+
+        # Fast pre-filter: only parse assistant (tool activity) and result (summary)
+        # events. Skip system/user/etc. to avoid unnecessary jq calls.
+        if [[ "$line" != *'"assistant"'* && "$line" != *'"result"'* ]]; then
+          continue
+        fi
+
+        local msg_type
+        msg_type=$(jq -r '.type // empty' <<< "$line" 2>/dev/null) || continue
+
+        if [[ "$msg_type" == "assistant" ]]; then
+          # Extract tool_use content blocks
+          local tool_entries
+          tool_entries=$(jq -r '
+            .message.content[]?
+            | select(.type == "tool_use")
+            | .name + "\t" + (.input | tostring)
+          ' <<< "$line" 2>/dev/null) || continue
+
+          while IFS=$'\t' read -r tool_name tool_input; do
+            [[ -z "$tool_name" ]] && continue
+            local detail=""
+            case "$tool_name" in
+              Read|Edit|Write)
+                detail=$(jq -r '.file_path // empty' <<< "$tool_input" 2>/dev/null)
+                detail="${detail##*/}"
+                ;;
+              Bash)
+                detail=$(jq -r '.command // empty' <<< "$tool_input" 2>/dev/null)
+                detail="${detail:0:60}"
+                ;;
+              Grep|Glob)
+                detail=$(jq -r '.pattern // empty' <<< "$tool_input" 2>/dev/null)
+                ;;
+              Task)
+                detail=$(jq -r '.description // empty' <<< "$tool_input" 2>/dev/null)
+                ;;
+            esac
+            printf "  ${dim}⟳ %-6s${nc} %s\n" "$tool_name" "$detail"
+          done <<< "$tool_entries"
+
+        elif [[ "$msg_type" == "result" ]]; then
+          local cost duration_ms
+          cost=$(jq -r '.total_cost_usd // empty' <<< "$line" 2>/dev/null)
+          duration_ms=$(jq -r '.duration_ms // empty' <<< "$line" 2>/dev/null)
+          local cost_str="" dur_str=""
+          [[ -n "$cost" ]] && cost_str=$(printf '$%.2f' "$cost")
+          if [[ -n "$duration_ms" ]]; then
+            local total_secs=$(( duration_ms / 1000 ))
+            if [[ $total_secs -ge 60 ]]; then
+              dur_str="$((total_secs / 60))m $((total_secs % 60))s"
+            else
+              dur_str="${total_secs}s"
+            fi
+          fi
+          echo ""
+          if [[ -n "$cost_str" && -n "$dur_str" ]]; then
+            echo -e "  ${green}✓ Done${nc} ${dim}(${cost_str}, ${dur_str})${nc}"
+          elif [[ -n "$cost_str" ]]; then
+            echo -e "  ${green}✓ Done${nc} ${dim}(${cost_str})${nc}"
+          elif [[ -n "$dur_str" ]]; then
+            echo -e "  ${green}✓ Done${nc} ${dim}(${dur_str})${nc}"
+          fi
+        fi
+      done
     }
 
     while [[ $crash_attempt -lt $max_crash_retries ]]; do
@@ -977,7 +1057,7 @@ run_loop() {
       # making Ctrl+C unresponsive while Claude is running.
       (
         set -o pipefail
-        cat "$prompt_file" | run_with_timeout "$timeout_seconds" claude "${claude_args[@]}" 2>&1 | tee "$claude_output_log" | _filter_cli_noise
+        cat "$prompt_file" | run_with_timeout "$timeout_seconds" claude "${claude_args[@]}" 2>&1 | tee "$claude_output_log" | _parse_stream_activity "$quiet_mode"
       ) &
       _CLAUDE_PIPELINE_PID=$!
       wait "$_CLAUDE_PIPELINE_PID" || claude_exit_code=$?
