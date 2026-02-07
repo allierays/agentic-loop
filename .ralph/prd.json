@@ -2,7 +2,7 @@
   "feature": {
     "name": "Activity Feed Smoke Test",
     "description": "Test story to verify the live activity feed displays tool usage during the loop",
-    "status": "complete"
+    "status": "pending"
   },
   "stories": [
     {
@@ -34,6 +34,36 @@
       "retryCount": 0,
       "dependsOn": [],
       "batch": 1
+    },
+    {
+      "id": "FEED-002",
+      "title": "Add --quiet flag to CLI help text",
+      "type": "config",
+      "description": "Add documentation for the --quiet flag in the CLI help output. The help text is in bin/agentic-loop.sh in the usage/help function. Add --quiet as a documented option that suppresses the live activity feed during loop execution.",
+      "acceptanceCriteria": [
+        "The help text in bin/agentic-loop.sh mentions --quiet",
+        "The description says it suppresses the activity feed",
+        "The flag appears near the other run flags (--max, --story, --fast)"
+      ],
+      "testSteps": [
+        "grep -q '\\-\\-quiet' bin/agentic-loop.sh",
+        "grep -A1 '\\-\\-quiet' bin/agentic-loop.sh | grep -qi 'activity\\|quiet\\|silent\\|suppress'"
+      ],
+      "files": {
+        "modify": [
+          "bin/agentic-loop.sh"
+        ]
+      },
+      "constraints": [
+        "Only modify the help/usage text, do not change any logic",
+        "Match the existing formatting style of other flags in the help output"
+      ],
+      "passes": true,
+      "retryCount": 0,
+      "dependsOn": [
+        "FEED-001"
+      ],
+      "batch": 2
     }
   ]
 }

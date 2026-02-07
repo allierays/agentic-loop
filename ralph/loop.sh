@@ -583,9 +583,9 @@ _docker_safety_warning() {
   echo "  ║   machine. A bad migration can corrupt real databases.           ║"
   echo "  ║   A runaway command can affect services outside this repo.       ║"
   echo "  ║                                                                  ║"
-  echo "  ║   With Docker, Ralph is sandboxed to this project:               ║"
-  echo "  ║     - Databases, caches, and services are isolated               ║"
-  echo "  ║     - Nothing outside the container is touched                   ║"
+  echo "  ║   With Docker, your project's services are isolated:             ║"
+  echo "  ║     - Databases and caches run in containers, not locally        ║"
+  echo "  ║     - Nothing outside the project is touched                     ║"
   echo "  ║     - Reset anytime: docker compose down -v && up -d             ║"
   echo "  ║                                                                  ║"
   echo "  ║   Suppress: RALPH_SKIP_DOCKER_WARNING=1 npx agentic-loop run    ║"
@@ -994,6 +994,21 @@ run_loop() {
         msg_type=$(jq -r '.type // empty' <<< "$line" 2>/dev/null) || continue
 
         if [[ "$msg_type" == "assistant" ]]; then
+          # Show Claude's explanation if present (the "what/why" before tool calls)
+          local explanation
+          explanation=$(jq -r '
+            [.message.content[]? | select(.type == "text") | .text] | join(" ")
+          ' <<< "$line" 2>/dev/null)
+          if [[ -n "$explanation" ]]; then
+            # Take first sentence and truncate at word boundary
+            explanation="${explanation%%.*}"
+            if [[ ${#explanation} -gt 72 ]]; then
+              explanation="${explanation:0:72}"
+              explanation="${explanation% *}..."
+            fi
+            printf "  ${dim}— %s${nc}\n" "$explanation"
+          fi
+
           # Extract tool_use content blocks
           local tool_entries
           tool_entries=$(jq -r '
@@ -1004,24 +1019,51 @@ run_loop() {
 
           while IFS=$'\t' read -r tool_name tool_input; do
             [[ -z "$tool_name" ]] && continue
-            local detail=""
+            local label="" detail=""
             case "$tool_name" in
-              Read|Edit|Write)
+              Read)
+                label="Reading"
                 detail=$(jq -r '.file_path // empty' <<< "$tool_input" 2>/dev/null)
-                detail="${detail##*/}"
+                detail="${detail#"$PWD/"}"
+                ;;
+              Edit)
+                label="Editing"
+                detail=$(jq -r '.file_path // empty' <<< "$tool_input" 2>/dev/null)
+                detail="${detail#"$PWD/"}"
+                ;;
+              Write)
+                label="Creating"
+                detail=$(jq -r '.file_path // empty' <<< "$tool_input" 2>/dev/null)
+                detail="${detail#"$PWD/"}"
                 ;;
               Bash)
-                detail=$(jq -r '.command // empty' <<< "$tool_input" 2>/dev/null)
-                detail="${detail:0:60}"
+                label="Running"
+                # Prefer human-readable description over raw command
+                detail=$(jq -r '.description // empty' <<< "$tool_input" 2>/dev/null)
+                if [[ -z "$detail" ]]; then
+                  detail=$(jq -r '.command // empty' <<< "$tool_input" 2>/dev/null)
+                  detail="${detail:0:60}"
+                fi
                 ;;
-              Grep|Glob)
+              Grep)
+                label="Searching"
                 detail=$(jq -r '.pattern // empty' <<< "$tool_input" 2>/dev/null)
+                detail="for \"$detail\""
+                ;;
+              Glob)
+                label="Finding"
+                detail=$(jq -r '.pattern // empty' <<< "$tool_input" 2>/dev/null)
+                detail="files matching $detail"
                 ;;
               Task)
+                label="Spawning"
                 detail=$(jq -r '.description // empty' <<< "$tool_input" 2>/dev/null)
                 ;;
+              *)
+                label="$tool_name"
+                ;;
             esac
-            printf "  ${dim}⟳ %-6s${nc} %s\n" "$tool_name" "$detail"
+            printf "  ${dim}⟳${nc} %-10s %s\n" "$label" "$detail"
           done <<< "$tool_entries"
 
         elif [[ "$msg_type" == "result" ]]; then
@@ -1654,6 +1696,6 @@ archive_feature() {
   echo "All stories passed! PRD kept at: $RALPH_DIR/prd.json"
   echo ""
   echo "Next:"
-  echo "  /idea 'new feature'     # Add more stories (will append)"
+  echo "  Start a Claude Code session and run /idea to brainstorm your next feature."
   echo "  ralph status            # See completed stories"
 }
