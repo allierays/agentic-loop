@@ -713,11 +713,14 @@ Commands:
   status                  Show current feature and story status
   check                   Run verification checks only
   verify <story-id>       Verify a specific story
-  uat                     Run UAT loop (explore, test, fix bugs)
+  uat                     Run UAT loop (team explores, tests, fixes bugs)
   uat --plan-only         Generate test plan without executing
   uat --focus <id|cat>    Run specific test case or category
   uat --no-fix            Write tests but don't fix app bugs
   uat --review            Force review of existing plan
+  chaos-agent             Run Chaos Agent (adversarial red team testing)
+  chaos-agent --plan-only Generate chaos plan without executing
+  chaos-agent --no-fix    Find vulnerabilities without fixing
   sign <pattern> [cat]    Add a learned pattern (sign)
   signs                   List all learned patterns
   backup                  Backup detected databases to .backups/
@@ -737,6 +740,8 @@ Examples:
   npx agentic-loop run --max 10
   npx agentic-loop uat
   npx agentic-loop uat --focus auth
+  npx agentic-loop chaos-agent
+  npx agentic-loop chaos-agent --no-fix
   npx agentic-loop status
   npx agentic-loop sign "Always use camelCase" frontend
 

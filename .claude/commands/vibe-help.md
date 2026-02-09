@@ -24,12 +24,14 @@ Run `/vibe-list` to see all commands.
 
 ---
 
-## Quality
+## Quality & Testing
 
 ```
 /vibe-check              audit code quality
 /review                  security-focused review
 npx ralph check          run verification only
+npx ralph uat            team acceptance testing
+npx ralph chaos-agent          adversarial red team testing
 ```
 
 ---

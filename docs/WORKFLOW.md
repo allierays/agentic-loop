@@ -198,6 +198,22 @@ Pre-commit hooks run automatically on `git commit`:
 3. **Run** Ralph to implement
 4. **Verify** with `/vibe-check`
 
+### For Testing Existing Features
+
+After Ralph builds a feature, validate it with UAT:
+
+1. **Run UAT:** `npx agentic-loop uat` — agent team explores the app, writes tests, fixes bugs
+2. **Review plan:** Approve the test plan before execution
+3. **Ship:** Tests are committed alongside fixes
+
+### For Security Hardening
+
+Red-team your app with Chaos Agent:
+
+1. **Run chaos:** `npx agentic-loop chaos-agent` — adversarial agents try XSS, injection, auth bypass
+2. **Review plan:** Approve before execution
+3. **Fix or document:** Use `--no-fix` to just document vulnerabilities
+
 ### For Quick Changes
 
 Not everything needs the full workflow. For trivial changes:

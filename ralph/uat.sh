@@ -1,17 +1,20 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
-# uat.sh - UAT Ralph: Autonomous User Acceptance Testing Loop
+# uat.sh - UAT + Chaos Agent: Autonomous Testing Loops
 #
 # ============================================================================
 # OVERVIEW
 # ============================================================================
-# UAT Ralph explores the live app via Claude + Playwright MCP, generates a
-# test plan, then uses strict TDD (Red-Green) per test case:
+# Two commands share this file:
+#   uat   — Acceptance testing team. "Does this work correctly?"
+#   chaos-agent — Chaos Agent red team. "Can we break it?"
+#
+# Both use Agent Teams for coordinated discovery, then strict TDD per test case:
 #   RED:   Claude writes the test only (no app changes)
 #   GREEN: Claude fixes the app only (no test changes)
 #
 # 3-Phase Flow:
-#   Phase 1: DISCOVER + PLAN  — Claude + MCP explores app, generates plan
+#   Phase 1: DISCOVER + PLAN  — Agent team explores app, generates plan
 #   Phase 2: EXECUTE LOOP     — Per test case: RED (test) → GREEN (fix)
 #   Phase 3: REPORT           — Summary of findings
 #
@@ -19,12 +22,15 @@
 # DEPENDENCIES: Requires utils.sh sourced first (get_config, print_*, etc.)
 # ============================================================================
 
-# UAT-specific constants
-readonly UAT_DIR="$RALPH_DIR/uat"
-readonly UAT_PLAN_FILE="$UAT_DIR/plan.json"
-readonly UAT_PROGRESS_FILE="$UAT_DIR/progress.txt"
-readonly UAT_FAILURE_FILE="$UAT_DIR/last_failure.txt"
-readonly UAT_SCREENSHOTS_DIR="$UAT_DIR/screenshots"
+# UAT-specific directory variables (initialized by _init_uat_dirs)
+UAT_MODE_DIR=""
+UAT_PLAN_FILE=""
+UAT_PROGRESS_FILE=""
+UAT_FAILURE_FILE=""
+UAT_SCREENSHOTS_DIR=""
+UAT_MODE_LABEL=""
+UAT_CONFIG_NS=""    # config namespace: "uat" or "chaos"
+UAT_CMD_NAME=""     # CLI command name: "uat" or "chaos-agent"
 
 # TDD phases
 readonly UAT_PHASE_RED="RED"
@@ -35,62 +41,66 @@ readonly DEFAULT_UAT_MAX_ITERATIONS=20
 readonly DEFAULT_UAT_MAX_SESSION_SECONDS=600
 readonly DEFAULT_UAT_MAX_CASE_RETRIES=5
 
-# Swarm defaults
-readonly DEFAULT_UAT_SCOUT_TIMEOUT=120
-readonly DEFAULT_UAT_AGENT_TIMEOUT=300
-readonly DEFAULT_UAT_MAX_CONCURRENT=6
-
-# Attack vectors for swarm agents
-readonly UAT_VECTORS=("happy-path" "chaos" "security")
+# Team mode timeouts (longer — Claude coordinates parallel agents)
+readonly DEFAULT_UAT_SESSION_SECONDS=1800
+readonly DEFAULT_CHAOS_SESSION_SECONDS=1800
 
 # ============================================================================
-# ENTRY POINT
+# DIRECTORY INIT
 # ============================================================================
 
-run_uat() {
-  local focus=""
-  local plan_only=false
-  local force_review=false
-  local no_fix=false
-  local max_iterations=""
-  local swarm_mode=false
-  local fresh_mode=false
-  local quiet_mode
-  quiet_mode=$(get_config '.quiet' "false")
+_init_uat_dirs() {
+  local subdir="${1:-uat}"
+  local label="${2:-UAT}"
+  local cmd="${3:-$subdir}"
+  UAT_MODE_DIR="$RALPH_DIR/$subdir"
+  UAT_PLAN_FILE="$UAT_MODE_DIR/plan.json"
+  UAT_PROGRESS_FILE="$UAT_MODE_DIR/progress.txt"
+  UAT_FAILURE_FILE="$UAT_MODE_DIR/last_failure.txt"
+  UAT_SCREENSHOTS_DIR="$UAT_MODE_DIR/screenshots"
+  UAT_MODE_LABEL="$label"
+  UAT_CONFIG_NS="$subdir"
+  UAT_CMD_NAME="$cmd"
+}
 
-  # Parse arguments
+# ============================================================================
+# SHARED ARG PARSING
+# ============================================================================
+
+# Sets: _ARG_FOCUS, _ARG_PLAN_ONLY, _ARG_FORCE_REVIEW, _ARG_NO_FIX,
+#       _ARG_MAX_ITERATIONS, _ARG_QUIET_MODE
+_parse_uat_args() {
+  _ARG_FOCUS=""
+  _ARG_PLAN_ONLY=false
+  _ARG_FORCE_REVIEW=false
+  _ARG_NO_FIX=false
+  _ARG_MAX_ITERATIONS=""
+  _ARG_QUIET_MODE=$(get_config '.quiet' "false")
+
   while [[ $# -gt 0 ]]; do
     case "$1" in
       --focus)
-        focus="$2"
+        _ARG_FOCUS="$2"
         shift 2
         ;;
       --plan-only)
-        plan_only=true
+        _ARG_PLAN_ONLY=true
         shift
         ;;
       --review)
-        force_review=true
+        _ARG_FORCE_REVIEW=true
         shift
         ;;
       --no-fix)
-        no_fix=true
+        _ARG_NO_FIX=true
         shift
         ;;
       --max)
-        max_iterations="$2"
+        _ARG_MAX_ITERATIONS="$2"
         shift 2
         ;;
       --quiet)
-        quiet_mode=true
-        shift
-        ;;
-      --swarm)
-        swarm_mode=true
-        shift
-        ;;
-      --fresh)
-        fresh_mode=true
+        _ARG_QUIET_MODE=true
         shift
         ;;
       *)
@@ -98,6 +108,24 @@ run_uat() {
         ;;
     esac
   done
+}
+
+# ============================================================================
+# ENTRY POINT
+# ============================================================================
+
+run_uat() {
+  _parse_uat_args "$@"
+
+  local focus="$_ARG_FOCUS"
+  local plan_only="$_ARG_PLAN_ONLY"
+  local force_review="$_ARG_FORCE_REVIEW"
+  local no_fix="$_ARG_NO_FIX"
+  local max_iterations="$_ARG_MAX_ITERATIONS"
+  local quiet_mode="$_ARG_QUIET_MODE"
+
+  # Initialize directories for UAT mode
+  _init_uat_dirs "uat" "UAT"
 
   # Validate prerequisites
   check_dependencies
@@ -105,8 +133,8 @@ run_uat() {
   # Concurrent execution guard
   _acquire_uat_lock
 
-  # Ensure UAT directory structure
-  mkdir -p "$UAT_DIR" "$UAT_SCREENSHOTS_DIR"
+  # Ensure directory structure
+  mkdir -p "$UAT_MODE_DIR" "$UAT_SCREENSHOTS_DIR"
 
   # Banner
   _print_uat_banner
@@ -117,34 +145,17 @@ run_uat() {
       print_info "Re-reviewing existing plan..."
     else
       echo ""
-      print_info "Phase 1: Discovery + Plan Generation"
+      print_info "Phase 1: Exploring your app and building a test plan"
       echo ""
-      local discover_ok=false
-      if [[ "$swarm_mode" == "true" ]]; then
-        if _swarm_discover_and_plan "$fresh_mode" "$quiet_mode"; then
-          discover_ok=true
-        else
-          print_warning "Swarm discovery failed, falling back to single-session..."
-          # Clean up partial swarm artifacts to avoid stale data on next --swarm run
-          rm -f "$UAT_DIR"/app-map.json "$UAT_DIR"/findings-*.json
-          if _discover_and_plan "$quiet_mode"; then
-            discover_ok=true
-          fi
-        fi
-      else
-        if _discover_and_plan "$quiet_mode"; then
-          discover_ok=true
-        fi
-      fi
-      if [[ "$discover_ok" != "true" ]]; then
-        print_error "Discovery failed. Check $UAT_PROGRESS_FILE for details."
+      if ! _discover_and_plan "$quiet_mode" "uat"; then
+        print_error "Something went wrong while exploring your app. See the progress log for details."
         return 1
       fi
     fi
 
     # Review the plan
     if ! _review_plan; then
-      print_info "Plan review cancelled."
+      print_info "Plan review cancelled. No changes were made."
       return 0
     fi
 
@@ -155,12 +166,84 @@ run_uat() {
   else
     local remaining
     remaining=$(jq '[.testCases[] | select(.passes==false)] | length' "$UAT_PLAN_FILE" 2>/dev/null || echo "0")
-    print_info "Resuming existing plan ($remaining test cases remaining)"
+    print_info "Picking up where we left off ($remaining tests still to go)"
   fi
 
   # Phase 2: Execute Loop
   echo ""
-  print_info "Phase 2: Execute UAT Loop"
+  print_info "Phase 2: Running tests and fixing issues"
+  echo ""
+  _run_uat_loop "$focus" "$no_fix" "$max_iterations" "$quiet_mode"
+  local loop_exit=$?
+
+  # Phase 3: Report
+  _print_report
+
+  return $loop_exit
+}
+
+# ============================================================================
+# CHAOS AGENT ENTRY POINT
+# ============================================================================
+
+run_chaos() {
+  _parse_uat_args "$@"
+
+  local focus="$_ARG_FOCUS"
+  local plan_only="$_ARG_PLAN_ONLY"
+  local force_review="$_ARG_FORCE_REVIEW"
+  local no_fix="$_ARG_NO_FIX"
+  local max_iterations="$_ARG_MAX_ITERATIONS"
+  local quiet_mode="$_ARG_QUIET_MODE"
+
+  # Initialize directories for chaos mode
+  _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
+
+  # Validate prerequisites
+  check_dependencies
+
+  # Concurrent execution guard
+  _acquire_uat_lock
+
+  # Ensure directory structure
+  mkdir -p "$UAT_MODE_DIR" "$UAT_SCREENSHOTS_DIR"
+
+  # Banner
+  _print_chaos_banner
+
+  # Phase 1: Adversarial Discovery + Plan
+  if [[ ! -f "$UAT_PLAN_FILE" ]] || [[ "$force_review" == "true" ]] || [[ "$plan_only" == "true" ]]; then
+    if [[ -f "$UAT_PLAN_FILE" ]] && [[ "$force_review" == "true" ]]; then
+      print_info "Re-reviewing existing plan..."
+    else
+      echo ""
+      print_info "Phase 1: Red team exploring your app for vulnerabilities"
+      echo ""
+      if ! _discover_and_plan "$quiet_mode" "chaos"; then
+        print_error "Something went wrong during red team exploration. See the progress log for details."
+        return 1
+      fi
+    fi
+
+    # Review the plan
+    if ! _review_plan; then
+      print_info "Plan review cancelled. No changes were made."
+      return 0
+    fi
+
+    if [[ "$plan_only" == "true" ]]; then
+      print_success "Plan generated. Run 'npx agentic-loop chaos-agent' to execute."
+      return 0
+    fi
+  else
+    local remaining
+    remaining=$(jq '[.testCases[] | select(.passes==false)] | length' "$UAT_PLAN_FILE" 2>/dev/null || echo "0")
+    print_info "Picking up where we left off ($remaining tests still to go)"
+  fi
+
+  # Phase 2: Testing for vulnerabilities and fixing issues
+  echo ""
+  print_info "Phase 2: Running attack tests and fixing issues"
   echo ""
   _run_uat_loop "$focus" "$no_fix" "$max_iterations" "$quiet_mode"
   local loop_exit=$?
@@ -181,7 +264,7 @@ _acquire_uat_lock() {
     local pid
     pid=$(cat "$lockfile")
     if kill -0 "$pid" 2>/dev/null; then
-      print_error "Another Ralph process is running (PID $pid). Stop it first."
+      print_error "Another $UAT_MODE_LABEL session is already running. Stop it first with 'npx agentic-loop stop'."
       exit 1
     fi
     rm -f "$lockfile"  # Stale lock
@@ -199,7 +282,7 @@ _uat_cleanup() {
 
 _uat_interrupt() {
   echo ""
-  print_warning "Interrupted. Stopping UAT loop..."
+  print_warning "Interrupted. Wrapping up $UAT_MODE_LABEL..."
   # Kill all child processes (Claude sessions, test runners)
   kill 0 2>/dev/null || true
   _uat_cleanup
@@ -212,17 +295,21 @@ _uat_interrupt() {
 
 _discover_and_plan() {
   local quiet="${1:-false}"
+  local mode="${2:-uat}"
   local prompt_file output_file
   prompt_file=$(create_temp_file ".uat-discover-prompt.md")
   output_file=$(create_temp_file ".uat-discover-output.log")
 
   local timeout
-  timeout=$(get_config '.uat.maxSessionSeconds' "$DEFAULT_UAT_MAX_SESSION_SECONDS")
-
-  # Build discovery prompt
-  _build_discovery_prompt "$prompt_file"
-
-  _log_uat "DISCOVER" "Starting discovery + plan generation"
+  if [[ "$mode" == "chaos" ]]; then
+    timeout=$(get_config '.chaos.sessionSeconds' "$DEFAULT_CHAOS_SESSION_SECONDS")
+    _build_chaos_agent_prompt "$prompt_file"
+    _log_uat "DISCOVER" "Starting Chaos Agent discovery (timeout: ${timeout}s)"
+  else
+    timeout=$(get_config '.uat.sessionSeconds' "$DEFAULT_UAT_SESSION_SECONDS")
+    _build_uat_team_prompt "$prompt_file"
+    _log_uat "DISCOVER" "Starting UAT team discovery (timeout: ${timeout}s)"
+  fi
 
   # Run Claude with MCP exploration
   local claude_exit=0
@@ -239,7 +326,7 @@ _discover_and_plan() {
 
   if [[ $claude_exit -ne 0 ]]; then
     _log_uat "DISCOVER" "Claude session failed (exit $claude_exit)"
-    print_error "Discovery session failed"
+    print_error "App exploration session failed"
     if [[ -f "$output_file" ]]; then
       echo "  Last output:"
       tail -10 "$output_file" | sed 's/^/    /'
@@ -249,23 +336,23 @@ _discover_and_plan() {
 
   # Validate plan was generated
   if [[ ! -f "$UAT_PLAN_FILE" ]]; then
-    print_error "Claude did not generate a test plan at $UAT_PLAN_FILE"
+    print_error "No test plan was created"
     echo ""
-    echo "  The discovery session completed but no plan.json was created."
-    echo "  Check the output above for errors."
+    echo "  The exploration finished but didn't produce a plan."
+    echo "  Check the output above for what went wrong."
     return 1
   fi
 
   if ! _validate_plan; then
-    print_error "Generated plan is invalid"
+    print_error "The generated plan has errors and can't be used"
     return 1
   fi
 
   # Check if project-specific prompt was generated
-  if [[ ! -f "$UAT_DIR/UAT-PROMPT.md" ]]; then
-    print_warning "Project-specific UAT-PROMPT.md was not generated."
-    echo "    Test cases will use the generic template instead."
-    echo "    For better results, re-run with 'npx agentic-loop uat --plan-only'."
+  if [[ ! -f "$UAT_MODE_DIR/UAT-PROMPT.md" ]]; then
+    print_warning "No project-specific test instructions were created."
+    echo "    Tests will use generic patterns instead."
+    echo "    For better results, re-run with 'npx agentic-loop $UAT_CMD_NAME --plan-only'."
   fi
 
   # Mark plan as generated
@@ -279,7 +366,7 @@ _discover_and_plan() {
   return 0
 }
 
-_build_discovery_prompt() {
+_build_uat_team_prompt() {
   local prompt_file="$1"
 
   # Start with UAT prompt template
@@ -289,95 +376,134 @@ _build_discovery_prompt() {
 
 ---
 
-## Phase: Discovery + Plan Generation
+## Phase: UAT Team Discovery + Plan Generation
 
-You are in the DISCOVERY phase. Your tasks:
+You are the **team lead** of an acceptance testing team. Your job is to coordinate a team of
+agents that explore a live app, verify features work correctly, and produce a comprehensive
+UAT plan.
 
-1. **Read context** — Read `.ralph/config.json` for URLs, directories, auth config
-2. **Read PRD** — Read `.ralph/prd.json` for completed stories (what features exist)
-3. **Explore the live app** — Use Playwright MCP to navigate pages, click around, fill forms, take screenshots
-4. **Read source code** — Understand what's behind the UI you explored
-5. **Generate the test plan** — Write `.ralph/uat/plan.json`
-6. **Generate project-specific UAT prompt** — Write `.ralph/uat/UAT-PROMPT.md`
+### Step 1: Recon (~60 seconds)
 
-### Exploration Strategy
+Before spawning anyone, do a quick recon yourself:
 
-- Start at the frontend URL from config
-- Navigate to every page you can find
-- Try all forms and interactive elements
-- Check the browser console for errors
-- Take screenshots of each major page (save to `.ralph/uat/screenshots/`)
-- Note anything that looks wrong, slow, or broken
+1. **Read `.ralph/config.json`** for URLs, auth config, and directories
+2. **Read `.ralph/prd.json`** if it exists — completed stories tell you what was built
+3. **Navigate the app** using Playwright MCP — click through nav, find pages, note the tech stack
+4. **Take 2-3 screenshots** of key pages (save to `.ralph/uat/screenshots/`)
+5. **Map the feature areas** — what exists? (auth, forms, API, navigation, etc.)
 
-### Test Plan Format
+Don't go deep. Just map what's there. ~60 seconds max.
 
-Write `.ralph/uat/plan.json` with this structure:
+### Step 2: Assemble the UAT Team
+
+Create a team and spawn teammates:
+
+```
+TeamCreate: "uat-team"
+```
+
+Spawn these teammates using the Task tool with `team_name: "uat-team"`:
+
+1. **"recon"** (`subagent_type: "general-purpose"`) — Deep recon. Maps all routes/endpoints,
+   catalogs forms with selectors, identifies tech stack and auth. Shares intel with teammates
+   via SendMessage.
+
+2. **"happy-path-{area}"** (`subagent_type: "general-purpose"`) — One per feature area.
+   Completes primary user journeys, records correct behavior as ground truth assertions
+   (exact text, redirects, success messages).
+
+3. **"edge-cases"** (`subagent_type: "general-purpose"`) — Tests boundary conditions across
+   all areas. Empty fields, long input, required-field validation, back button after submit,
+   refresh mid-flow. Focus: does the app handle these gracefully?
+
+**Only spawn agents for areas that exist.** If there are no forms, don't spawn a forms specialist.
+If there's no auth, skip auth testing.
+
+Mindset: **"Verify the app works correctly for real users."**
+
+### Agent Instructions Template
+
+Every agent prompt MUST include:
+
+1. **Their role and focus area** (from above)
+2. **The recon intel** — pages, URLs, tech stack you discovered in Step 1
+3. **Browser tab isolation** — "Open your own browser tab via `browser_tabs(action: 'new')`
+   before navigating. Do NOT use the existing tab."
+4. **Communication** — "Share important discoveries with teammates via SendMessage.
+   Examples: 'Login redirects to /dashboard after success', 'Registration form has 4 required fields',
+   'Profile page shows user email and name'. Read messages from teammates and adapt your testing."
+5. **Output format** — "When done, send your findings to the team lead via SendMessage.
+   Format each finding as a test case with: title, category, testFile path, targetFiles,
+   assertions (input/expected/strategy), and edgeCases."
+
+### Step 3: Coordinate
+
+While your team works:
+
+- **Monitor messages** from teammates as they report findings
+- **Redirect effort** if needed — if recon discovers something important, message the
+  relevant specialist
+- **Create tasks** in the shared task list for any new areas discovered
+
+### Step 4: Collect + Merge + Write Plan
+
+After all teammates finish:
+
+1. Collect findings from all agent messages
+2. Dedup by test file path (keep the case with more assertions)
+3. Assign sequential IDs: `UAT-001`, `UAT-002`, ...
+4. Write `.ralph/uat/plan.json` (schema below)
+5. Write `.ralph/uat/UAT-PROMPT.md` (schema below)
+6. Shut down all teammates via SendMessage with `type: "shutdown_request"`
+7. Clean up with TeamDelete
+
+### plan.json Schema
+
+Write `.ralph/uat/plan.json`:
 
 ```json
 {
   "testSuite": {
-    "name": "UAT Ralph",
+    "name": "UAT Loop",
     "generatedAt": "<ISO timestamp>",
-    "status": "pending"
+    "status": "pending",
+    "discoveryMethod": "uat-team"
   },
   "testCases": [
     {
       "id": "UAT-001",
-      "title": "Feature area — happy path + edge cases",
+      "title": "Feature area — what the test checks",
       "category": "auth|forms|navigation|api|ui|data",
       "type": "e2e|integration",
       "userStory": "As a user, I...",
       "testApproach": "What to test and how",
       "testFile": "tests/e2e/feature/test-name.spec.ts",
-      "targetFiles": ["src/pages/feature.tsx", "api/routes/feature.py"],
+      "targetFiles": ["src/pages/feature.tsx"],
       "edgeCases": ["Edge case 1", "Edge case 2"],
       "assertions": [
         {
-          "input": "Fill name='John', email='john@test.com', submit form",
-          "expected": "Redirect to /dashboard, page shows 'Welcome, John'",
+          "input": "Fill name='John', submit form",
+          "expected": "Shows 'Welcome, John'",
           "strategy": "keyword"
-        },
-        {
-          "input": "Fill name='<script>alert(1)</script>', submit form",
-          "expected": "Name displayed as literal text, no script execution",
-          "strategy": "security"
-        },
-        {
-          "input": "Submit form with all fields empty",
-          "expected": "Validation errors shown, form NOT submitted, URL unchanged",
-          "strategy": "structural"
         }
       ],
       "passes": false,
-      "retryCount": 0
+      "retryCount": 0,
+      "source": "uat-team:agent-name"
     }
   ]
 }
 ```
 
-### Assertions: The Core of Every Test Case
-
-Each assertion is an **input → expected output** pair that you discovered during exploration.
-These are NOT guesses — they come from actually using the app via MCP and recording what you saw.
-
-**Assertion strategies:**
-- `keyword` — expected output contains specific text (names, numbers, messages)
-- `structural` — expected output has specific structure (N items, error visible, URL changed)
-- `navigation` — expected redirect or page change
-- `security` — input is an attack vector, expected output is safe handling
-- `llm-judge` — freeform/AI output, needs rubric-based judging
-
-**Every test case MUST have at least 3 assertions:**
+**Every test case MUST have at least 3 assertions** with concrete input/expected pairs:
 1. One happy-path assertion (correct input → correct output)
 2. One edge-case assertion (bad input → proper error handling)
 3. One content assertion (page shows the RIGHT data, not just that it loads)
 
-### Project-Specific UAT Prompt
+### UAT-PROMPT.md Schema
 
-After exploring the app, write `.ralph/uat/UAT-PROMPT.md` — a project-specific testing guide.
-This file will be used for ALL subsequent test case executions, so make it concrete and specific.
-
-Include these sections based on what you ACTUALLY FOUND during exploration:
+Write `.ralph/uat/UAT-PROMPT.md` — a project-specific testing guide based on what the
+team ACTUALLY FOUND. Include:
 
 ```markdown
 # UAT Guide — [Project Name]
@@ -388,7 +514,7 @@ Include these sections based on what you ACTUALLY FOUND during exploration:
 - Base URLs (frontend, API if applicable)
 
 ## Pages & Routes Discovered
-For each page you found:
+For each page:
 - URL pattern and what it shows
 - Key interactive elements (forms, buttons, links)
 - Selectors that work (data-testid, roles, labels)
@@ -403,13 +529,11 @@ For each form:
 - Fields with their labels/names/selectors
 - Required vs optional fields
 - Validation behavior observed
-- What happens on successful submit
 
 ## What "Correct" Looks Like
 For each feature area:
-- Expected behavior you observed
+- Expected behavior observed
 - Specific text/numbers that should appear
-- Response times that seem normal
 
 ## Console & Network Observations
 - Any existing console errors/warnings
@@ -417,9 +541,9 @@ For each feature area:
 - Response patterns (JSON structure, status codes)
 ```
 
-This is NOT a copy of the template — it's the ground truth from YOUR exploration.
+This is NOT a copy of the template — it's ground truth from the team's exploration.
 
-### Rules for Plan Generation
+### Rules
 
 - Test auth flows FIRST (they gate everything else)
 - One test case per feature area (not per edge case)
@@ -430,42 +554,22 @@ This is NOT a copy of the template — it's the ground truth from YOUR explorati
 - `targetFiles` should list the app source files the test covers
 - `testFile` path should use the project's test directory conventions
 - Aim for 5-15 test cases depending on app complexity
+- Always clean up: shutdown teammates and delete team when done
 PROMPT_SECTION
 
-  # Inject PRD context if available
-  if [[ -f "$RALPH_DIR/prd.json" ]]; then
-    echo "" >> "$prompt_file"
-    echo "### Completed Stories (from PRD)" >> "$prompt_file"
-    echo "" >> "$prompt_file"
-    echo "These features have been built and should be testable:" >> "$prompt_file"
-    echo '```json' >> "$prompt_file"
-    jq '[.stories[] | select(.passes==true) | {id, title, type, testUrl: .testUrl}]' \
-      "$RALPH_DIR/prd.json" >> "$prompt_file" 2>/dev/null
-    echo '```' >> "$prompt_file"
-  fi
-
-  # Inject config context
-  if [[ -f "$RALPH_DIR/config.json" ]]; then
-    echo "" >> "$prompt_file"
-    echo "### Project Config" >> "$prompt_file"
-    echo "" >> "$prompt_file"
-    echo "Read \`.ralph/config.json\` for URLs and directories." >> "$prompt_file"
-  fi
-
-  # Inject signs
-  _inject_signs >> "$prompt_file"
+  _inject_prompt_context "$prompt_file"
 }
 
 _validate_plan() {
   # Check JSON is valid
   if ! jq -e '.' "$UAT_PLAN_FILE" >/dev/null 2>&1; then
-    print_error "plan.json is not valid JSON"
+    print_error "Test plan file is corrupted (not valid JSON)"
     return 1
   fi
 
   # Check required structure
   if ! jq -e '.testSuite and .testCases' "$UAT_PLAN_FILE" >/dev/null 2>&1; then
-    print_error "plan.json missing testSuite or testCases"
+    print_error "Test plan is incomplete — missing required sections"
     return 1
   fi
 
@@ -473,7 +577,7 @@ _validate_plan() {
   local invalid_cases
   invalid_cases=$(jq '[.testCases[] | select(.id == null or .title == null or .testFile == null)] | length' "$UAT_PLAN_FILE" 2>/dev/null)
   if [[ "$invalid_cases" -gt 0 ]]; then
-    print_error "$invalid_cases test case(s) missing required fields (id, title, testFile)"
+    print_error "$invalid_cases test case(s) are incomplete — each needs an ID, title, and test file"
     return 1
   fi
 
@@ -481,9 +585,9 @@ _validate_plan() {
   local missing_assertions
   missing_assertions=$(jq '[.testCases[] | select((.assertions // []) | length < 1)] | length' "$UAT_PLAN_FILE" 2>/dev/null)
   if [[ "$missing_assertions" -gt 0 ]]; then
-    print_warning "$missing_assertions test case(s) have no assertions — tests may be shallow"
-    echo "    Each test case should have assertions with input/expected pairs."
-    echo "    Run 'npx agentic-loop uat --review' to edit the plan and add them."
+    print_warning "$missing_assertions test case(s) have no expected results defined — tests may not catch real issues"
+    echo "    Each test case should describe what to check (input and expected outcome)."
+    echo "    Run 'npx agentic-loop $UAT_CMD_NAME --review' to edit the plan and add them."
     # Warning only, not a hard failure — Claude may add assertions during execution
   fi
 
@@ -497,7 +601,7 @@ _validate_plan() {
 _review_plan() {
   echo ""
   echo "  ┌──────────────────────────────────────────────────────┐"
-  echo "  │  UAT Test Plan                                       │"
+  printf "  │  %-54s│\n" "$UAT_MODE_LABEL Test Plan"
   echo "  └──────────────────────────────────────────────────────┘"
   echo ""
 
@@ -507,7 +611,7 @@ _review_plan() {
   # Print summary table
   local idx=0
   while IFS=$'\t' read -r id title category tc_type edge_count assert_count; do
-    ((idx++))
+    idx=$((idx + 1))
     local type_icon=""
     case "$tc_type" in
       e2e) type_icon="🌐" ;;
@@ -519,7 +623,7 @@ _review_plan() {
     local display_title="$title"
     [[ ${#display_title} -gt 40 ]] && display_title="${display_title:0:37}..."
 
-    printf "  %s %-10s %-40s [%s edges, %s asserts]\n" "$type_icon" "$id" "$display_title" "$edge_count" "$assert_count"
+    printf "  %s %-10s %-40s [%s edge cases, %s checks]\n" "$type_icon" "$id" "$display_title" "$edge_count" "$assert_count"
   done < <(jq -r '.testCases[] | [.id, .title, .category, .type, (.edgeCases | length | tostring), ((.assertions // []) | length | tostring)] | @tsv' "$UAT_PLAN_FILE" 2>/dev/null)
 
   echo ""
@@ -539,7 +643,7 @@ _review_plan() {
       "$editor" "$UAT_PLAN_FILE"
       # Re-validate after edit
       if ! _validate_plan; then
-        print_error "Edited plan is invalid. Fix and try again."
+        print_error "Your edits made the plan invalid. Please fix and try again."
         return 1
       fi
       # Mark as reviewed
@@ -569,15 +673,13 @@ _run_uat_loop() {
   local quiet="$4"
 
   local max_iterations
-  max_iterations="${max_iterations_arg:-$(get_config '.uat.maxIterations' "$DEFAULT_UAT_MAX_ITERATIONS")}"
+  max_iterations="${max_iterations_arg:-$(get_config ".$UAT_CONFIG_NS.maxIterations" "$DEFAULT_UAT_MAX_ITERATIONS")}"
   local max_case_retries
-  max_case_retries=$(get_config '.uat.maxCaseRetries' "$DEFAULT_UAT_MAX_CASE_RETRIES")
+  max_case_retries=$(get_config ".$UAT_CONFIG_NS.maxCaseRetries" "$DEFAULT_UAT_MAX_CASE_RETRIES")
   local timeout
-  timeout=$(get_config '.uat.maxSessionSeconds' "$DEFAULT_UAT_MAX_SESSION_SECONDS")
+  timeout=$(get_config ".$UAT_CONFIG_NS.maxSessionSeconds" "$DEFAULT_UAT_MAX_SESSION_SECONDS")
 
   local iteration=0
-  local start_time
-  start_time=$(date +%s)
 
   # Track results for report
   UAT_TESTS_WRITTEN=0
@@ -595,11 +697,11 @@ _run_uat_loop() {
     # Check for stop signal
     if [[ -f "$RALPH_DIR/.stop" ]]; then
       rm -f "$RALPH_DIR/.stop"
-      print_warning "Stop signal received. Exiting gracefully."
+      print_warning "Stop requested. Finishing up..."
       break
     fi
 
-    ((iteration++))
+    iteration=$((iteration + 1))
 
     # Pick next incomplete test case (with optional focus filter)
     local case_id
@@ -638,9 +740,9 @@ _run_uat_loop() {
     # Circuit breaker: combined red + green retries
     local total_retries=$((red_retries + green_retries))
     if [[ $total_retries -ge $max_case_retries ]]; then
-      print_warning "$case_id exceeded max retries ($max_case_retries) — skipping"
-      _flag_for_human "$case_id" "Exceeded max retries ($max_case_retries)"
-      ((UAT_CASES_SKIPPED++))
+      print_warning "$case_id tried $max_case_retries times without success — skipping (needs manual review)"
+      _flag_for_human "$case_id" "Tried $max_case_retries times without success"
+      UAT_CASES_SKIPPED=$((UAT_CASES_SKIPPED + 1))
       update_json "$UAT_PLAN_FILE" \
         --arg id "$case_id" '(.testCases[] | select(.id==$id)) |= . + {passes: true, skipped: true}'
       continue
@@ -659,7 +761,9 @@ _run_uat_loop() {
     echo ""
     echo "┌──────────────────────────────────────────────────────────┐"
     printf "│  %-10s  %-45s│\n" "$case_id" "$display_title"
-    printf "│  Phase: %-5s  Type: %-6s  Attempt: %-3s                │\n" "$current_phase" "$case_type" "$((total_retries + 1))"
+    local phase_label="Writing test"
+    [[ "$current_phase" == "$UAT_PHASE_GREEN" ]] && phase_label="Fixing app"
+    printf "│  %-14s  Type: %-6s  Attempt: %-3s                │\n" "$phase_label" "$case_type" "$((total_retries + 1))"
     echo "└──────────────────────────────────────────────────────────┘"
     echo ""
 
@@ -727,7 +831,7 @@ _run_red_phase() {
   rm -f "$prompt_file"
 
   if [[ $claude_exit -ne 0 ]] && [[ $claude_exit -ne 124 ]]; then
-    print_warning "RED session ended unexpectedly (exit $claude_exit)"
+    print_warning "Test-writing session ended unexpectedly — will retry"
     _log_uat "$case_id" "RED: Session failed (exit $claude_exit)"
     _increment_red_retry "$case_id"
     rm -f "$output_file"
@@ -736,7 +840,7 @@ _run_red_phase() {
 
   # Check if test file was created
   if [[ ! -f "$test_file" ]]; then
-    print_warning "RED: Test file not created: $test_file"
+    print_warning "$case_id: Test file was not created — will retry"
     _log_uat "$case_id" "RED: Test file not created"
     _increment_red_retry "$case_id"
     rm -f "$output_file"
@@ -745,7 +849,7 @@ _run_red_phase() {
 
   # Enforce RED constraint: no app changes allowed
   if _has_app_changes "$test_file"; then
-    print_warning "RED violation: Claude modified app code during test-only phase — rolling back"
+    print_warning "$case_id: App code was changed during test-writing (not allowed) — undoing changes"
     _log_uat "$case_id" "RED: App changes detected — rollback"
     _rollback_to_snapshot "$case_id"
     _save_red_violation_feedback "$case_id"
@@ -754,11 +858,11 @@ _run_red_phase() {
     return
   fi
 
-  ((UAT_TESTS_WRITTEN++))
+  UAT_TESTS_WRITTEN=$((UAT_TESTS_WRITTEN + 1))
 
   # Validate test quality — reject shallow tests
   if ! _validate_test_quality "$test_file" "$case_id"; then
-    print_warning "$case_id RED: test is too shallow — will retry with feedback"
+    print_warning "$case_id: Test doesn't check enough — will retry with better guidance"
     _save_shallow_test_feedback "$case_id" "$test_file"
     _increment_red_retry "$case_id"
     rm -f "$output_file"
@@ -768,11 +872,11 @@ _run_red_phase() {
   # Run the test
   if _run_test "$test_file" "$case_type"; then
     # PASS in RED — app already correct, no fix needed
-    print_success "$case_id RED: test passes (app already correct)"
+    print_success "$case_id: Test passes — app already works correctly"
     _mark_passed "$case_id"
     _commit_result "$case_id" "$test_file"
-    ((UAT_CASES_PASSED++))
-    ((UAT_RED_ONLY_PASSED++))
+    UAT_CASES_PASSED=$((UAT_CASES_PASSED + 1))
+    UAT_RED_ONLY_PASSED=$((UAT_RED_ONLY_PASSED + 1))
     _log_uat "$case_id" "RED: PASSED (app already correct)"
   else
     # FAIL — classify: test bug or app bug?
@@ -780,20 +884,20 @@ _run_red_phase() {
     failure_type=$(_classify_red_failure "$test_file" "$case_id")
 
     if [[ "$failure_type" == "test_bug" ]]; then
-      print_warning "$case_id RED: test has errors (syntax/import) — will retry"
+      print_warning "$case_id: Test has errors — will retry"
       _save_failure_context "$case_id" "$output_file"
       _increment_red_retry "$case_id"
     else
       # App bug found — commit the RED test, transition to GREEN
-      print_info "$case_id RED: test correctly identifies app bug"
-      ((UAT_BUGS_FOUND++))
+      print_info "$case_id: Found an app bug — now fixing it"
+      UAT_BUGS_FOUND=$((UAT_BUGS_FOUND + 1))
 
       if [[ "$no_fix" == "true" ]]; then
         # --no-fix mode: commit failing test as documented bug
-        print_info "$case_id: Committing failing test as documented bug (--no-fix)"
+        print_info "$case_id: Saving test as a documented bug (fix skipped with --no-fix)"
         _commit_red_test "$case_id" "$test_file"
         _mark_passed "$case_id"
-        ((UAT_CASES_PASSED++))
+        UAT_CASES_PASSED=$((UAT_CASES_PASSED + 1))
         _log_uat "$case_id" "RED: Documented bug (--no-fix mode)"
       else
         # Commit the RED test and transition to GREEN
@@ -815,7 +919,7 @@ _run_green_phase() {
   local timeout="$4"
   local quiet="$5"
 
-  ((UAT_GREEN_ATTEMPTS++))
+  UAT_GREEN_ATTEMPTS=$((UAT_GREEN_ATTEMPTS + 1))
 
   local prompt_file output_file
   prompt_file=$(create_temp_file ".uat-green-prompt.md")
@@ -840,7 +944,7 @@ _run_green_phase() {
   rm -f "$prompt_file"
 
   if [[ $claude_exit -ne 0 ]] && [[ $claude_exit -ne 124 ]]; then
-    print_warning "GREEN session ended unexpectedly (exit $claude_exit)"
+    print_warning "Fix session ended unexpectedly — will retry"
     _log_uat "$case_id" "GREEN: Session failed (exit $claude_exit)"
     _increment_green_retry "$case_id"
     rm -f "$output_file"
@@ -849,7 +953,7 @@ _run_green_phase() {
 
   # Enforce GREEN constraint: no test file modifications
   if _test_file_modified "$test_file"; then
-    print_warning "GREEN: Claude modified the test file — restoring"
+    print_warning "$case_id: Test file was changed during fix (not allowed) — restoring original"
     _restore_test_file "$test_file" "$case_id"
     _log_uat "$case_id" "GREEN: Test file restored after modification"
   fi
@@ -858,24 +962,24 @@ _run_green_phase() {
   if _run_test "$test_file" "$case_type"; then
     # PASS — check for regressions before committing
     if _check_regressions; then
-      print_success "$case_id GREEN: fix passes + no regressions"
+      print_success "$case_id: Fixed! Test passes and nothing else broke"
       _mark_passed "$case_id"
       _track_fixed_files "$case_id"
-      ((UAT_BUGS_FIXED++))
+      UAT_BUGS_FIXED=$((UAT_BUGS_FIXED + 1))
       _commit_result "$case_id" "$test_file"
-      ((UAT_CASES_PASSED++))
+      UAT_CASES_PASSED=$((UAT_CASES_PASSED + 1))
       _log_uat "$case_id" "GREEN: PASSED"
     else
       # Regression detected — rollback
-      print_error "GREEN: Fix for $case_id caused regression — rolling back"
+      print_error "$case_id: Fix broke other tests — undoing the change"
       _rollback_to_snapshot "$case_id"
-      _flag_for_human "$case_id" "Fix caused regression in existing tests"
+      _flag_for_human "$case_id" "Fix broke other tests"
       _increment_green_retry "$case_id"
       _log_uat "$case_id" "GREEN: ROLLBACK — fix caused regression"
     fi
   else
     # FAIL — retry GREEN
-    print_warning "$case_id GREEN: test still fails — will retry"
+    print_warning "$case_id: Fix didn't work — test still fails, will retry"
     _save_failure_context "$case_id" "$output_file"
     _increment_green_retry "$case_id"
   fi
@@ -926,7 +1030,7 @@ _run_test() {
     echo ""
     echo "  Test output (last 30 lines):"
     tail -30 "$log_file" | sed 's/^/    /'
-    cp "$log_file" "$UAT_DIR/last_test_output.log"
+    cp "$log_file" "$UAT_MODE_DIR/last_test_output.log"
     rm -f "$log_file"
     return 1
   fi
@@ -945,7 +1049,7 @@ _validate_test_quality() {
 
   # Count total assertion calls
   local assertion_count
-  assertion_count=$(grep -cE 'expect\(|assert\(|\.should\(' "$test_file" 2>/dev/null || echo "0")
+  assertion_count=$(grep -cE 'expect\(|assert\(|\.should\(' "$test_file" 2>/dev/null || true)
 
   if [[ "$assertion_count" -lt 2 ]]; then
     _log_uat "$case_id" "SHALLOW: only $assertion_count assertion(s)"
@@ -955,7 +1059,7 @@ _validate_test_quality() {
   # Count content assertions — these verify the RIGHT data, not just structure
   # Includes: toContain, toHaveText, toBe, toEqual, toMatch, textContent, innerText
   local content_assertions
-  content_assertions=$(grep -cE 'toContain\(|toHaveText\(|toBe\(|toEqual\(|toMatch\(|textContent|innerText|toHaveValue\(' "$test_file" 2>/dev/null || echo "0")
+  content_assertions=$(grep -cE 'toContain\(|toHaveText\(|toBe\(|toEqual\(|toMatch\(|textContent|innerText|toHaveValue\(' "$test_file" 2>/dev/null || true)
 
   if [[ "$content_assertions" -eq 0 ]]; then
     _log_uat "$case_id" "SHALLOW: no content assertions (only structural checks)"
@@ -990,8 +1094,8 @@ _save_shallow_test_feedback() {
   local test_file="$2"
 
   local assertion_count content_assertions
-  assertion_count=$(grep -cE 'expect\(|assert\(|\.should\(' "$test_file" 2>/dev/null || echo "0")
-  content_assertions=$(grep -cE 'toContain\(|toHaveText\(|toBe\(|toEqual\(|toMatch\(|textContent|innerText|toHaveValue\(' "$test_file" 2>/dev/null || echo "0")
+  assertion_count=$(grep -cE 'expect\(|assert\(|\.should\(' "$test_file" 2>/dev/null || true)
+  content_assertions=$(grep -cE 'toContain\(|toHaveText\(|toBe\(|toEqual\(|toMatch\(|textContent|innerText|toHaveValue\(' "$test_file" 2>/dev/null || true)
 
   {
     echo ""
@@ -1016,7 +1120,7 @@ _save_shallow_test_feedback() {
       echo "  Good: await expect(page.getByText('Email is required')).toBeVisible();"
     fi
     echo ""
-    echo "Fix: Read the assertions in .ralph/uat/plan.json for this test case."
+    echo "Fix: Read the assertions in .ralph/$UAT_CONFIG_NS/plan.json for this test case."
     echo "Each assertion has an 'input' and 'expected' — encode THOSE as expect() calls."
     echo "---"
   } >> "$UAT_FAILURE_FILE"
@@ -1037,9 +1141,9 @@ _save_failure_context() {
     echo ""
     echo "=== Attempt $((retry_count + 1)) failed for $case_id ==="
     echo ""
-    if [[ -f "$UAT_DIR/last_test_output.log" ]]; then
+    if [[ -f "$UAT_MODE_DIR/last_test_output.log" ]]; then
       echo "--- Test Output ---"
-      tail -50 "$UAT_DIR/last_test_output.log"
+      tail -50 "$UAT_MODE_DIR/last_test_output.log"
       echo ""
     fi
     echo "---"
@@ -1142,7 +1246,7 @@ _classify_red_failure() {
   local case_id="$2"
 
   # Check last test output for test-bug patterns (syntax/import errors)
-  local test_output="$UAT_DIR/last_test_output.log"
+  local test_output="$UAT_MODE_DIR/last_test_output.log"
   if [[ -f "$test_output" ]]; then
     # Syntax errors, import failures, module not found = test bug
     if grep -qiE 'SyntaxError|Cannot find module|ModuleNotFoundError|ImportError|TypeError:.*is not a function|ReferenceError:.*is not defined|unexpected token' "$test_output" 2>/dev/null; then
@@ -1211,7 +1315,7 @@ _git_snapshot() {
     # (tags point at commits, not the working tree)
     if ! git diff --quiet HEAD 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
       git add -A 2>/dev/null || true
-      git commit -m "uat: snapshot before $case_id" --no-verify 2>/dev/null || true
+      git commit -m "$UAT_CONFIG_NS: snapshot before $case_id" --no-verify 2>/dev/null || true
     fi
     git tag -f "uat-snapshot-${case_id}" 2>/dev/null || true
   fi
@@ -1224,7 +1328,7 @@ _rollback_to_snapshot() {
     if git rev-parse "$tag" >/dev/null 2>&1; then
       # Reset to the snapshot commit — undoes both staged and committed changes since
       git reset --hard "$tag" 2>/dev/null || true
-      print_info "Rolled back to snapshot for $case_id"
+      print_info "Reverted changes for $case_id"
     fi
   fi
 }
@@ -1234,7 +1338,7 @@ _has_app_changes() {
   if command -v git &>/dev/null && [[ -d ".git" ]]; then
     # Check if any files OTHER than the test file were modified
     local changed_files
-    changed_files=$(git diff --name-only HEAD 2>/dev/null | grep -v "^$(echo "$test_file" | sed 's/[.[\/*^$()+?{|]/\\&/g')$" | grep -v '\.ralph/' || true)
+    changed_files=$(git diff --name-only HEAD 2>/dev/null | grep -Fxv "$test_file" | grep -v '\.ralph/' || true)
     [[ -n "$changed_files" ]]
   else
     return 1
@@ -1242,7 +1346,7 @@ _has_app_changes() {
 }
 
 _check_regressions() {
-  echo "  Checking for regressions..."
+  echo "  Making sure other tests still pass..."
 
   # Run existing unit tests
   local test_cmd
@@ -1270,12 +1374,12 @@ _check_regressions() {
   log_file=$(create_temp_file ".uat-regression.log")
 
   if safe_exec "$test_cmd" "$log_file"; then
-    print_success "  No regressions detected"
+    print_success "  All other tests still pass"
     rm -f "$log_file"
     return 0
   else
-    print_error "  Regression detected!"
-    echo "    Test output (last 20 lines):"
+    print_error "  Some other tests broke!"
+    echo "    Output (last 20 lines):"
     tail -20 "$log_file" | sed 's/^/      /'
     rm -f "$log_file"
     return 1
@@ -1303,7 +1407,7 @@ _commit_result() {
   if _has_app_changes "$test_file"; then
     commit_msg="test+fix($case_id): TDD green -- test + app fix"
   else
-    commit_msg="test($case_id): UAT test"
+    commit_msg="test($case_id): $UAT_CONFIG_NS test"
   fi
 
   # Try commit with retries for auto-fix hooks
@@ -1357,8 +1461,8 @@ _build_red_prompt() {
   # Prefer project-specific UAT prompt (generated during discovery),
   # fall back to the universal template
   local uat_prompt="$RALPH_TEMPLATES/UAT-PROMPT.md"
-  if [[ -f "$UAT_DIR/UAT-PROMPT.md" ]]; then
-    uat_prompt="$UAT_DIR/UAT-PROMPT.md"
+  if [[ -f "$UAT_MODE_DIR/UAT-PROMPT.md" ]]; then
+    uat_prompt="$UAT_MODE_DIR/UAT-PROMPT.md"
   fi
   cat "$uat_prompt" > "$prompt_file"
 
@@ -1374,7 +1478,7 @@ You are in the **RED phase** of TDD. Your ONLY job is to write the test.
 
 Your tasks:
 
-1. **Read the test case** from \`.ralph/uat/plan.json\` (case ID: $case_id)
+1. **Read the test case** from \`.ralph/$UAT_CONFIG_NS/plan.json\` (case ID: $case_id)
 2. **Explore the feature** using Playwright MCP — navigate to the relevant pages, interact with the UI
 3. **Write the test file** at the path specified in the test case
 4. **Encode every assertion** from the test case as an actual expect() call
@@ -1449,7 +1553,7 @@ APPLICATION CODE so the test passes.
 ## Case: $case_id
 
 1. **Read the test file** at \`$test_file\` to understand what it checks
-2. **Read the test case** from \`.ralph/uat/plan.json\` (case ID: $case_id) for context
+2. **Read the test case** from \`.ralph/$UAT_CONFIG_NS/plan.json\` (case ID: $case_id) for context
 3. **Read the failure output** below to understand what went wrong
 4. **Fix the APPLICATION CODE** — make the minimum change needed to pass the test
 5. **DO NOT modify the test file** — Ralph will restore it if you do
@@ -1473,12 +1577,12 @@ PROMPT_SECTION
   fi
 
   # Also include last test output if available
-  if [[ -f "$UAT_DIR/last_test_output.log" ]]; then
+  if [[ -f "$UAT_MODE_DIR/last_test_output.log" ]]; then
     echo "" >> "$prompt_file"
     echo "## Last Test Output" >> "$prompt_file"
     echo "" >> "$prompt_file"
     echo '```' >> "$prompt_file"
-    tail -80 "$UAT_DIR/last_test_output.log" >> "$prompt_file"
+    tail -80 "$UAT_MODE_DIR/last_test_output.log" >> "$prompt_file"
     echo '```' >> "$prompt_file"
   fi
 
@@ -1591,13 +1695,13 @@ _print_report() {
 
   echo ""
   echo "╔══════════════════════════════════════════════════════════╗"
-  echo "║             UAT Ralph Results                            ║"
+  printf "║             %-14s Results                        ║\n" "$UAT_MODE_LABEL"
   echo "╠══════════════════════════════════════════════════════════╣"
   printf "║  Test cases:  %-3s total, %-3s passed, %-3s failed, %-3s skipped  ║\n" \
     "$total_cases" "$passed_cases" "$failed_cases" "$skipped_cases"
   printf "║  App bugs found: %-3s   Fixed: %-3s                        ║\n" \
     "$UAT_BUGS_FOUND" "$UAT_BUGS_FIXED"
-  printf "║  TDD: %-3s red-only, %-3s green attempts                   ║\n" \
+  printf "║  Already working: %-3s   Needed fixing: %-3s                ║\n" \
     "$UAT_RED_ONLY_PASSED" "$UAT_GREEN_ATTEMPTS"
   echo "║                                                          ║"
 
@@ -1626,7 +1730,7 @@ _print_report() {
   # List items needing human attention
   if [[ ${#UAT_NEEDS_HUMAN[@]} -gt 0 ]]; then
     echo "║                                                          ║"
-    echo "║  Needs human attention:                                  ║"
+    echo "║  Needs your attention:                                   ║"
     for item in "${UAT_NEEDS_HUMAN[@]}"; do
       local display="$item"
       [[ ${#display} -gt 54 ]] && display="${display:0:51}..."
@@ -1638,7 +1742,7 @@ _print_report() {
   echo ""
 
   # Send notification
-  send_notification "UAT Ralph: $passed_cases/$total_cases passed, $UAT_BUGS_FIXED bugs fixed"
+  send_notification "$UAT_MODE_LABEL: $passed_cases/$total_cases passed, $UAT_BUGS_FIXED bugs fixed"
 }
 
 # ============================================================================
@@ -1647,274 +1751,245 @@ _print_report() {
 
 _print_uat_banner() {
   echo ""
-  echo "  _   _   _  _____   ____       _       _"
-  echo " | | | | / \\|_   _| |  _ \\ __ _| |_ __ | |__"
-  echo " | | | |/ _ \\ | |   | |_) / _\` | | '_ \\| '_ \\"
-  echo " | |_| / ___ \\| |   |  _ < (_| | | |_) | | | |"
-  echo "  \\___/_/   \\_\\_|   |_| \\_\\__,_|_| .__/|_| |_|"
-  echo "                                  |_|"
+  echo "  _   _   _  _____   _                    "
+  echo " | | | | / \\|_   _| | |    ___   ___  _ __"
+  echo " | | | |/ _ \\ | |   | |   / _ \\ / _ \\| '_ \\"
+  echo " | |_| / ___ \\| |   | |__| (_) | (_) | |_) |"
+  echo "  \\___/_/   \\_\\_|   |_____\\___/ \\___/| .__/"
+  echo "                                      |_|"
+  echo ""
+}
+
+_print_chaos_banner() {
+  echo ""
+  echo "   ____ _                       _                    _   "
+  echo "  / ___| |__   __ _  ___  ___  / \\   __ _  ___ _ __ | |_ "
+  echo " | |   | '_ \\ / _\` |/ _ \\/ __|| _ \\ / _\` |/ _ \\ '_ \\| __|"
+  echo " | |___| | | | (_| | (_) \\__ \\/ ___ \\ (_| |  __/ | | | |_ "
+  echo "  \\____|_| |_|\\__,_|\\___/|___/_/   \\_\\__, |\\___|_| |_|\\__|"
+  echo "                                      |___/               "
+  echo "  Red team mode — trying to break things"
   echo ""
 }
 
 # ============================================================================
-# SWARM DISCOVERY
+# CHAOS AGENT PROMPT
 # ============================================================================
 
-# Orchestrator: scout → swarm → merge → validate
-# Falls back to single-session on failure
-_swarm_discover_and_plan() {
-  local fresh_mode="${1:-false}"
-  local quiet="${2:-false}"
-
-  # Clear cache if --fresh
-  if [[ "$fresh_mode" == "true" ]]; then
-    _log_uat "SWARM" "Fresh mode: clearing cached files"
-    rm -f "$UAT_DIR"/app-map.json "$UAT_DIR"/findings-*.json
-  fi
-
-  # Phase 1: Scout (skip if cached or config-defined)
-  if [[ ! -f "$UAT_DIR/app-map.json" ]]; then
-    local config_areas
-    config_areas=$(get_config '.uat.featureAreas' "")
-    if [[ -n "$config_areas" && "$config_areas" != "null" ]]; then
-      _build_app_map_from_config "$config_areas"
-    else
-      if ! _run_scout "$quiet"; then
-        _log_uat "SWARM" "Scout failed"
-        return 1
-      fi
-    fi
-  else
-    _log_uat "SWARM" "Reusing cached app-map.json (use --fresh to re-scout)"
-    print_info "Reusing cached app-map.json (use --fresh to re-scout)"
-  fi
-
-  # Validate app-map
-  if [[ ! -f "$UAT_DIR/app-map.json" ]]; then
-    _log_uat "SWARM" "No app-map.json after scout"
-    return 1
-  fi
-
-  local area_count
-  area_count=$(jq '[.featureAreas | to_entries[] | select(.value.exists==true)] | length' "$UAT_DIR/app-map.json" 2>/dev/null || echo "0")
-  if [[ "$area_count" -eq 0 ]]; then
-    print_warning "Scout found 0 feature areas — falling back to single-session"
-    _log_uat "SWARM" "0 feature areas found"
-    return 1
-  fi
-
-  print_success "Scout found $area_count feature areas"
-
-  # Phase 2: Swarm (only spawn missing agents)
-  if ! _run_agent_swarm "$quiet"; then
-    # Check if we got ANY findings
-    local findings_count
-    findings_count=$(find "$UAT_DIR" -name "findings-*.json" -type f 2>/dev/null | wc -l | tr -d ' ')
-    if [[ "$findings_count" -eq 0 ]]; then
-      _log_uat "SWARM" "All agents failed, no findings"
-      return 1
-    fi
-    print_warning "Some agents failed, merging findings from successful ones"
-  fi
-
-  # Phase 3: Merge findings into plan.json
-  if ! _merge_findings; then
-    _log_uat "SWARM" "Merge produced 0 test cases"
-    return 1
-  fi
-
-  # Validate the merged plan
-  if ! _validate_plan; then
-    print_error "Merged plan is invalid"
-    return 1
-  fi
-
-  # Mark plan as generated
-  update_json "$UAT_PLAN_FILE" '.testSuite.status = "planned"'
-
-  local case_count
-  case_count=$(jq '.testCases | length' "$UAT_PLAN_FILE")
-  _log_uat "SWARM" "Plan generated with $case_count test cases (swarm discovery)"
-  print_success "Plan generated: $case_count test cases (swarm: $area_count areas)"
-
-  return 0
-}
-
-# Run a single scout session to map the app surface
-_run_scout() {
-  local quiet="${1:-false}"
-  local prompt_file output_file
-  prompt_file=$(create_temp_file ".uat-scout-prompt.md")
-  output_file=$(create_temp_file ".uat-scout-output.log")
-
-  local timeout
-  timeout=$(get_config '.uat.swarm.scoutTimeoutSeconds' "$DEFAULT_UAT_SCOUT_TIMEOUT")
-
-  _build_scout_prompt "$prompt_file"
-
-  _log_uat "SCOUT" "Starting scout session (timeout: ${timeout}s)"
-  print_info "Scout: Mapping app surface..."
-
-  local claude_exit=0
-  (
-    set -o pipefail
-    cat "$prompt_file" | run_with_timeout "$timeout" claude -p \
-      --dangerously-skip-permissions \
-      --verbose \
-      --output-format stream-json \
-      2>&1 | tee "$output_file" | _parse_uat_activity "$quiet"
-  ) &
-  local pipeline_pid=$!
-  wait "$pipeline_pid" || claude_exit=$?
-
-  rm -f "$prompt_file"
-
-  if [[ $claude_exit -ne 0 ]] && [[ $claude_exit -ne 124 ]]; then
-    _log_uat "SCOUT" "Scout session failed (exit $claude_exit)"
-    print_error "Scout session failed"
-    rm -f "$output_file"
-    return 1
-  fi
-
-  # Validate app-map was generated
-  if [[ ! -f "$UAT_DIR/app-map.json" ]]; then
-    print_error "Scout did not generate app-map.json"
-    rm -f "$output_file"
-    return 1
-  fi
-
-  if ! jq -e '.featureAreas' "$UAT_DIR/app-map.json" >/dev/null 2>&1; then
-    print_error "app-map.json missing featureAreas"
-    rm -f "$UAT_DIR/app-map.json" "$output_file"
-    return 1
-  fi
-
-  local area_count
-  area_count=$(jq '[.featureAreas | to_entries[] | select(.value.exists==true)] | length' "$UAT_DIR/app-map.json" 2>/dev/null || echo "0")
-  _log_uat "SCOUT" "Scout complete: $area_count areas mapped"
-
-  rm -f "$output_file"
-  return 0
-}
-
-# Build app-map.json from config.uat.featureAreas (no Claude needed)
-_build_app_map_from_config() {
-  local config_areas="$1"
-  local base_url
-  base_url=$(get_config '.urls.frontend' "http://localhost:3000")
-
-  _log_uat "SWARM" "Building app-map from config featureAreas"
-  print_info "Building app-map from config (no scout needed)"
-
-  # config_areas must be a JSON array like ["auth","forms","navigation"]
-  if ! echo "$config_areas" | jq -e 'type == "array"' >/dev/null 2>&1; then
-    print_error "config.uat.featureAreas must be a JSON array, got: $config_areas"
-    return 1
-  fi
-
-  local timestamp
-  timestamp=$(date -Iseconds 2>/dev/null || date +%Y-%m-%dT%H:%M:%S)
-
-  jq -n --arg ts "$timestamp" --arg url "$base_url" --argjson areas "$config_areas" '
-    {
-      scoutedAt: $ts,
-      baseUrl: $url,
-      source: "config",
-      featureAreas: (
-        $areas | map({key: ., value: {exists: true, pages: [], forms: [], apiEndpoints: [], notes: "from config"}}) | from_entries
-      ),
-      techStack: {}
-    }
-  ' > "$UAT_DIR/app-map.json"
-
-  print_success "App-map built from config: $(echo "$config_areas" | jq 'length') areas"
-}
-
-# Build the scout prompt
-_build_scout_prompt() {
+_build_chaos_agent_prompt() {
   local prompt_file="$1"
 
-  cat > "$prompt_file" << 'SCOUT_PROMPT'
-# Scout Mission — Map the App Surface
+  # Start with UAT prompt template
+  cat "$RALPH_TEMPLATES/UAT-PROMPT.md" > "$prompt_file"
 
-You are a SCOUT. Your job is to quickly map the app's feature surface in ~60 seconds.
-Do NOT go deep into any feature. Just catalog what exists.
+  cat >> "$prompt_file" << 'PROMPT_SECTION'
 
-## Tasks
+---
 
-1. **Read `.ralph/config.json`** for the frontend URL and any auth config
-2. **Navigate to the app** using Playwright MCP
-3. **Catalog every page** you can find — click nav links, check menus, explore routes
-4. **Note forms** — what fields they have, where they submit
-5. **Note auth** — is there a login page? What method?
-6. **Note API patterns** — check network requests, look for REST/GraphQL
-7. **Take 1-2 screenshots** of the main pages (save to `.ralph/uat/screenshots/`)
-8. **Write `.ralph/uat/app-map.json`** with your findings
+## Phase: Chaos Agent Red Team Discovery
 
-## Output Schema
+You are the **team lead** of a red team. Your job is to coordinate a team of adversarial
+agents that attack a live app, share intel, and produce a battle-tested plan of
+vulnerabilities to fix.
 
-Write `.ralph/uat/app-map.json`:
+**Mindset: "You are a red team. Coordinate to find every vulnerability."**
+
+### Step 1: Recon (~60 seconds)
+
+Before spawning anyone, do a quick recon yourself:
+
+1. **Read `.ralph/config.json`** for URLs, auth config, and directories
+2. **Read `.ralph/prd.json`** if it exists — completed stories tell you what was built
+3. **Navigate the app** using Playwright MCP — click through nav, find pages, note the tech stack
+4. **Take 2-3 screenshots** of key pages (save to `.ralph/chaos/screenshots/`)
+5. **Map the attack surface** — what feature areas exist? (auth, forms, API, navigation, etc.)
+
+Don't go deep. Just map what's there. ~60 seconds max.
+
+### Step 2: Assemble the Red Team
+
+Create a team and spawn teammates:
+
+```
+TeamCreate: "chaos-agent"
+```
+
+Spawn these teammates using the Task tool with `team_name: "chaos-agent"`:
+
+1. **"recon"** (`subagent_type: "general-purpose"`) — Attack surface mapping. Catalogs every
+   input, form, API endpoint, auth mechanism. Shares intel with team: "login uses JWT in
+   localStorage", "admin panel at /admin has no auth check".
+
+2. **"chaos"** (`subagent_type: "general-purpose"`) — Chaos testing. For every input: empty
+   strings, 10000-char payloads, special characters (`<>&"'/\`), unicode/emoji, null bytes.
+   For every form: double-submit, missing fields, back button after submit. Rapid-fire
+   interactions.
+
+3. **"security"** (`subagent_type: "general-purpose"`) — Security testing. XSS in every
+   input (`<script>alert(1)</script>`), SQL injection (`'; DROP TABLE users; --`), auth bypass
+   via direct URL, IDOR via ID manipulation, sensitive data in localStorage/console/page source,
+   missing CSRF tokens.
+
+**Only spawn agents for areas that exist.** If there are no forms, don't spawn a forms specialist.
+If there's no auth, skip auth testing.
+
+Agents communicate via SendMessage — recon shares discoveries, security acts on them.
+
+### Agent Instructions Template
+
+Every agent prompt MUST include:
+
+1. **Their role and focus area** (from above)
+2. **The recon intel** — pages, URLs, tech stack you discovered in Step 1
+3. **Browser tab isolation** — "Open your own browser tab via `browser_tabs(action: 'new')`
+   before navigating. Do NOT use the existing tab."
+4. **Communication** — "Share important discoveries with teammates via SendMessage.
+   Examples: 'Auth uses JWT in localStorage', 'Found unprotected admin route at /admin',
+   'Form at /profile has no CSRF token'. Read messages from teammates and adapt your testing."
+5. **Output format** — "When done, send your findings to the team lead via SendMessage.
+   Format each finding as a test case with: title, category, testFile path, targetFiles,
+   assertions (input/expected/strategy), and edgeCases."
+
+### Step 3: Coordinate
+
+While your team works:
+
+- **Monitor messages** from teammates as they report findings
+- **Redirect effort** if needed — if recon discovers something important, message the
+  relevant specialist ("recon found an admin panel at /admin — security, check it for auth bypass")
+- **Create tasks** in the shared task list for any new areas discovered
+
+### Step 4: Collect + Merge + Write Plan
+
+After all teammates finish:
+
+1. Collect findings from all agent messages
+2. Dedup by test file path (keep the case with more assertions)
+3. Assign sequential IDs: `UAT-001`, `UAT-002`, ...
+4. Write `.ralph/chaos/plan.json` (schema below)
+5. Write `.ralph/chaos/UAT-PROMPT.md` (schema below)
+6. Shut down all teammates via SendMessage with `type: "shutdown_request"`
+7. Clean up with TeamDelete
+
+### plan.json Schema
+
+Write `.ralph/chaos/plan.json`:
 
 ```json
 {
-  "scoutedAt": "<ISO timestamp>",
-  "baseUrl": "<from config>",
-  "source": "scout",
-  "featureAreas": {
-    "auth": {
-      "exists": true,
-      "pages": ["/login", "/register"],
-      "forms": [{"page": "/login", "fields": ["email", "password"]}],
-      "apiEndpoints": ["/api/auth/login"],
-      "notes": "Email/password login, JWT tokens"
-    },
-    "forms": {
-      "exists": true,
-      "pages": ["/contact", "/settings"],
-      "forms": [{"page": "/contact", "fields": ["name", "email", "message"]}],
-      "apiEndpoints": [],
-      "notes": "Contact form, settings form"
-    },
-    "navigation": {
-      "exists": true,
-      "pages": ["/", "/about", "/dashboard"],
-      "forms": [],
-      "apiEndpoints": [],
-      "notes": "Top nav with 5 links, sidebar on dashboard"
-    },
-    "api": {
-      "exists": false,
-      "pages": [],
-      "forms": [],
-      "apiEndpoints": [],
-      "notes": "No visible API endpoints"
-    }
+  "testSuite": {
+    "name": "Chaos Agent",
+    "generatedAt": "<ISO timestamp>",
+    "status": "pending",
+    "discoveryMethod": "chaos-agent"
   },
-  "techStack": {
-    "framework": "React/Next.js/etc",
-    "authMethod": "JWT/session/none",
-    "apiPattern": "REST/GraphQL/none"
-  }
+  "testCases": [
+    {
+      "id": "UAT-001",
+      "title": "Feature area — what the test checks",
+      "category": "auth|forms|navigation|api|ui|data|security",
+      "type": "e2e|integration",
+      "userStory": "As a user, I...",
+      "testApproach": "What to test and how",
+      "testFile": "tests/e2e/feature/test-name.spec.ts",
+      "targetFiles": ["src/pages/feature.tsx"],
+      "edgeCases": ["Edge case 1", "Edge case 2"],
+      "assertions": [
+        {
+          "input": "Fill name='<script>alert(1)</script>', submit form",
+          "expected": "Name displayed as literal text, no script execution",
+          "strategy": "security"
+        }
+      ],
+      "passes": false,
+      "retryCount": 0,
+      "source": "chaos-agent:agent-name"
+    }
+  ]
 }
 ```
 
-## Rules
+**Every test case MUST have at least 3 assertions** with concrete input/expected pairs:
+1. One happy-path assertion (correct input → correct output)
+2. One edge-case assertion (bad input → proper error handling)
+3. One content assertion (page shows the RIGHT data, not just that it loads)
 
-- **Speed over depth** — 60 seconds max. Don't fill forms, don't test edge cases.
-- **Mark `exists: false`** for areas you can't find evidence of.
-- **Common feature areas**: auth, forms, navigation, api, data-display, search, settings, file-upload, notifications
-- Only include areas that make sense for this app. A static site might only have "navigation".
-- **Be honest** — if you're not sure, mark exists: false. Better to skip than to hallucinate.
-SCOUT_PROMPT
+### UAT-PROMPT.md Schema
+
+Write `.ralph/chaos/UAT-PROMPT.md` — a project-specific testing guide based on what the
+red team ACTUALLY FOUND. Include:
+
+```markdown
+# Chaos Agent Guide — [Project Name]
+
+## App Overview
+- What the app does (1-2 sentences)
+- Tech stack observed (framework, API patterns, auth method)
+- Base URLs (frontend, API if applicable)
+
+## Pages & Routes Discovered
+For each page:
+- URL pattern and what it shows
+- Key interactive elements (forms, buttons, links)
+- Selectors that work (data-testid, roles, labels)
+
+## Auth Flow
+- How login works (form fields, redirect after login)
+- Test credentials if available (from config or .env)
+- What pages require auth vs. public
+
+## Known Forms & Inputs
+For each form:
+- Fields with their labels/names/selectors
+- Required vs optional fields
+- Validation behavior observed
+
+## What "Correct" Looks Like
+For each feature area:
+- Expected behavior observed
+- Specific text/numbers that should appear
+
+## Console & Network Observations
+- Any existing console errors/warnings
+- API endpoints observed
+- Response patterns (JSON structure, status codes)
+
+## Red Team Findings
+- Vulnerabilities discovered (XSS, injection, auth bypass, etc.)
+- Edge cases that broke the app
+- Areas that need hardening
+```
+
+This is NOT a copy of the template — it's ground truth from the red team's exploration.
+
+### Rules
+
+- Test auth flows FIRST (they gate everything else)
+- One test case per feature area per attack vector
+- `type: "e2e"` for anything involving browser interaction
+- `targetFiles` should list the app source files the test covers
+- `testFile` path should use the project's test directory conventions
+- Always clean up: shutdown teammates and delete team when done
+PROMPT_SECTION
+
+  _inject_prompt_context "$prompt_file"
+}
+
+# ============================================================================
+# HELPERS
+# ============================================================================
+
+_inject_prompt_context() {
+  local prompt_file="$1"
 
   # Inject PRD context if available
   if [[ -f "$RALPH_DIR/prd.json" ]]; then
     echo "" >> "$prompt_file"
     echo "### Completed Stories (from PRD)" >> "$prompt_file"
     echo "" >> "$prompt_file"
-    echo "These features have been built — use them as hints for what areas exist:" >> "$prompt_file"
+    echo "These features have been built and should be testable:" >> "$prompt_file"
     echo '```json' >> "$prompt_file"
-    jq '[.stories[] | select(.passes==true) | {id, title, type}]' \
+    jq '[.stories[] | select(.passes==true) | {id, title, type, testUrl: .testUrl}]' \
       "$RALPH_DIR/prd.json" >> "$prompt_file" 2>/dev/null
     echo '```' >> "$prompt_file"
   fi
@@ -1924,542 +1999,12 @@ SCOUT_PROMPT
     echo "" >> "$prompt_file"
     echo "### Project Config" >> "$prompt_file"
     echo "" >> "$prompt_file"
-    echo "Read \`.ralph/config.json\` for URLs, auth config, and directories." >> "$prompt_file"
+    echo "Read \`.ralph/config.json\` for URLs and directories." >> "$prompt_file"
   fi
 
   # Inject signs
   _inject_signs >> "$prompt_file"
 }
-
-# Spawn parallel agents for each area × vector combination
-_run_agent_swarm() {
-  local quiet="${1:-false}"
-  local max_concurrent
-  max_concurrent=$(get_config '.uat.swarm.maxConcurrent' "$DEFAULT_UAT_MAX_CONCURRENT")
-
-  # Read areas with exists:true from app-map
-  local areas=()
-  while IFS= read -r area; do
-    [[ -n "$area" ]] && areas+=("$area")
-  done < <(jq -r '.featureAreas | to_entries[] | select(.value.exists==true) | .key' "$UAT_DIR/app-map.json" 2>/dev/null)
-
-  if [[ ${#areas[@]} -eq 0 ]]; then
-    print_warning "No feature areas to explore"
-    return 1
-  fi
-
-  # Build agent list, skipping those with cached findings
-  local agents_to_spawn=()
-  local cached_count=0
-  for area in "${areas[@]}"; do
-    for vector in "${UAT_VECTORS[@]}"; do
-      local agent_name="${area}-${vector}"
-      local findings_file="$UAT_DIR/findings-${agent_name}.json"
-      if [[ -f "$findings_file" ]]; then
-        ((cached_count++))
-        _log_uat "SWARM" "Reusing cached findings for $agent_name"
-      else
-        agents_to_spawn+=("${area}:${vector}")
-      fi
-    done
-  done
-
-  local total_agents=$(( ${#agents_to_spawn[@]} + cached_count ))
-
-  if [[ ${#agents_to_spawn[@]} -eq 0 ]]; then
-    print_success "All $cached_count findings cached, skipping swarm"
-    _log_uat "SWARM" "All findings cached ($cached_count), skipping swarm"
-    return 0
-  fi
-
-  print_info "Swarm: $total_agents agents total, $cached_count cached, ${#agents_to_spawn[@]} to spawn"
-  _log_uat "SWARM" "Spawning ${#agents_to_spawn[@]} agents ($cached_count cached)"
-
-  # Spawn agents in batches respecting max_concurrent
-  local spawned=0
-  local failed=0
-  local succeeded=0
-  local batch_pids=""
-  local batch_names=""
-  local batch_size=0
-
-  # Global return values from _wait_for_all_agents (bash 3.2 lacks namerefs)
-  _SWARM_BATCH_SUCCEEDED=0
-  _SWARM_BATCH_FAILED=0
-
-  for agent_spec in "${agents_to_spawn[@]}"; do
-    local area="${agent_spec%%:*}"
-    local vector="${agent_spec##*:}"
-    local agent_name="${area}-${vector}"
-
-    # If batch is full, wait for it to complete
-    if [[ $batch_size -ge $max_concurrent ]]; then
-      _wait_for_all_agents "$batch_pids" "$batch_names"
-      succeeded=$((succeeded + _SWARM_BATCH_SUCCEEDED))
-      failed=$((failed + _SWARM_BATCH_FAILED))
-      batch_pids=""
-      batch_names=""
-      batch_size=0
-    fi
-
-    _log_uat "SWARM" "Spawning agent: $agent_name"
-    echo "  Spawning: $agent_name"
-
-    ( _run_single_agent "$area" "$vector" "$quiet" ) &
-    batch_pids="$batch_pids $!"
-    batch_names="$batch_names $agent_name"
-    ((batch_size++))
-    ((spawned++))
-  done
-
-  # Wait for final batch
-  if [[ $batch_size -gt 0 ]]; then
-    _wait_for_all_agents "$batch_pids" "$batch_names"
-    succeeded=$((succeeded + _SWARM_BATCH_SUCCEEDED))
-    failed=$((failed + _SWARM_BATCH_FAILED))
-  fi
-
-  echo ""
-  print_info "Swarm complete: $spawned spawned, $succeeded succeeded, $failed failed, $cached_count cached"
-  _log_uat "SWARM" "Complete: $spawned spawned, $succeeded ok, $failed failed, $cached_count cached"
-
-  # Return failure only if ALL spawned agents failed
-  [[ $succeeded -eq 0 && $spawned -gt 0 ]] && return 1
-  return 0
-}
-
-# Wait for all spawned agents to complete
-_wait_for_all_agents() {
-  local pid_list="$1"   # space-separated PIDs
-  local name_list="$2"  # space-separated agent names (same order)
-
-  # Convert to arrays via word splitting
-  local pids_arr=($pid_list)
-  local names_arr=($name_list)
-  local local_succeeded=0
-  local local_failed=0
-
-  for i in "${!pids_arr[@]}"; do
-    wait "${pids_arr[$i]}" 2>/dev/null
-    local exit_code=$?
-    local name="${names_arr[$i]}"
-
-    if [[ $exit_code -eq 0 ]]; then
-      echo "  Finished: $name"
-      ((local_succeeded++))
-    else
-      print_warning "  Failed: $name (exit $exit_code)"
-      ((local_failed++))
-    fi
-  done
-
-  # Return counts via global vars (bash 3.2 compatible)
-  _SWARM_BATCH_SUCCEEDED=$local_succeeded
-  _SWARM_BATCH_FAILED=$local_failed
-}
-
-# Run a single exploration agent
-# NOTE: This runs in a subshell via ( _run_single_agent ... ) &
-# so create_temp_file tracking won't propagate — use mktemp directly.
-_run_single_agent() {
-  local area="$1"
-  local vector="$2"
-  local quiet="${3:-false}"
-  local agent_name="${area}-${vector}"
-  local findings_file="$UAT_DIR/findings-${agent_name}.json"
-
-  local prompt_file output_file
-  prompt_file=$(mktemp)
-  output_file=$(mktemp)
-
-  local timeout
-  timeout=$(get_config '.uat.swarm.agentTimeoutSeconds' "$DEFAULT_UAT_AGENT_TIMEOUT")
-
-  _build_agent_prompt "$area" "$vector" "$prompt_file"
-
-  _log_uat "$agent_name" "Starting agent (timeout: ${timeout}s)"
-
-  # Ensure temp files are cleaned on any exit path
-  trap 'rm -f "$prompt_file" "$output_file"' RETURN
-
-  local claude_exit=0
-  (
-    set -o pipefail
-    cat "$prompt_file" | run_with_timeout "$timeout" claude -p \
-      --dangerously-skip-permissions \
-      --verbose \
-      --output-format stream-json \
-      2>&1 | tee "$output_file" | _parse_agent_activity "$agent_name" "$quiet"
-  ) &
-  local inner_pid=$!
-  wait "$inner_pid" || claude_exit=$?
-
-  if [[ $claude_exit -ne 0 ]] && [[ $claude_exit -ne 124 ]]; then
-    _log_uat "$agent_name" "Agent failed (exit $claude_exit)"
-    return 1
-  fi
-
-  # Validate findings
-  if [[ ! -f "$findings_file" ]]; then
-    _log_uat "$agent_name" "No findings file generated"
-    return 1
-  fi
-
-  if ! jq -e '.testCases' "$findings_file" >/dev/null 2>&1; then
-    _log_uat "$agent_name" "Invalid findings file (missing testCases)"
-    rm -f "$findings_file"
-    return 1
-  fi
-
-  local case_count
-  case_count=$(jq '.testCases | length' "$findings_file" 2>/dev/null || echo "0")
-  _log_uat "$agent_name" "Agent complete: $case_count test cases"
-
-  return 0
-}
-
-# Build a focused prompt for a single swarm agent
-_build_agent_prompt() {
-  local area="$1"
-  local vector="$2"
-  local prompt_file="$3"
-  local agent_name="${area}-${vector}"
-
-  # Start with UAT-PROMPT.md base
-  local uat_prompt="$RALPH_TEMPLATES/UAT-PROMPT.md"
-  if [[ -f "$UAT_DIR/UAT-PROMPT.md" ]]; then
-    uat_prompt="$UAT_DIR/UAT-PROMPT.md"
-  fi
-  cat "$uat_prompt" > "$prompt_file"
-
-  # Add agent mandate
-  cat >> "$prompt_file" << AGENT_SECTION
-
----
-
-## Agent Mission: ${agent_name}
-
-You are a focused exploration agent. Your job is to deeply test ONE feature area
-with ONE attack vector and generate findings.
-
-**Feature Area:** ${area}
-**Attack Vector:** ${vector}
-
-AGENT_SECTION
-
-  # Add vector-specific mandate
-  case "$vector" in
-    happy-path)
-      cat >> "$prompt_file" << 'VECTOR_SECTION'
-### Your Mandate: Happy Path Testing
-
-Test the NORMAL user flows for this feature area:
-- Complete the primary user journey end-to-end
-- Verify correct behavior at each step
-- Check that data displays correctly
-- Ensure navigation works as expected
-- Verify success messages, confirmations, redirects
-VECTOR_SECTION
-      ;;
-    chaos)
-      cat >> "$prompt_file" << 'VECTOR_SECTION'
-### Your Mandate: Chaos Testing
-
-Test EDGE CASES and unexpected inputs for this feature area:
-- Empty strings, whitespace-only inputs
-- Extremely long strings (1000+ characters)
-- Special characters: <>&"'/\` and unicode
-- Rapid-fire submissions (double-click, triple-click)
-- Form submission with missing required fields
-- Back button after form submission
-- Refresh mid-flow
-- Unexpected state transitions
-VECTOR_SECTION
-      ;;
-    security)
-      cat >> "$prompt_file" << 'VECTOR_SECTION'
-### Your Mandate: Security Testing
-
-Test SECURITY vulnerabilities for this feature area:
-- XSS: inject `<script>alert(1)</script>` in every text input
-- SQL injection: try `'; DROP TABLE users; --` in inputs
-- Auth bypass: access protected pages directly via URL
-- Direct URL manipulation: change IDs, paths, query params
-- CSRF: check for token validation on forms
-- Check for sensitive data exposure in page source/console
-- Test authorization: can you access other users' data?
-VECTOR_SECTION
-      ;;
-  esac
-
-  # Inject area context from app-map
-  local area_json
-  area_json=$(jq --arg area "$area" '.featureAreas[$area] // {}' "$UAT_DIR/app-map.json" 2>/dev/null)
-
-  cat >> "$prompt_file" << AREA_SECTION
-
-### Feature Area Context (from scout)
-
-\`\`\`json
-${area_json}
-\`\`\`
-
-AREA_SECTION
-
-  # Self-termination rule
-  cat >> "$prompt_file" << 'TERM_SECTION'
-### Self-Termination
-
-If your feature area doesn't exist, pages 404, or you can't find anything to test:
-write an empty findings file and stop immediately.
-
-```json
-{
-  "agent": "<agent-name>",
-  "featureArea": "<area>",
-  "attackVector": "<vector>",
-  "testCases": [],
-  "notes": "Area not found or not testable"
-}
-```
-TERM_SECTION
-
-  # Output format
-  local findings_file="findings-${agent_name}.json"
-  cat >> "$prompt_file" << FINDINGS_SECTION
-
-### Output
-
-Write \`.ralph/uat/${findings_file}\` with this structure:
-
-\`\`\`json
-{
-  "agent": "${agent_name}",
-  "featureArea": "${area}",
-  "attackVector": "${vector}",
-  "testCases": [
-    {
-      "tempId": "${agent_name}-001",
-      "title": "Descriptive title of what the test checks",
-      "category": "${area}",
-      "type": "e2e",
-      "testFile": "tests/e2e/${area}/${agent_name}.spec.ts",
-      "targetFiles": ["src/..."],
-      "assertions": [
-        {
-          "input": "What to do (fill form, click button, navigate)",
-          "expected": "What should happen (text appears, redirect, error shown)",
-          "strategy": "keyword|structural|navigation|security"
-        }
-      ],
-      "edgeCases": ["Edge case 1", "Edge case 2"],
-      "source": "swarm:${agent_name}"
-    }
-  ]
-}
-\`\`\`
-
-**Every test case MUST have at least 3 assertions** with concrete input/expected pairs.
-
-### Config
-
-Read \`.ralph/config.json\` for URLs, auth config, and directories.
-FINDINGS_SECTION
-
-  # Inject signs
-  _inject_signs >> "$prompt_file"
-}
-
-# Activity parser with agent name prefix
-_parse_agent_activity() {
-  local agent_name="$1"
-  local quiet="${2:-false}"
-
-  # Assign a color based on agent name hash
-  local colors=('\033[0;36m' '\033[0;35m' '\033[0;33m' '\033[0;32m' '\033[0;34m' '\033[0;31m')
-  local hash=0
-  local i
-  for (( i=0; i<${#agent_name}; i++ )); do
-    hash=$(( (hash + $(printf '%d' "'${agent_name:$i:1}")) % ${#colors[@]} ))
-  done
-  local color="${colors[$hash]}"
-  local nc=$'\033[0m'
-  local dim=$'\033[2m'
-  local green=$'\033[0;32m'
-
-  local line
-  while IFS= read -r line; do
-    # Non-JSON lines
-    if [[ "$line" != "{"* ]]; then
-      [[ "$quiet" != "true" ]] && echo -e "  ${color}[${agent_name}]${nc} $line"
-      continue
-    fi
-
-    [[ "$quiet" == "true" ]] && continue
-
-    if [[ "$line" != *'"assistant"'* && "$line" != *'"result"'* ]]; then
-      continue
-    fi
-
-    local msg_type
-    msg_type=$(jq -r '.type // empty' <<< "$line" 2>/dev/null) || continue
-
-    if [[ "$msg_type" == "assistant" ]]; then
-      local tool_entries
-      tool_entries=$(jq -r '
-        .message.content[]?
-        | select(.type == "tool_use")
-        | .name + "\t" + (.input | tostring)
-      ' <<< "$line" 2>/dev/null) || continue
-
-      while IFS=$'\t' read -r tool_name tool_input; do
-        [[ -z "$tool_name" ]] && continue
-        local label="" detail=""
-        case "$tool_name" in
-          Read)
-            label="Reading"
-            detail=$(jq -r '.file_path // empty' <<< "$tool_input" 2>/dev/null)
-            detail="${detail#"$PWD/"}"
-            ;;
-          mcp__playwright__*)
-            label="Browser"
-            local action="${tool_name#mcp__playwright__browser_}"
-            detail="$action"
-            ;;
-          Bash)
-            label="Running"
-            detail=$(jq -r '.description // .command // empty' <<< "$tool_input" 2>/dev/null)
-            detail="${detail:0:60}"
-            ;;
-          *)
-            label="$tool_name"
-            ;;
-        esac
-        printf "  ${color}[${agent_name}]${nc} ${dim}⟳${nc} %-10s %s\n" "$label" "$detail"
-      done <<< "$tool_entries"
-
-    elif [[ "$msg_type" == "result" ]]; then
-      local cost duration_ms
-      cost=$(jq -r '.total_cost_usd // empty' <<< "$line" 2>/dev/null)
-      duration_ms=$(jq -r '.duration_ms // empty' <<< "$line" 2>/dev/null)
-      local cost_str="" dur_str=""
-      [[ -n "$cost" ]] && cost_str=$(printf '$%.2f' "$cost")
-      if [[ -n "$duration_ms" ]]; then
-        local total_secs=$(( duration_ms / 1000 ))
-        if [[ $total_secs -ge 60 ]]; then
-          dur_str="$((total_secs / 60))m $((total_secs % 60))s"
-        else
-          dur_str="${total_secs}s"
-        fi
-      fi
-      if [[ -n "$cost_str" && -n "$dur_str" ]]; then
-        echo -e "  ${color}[${agent_name}]${nc} ${green}✓ Done${nc} ${dim}(${cost_str}, ${dur_str})${nc}"
-      elif [[ -n "$cost_str" ]]; then
-        echo -e "  ${color}[${agent_name}]${nc} ${green}✓ Done${nc} ${dim}(${cost_str})${nc}"
-      fi
-    fi
-  done
-}
-
-# Merge all findings-*.json files into plan.json
-_merge_findings() {
-  local findings_files=()
-  while IFS= read -r f; do
-    [[ -n "$f" ]] && findings_files+=("$f")
-  done < <(find "$UAT_DIR" -name "findings-*.json" -type f 2>/dev/null | sort)
-
-  if [[ ${#findings_files[@]} -eq 0 ]]; then
-    print_error "No findings files to merge"
-    return 1
-  fi
-
-  print_info "Merging findings from ${#findings_files[@]} files..."
-  _log_uat "MERGE" "Merging ${#findings_files[@]} findings files"
-
-  # Collect all test cases, tracking which files contributed
-  local all_cases="[]"
-  local agent_count=0
-  local skipped_files=0
-
-  for findings_file in "${findings_files[@]}"; do
-    # Validate JSON
-    if ! jq -e '.testCases' "$findings_file" >/dev/null 2>&1; then
-      print_warning "  Skipping invalid findings: $(basename "$findings_file")"
-      ((skipped_files++))
-      continue
-    fi
-
-    local case_count
-    case_count=$(jq '.testCases | length' "$findings_file" 2>/dev/null || echo "0")
-    if [[ "$case_count" -eq 0 ]]; then
-      continue
-    fi
-
-    ((agent_count++))
-
-    # Append test cases
-    all_cases=$(jq -s '.[0] + .[1]' <(echo "$all_cases") <(jq '.testCases' "$findings_file") 2>/dev/null)
-  done
-
-  local total_raw
-  total_raw=$(echo "$all_cases" | jq 'length')
-
-  if [[ "$total_raw" -eq 0 ]]; then
-    print_error "0 test cases across all findings"
-    return 1
-  fi
-
-  # Filter out cases missing testFile, then dedup by testFile (keep the one with more assertions)
-  local deduped
-  deduped=$(echo "$all_cases" | jq '
-    [.[] | select(.testFile != null and .testFile != "")] |
-    group_by(.testFile) |
-    map(
-      sort_by(-(.assertions | length)) | .[0]
-    )
-  ')
-
-  local total_deduped
-  total_deduped=$(echo "$deduped" | jq 'length')
-
-  # Assign sequential IDs and standard fields
-  local timestamp
-  timestamp=$(date -Iseconds 2>/dev/null || date +%Y-%m-%dT%H:%M:%S)
-
-  local plan
-  plan=$(echo "$deduped" | jq --arg ts "$timestamp" --arg agents "$agent_count" '
-    {
-      testSuite: {
-        name: "UAT Ralph",
-        generatedAt: $ts,
-        status: "pending",
-        discoveryMethod: "swarm",
-        agentCount: ($agents | tonumber)
-      },
-      testCases: [
-        to_entries[] |
-        .value + {
-          id: ("UAT-" + ((.key + 1) | tostring | if length < 3 then ("000" + .)[-3:] else . end)),
-          passes: false,
-          retryCount: 0
-        } |
-        del(.tempId)
-      ]
-    }
-  ')
-
-  echo "$plan" > "$UAT_PLAN_FILE"
-
-  local dupes_removed=$((total_raw - total_deduped))
-  print_success "Merged: $total_deduped test cases from $agent_count agents ($dupes_removed duplicates removed)"
-  _log_uat "MERGE" "Merged $total_deduped cases from $agent_count agents (${total_raw} raw, $dupes_removed dupes, $skipped_files skipped)"
-
-  return 0
-}
-
-# ============================================================================
-# HELPERS
-# ============================================================================
 
 _log_uat() {
   local id="$1"

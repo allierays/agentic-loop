@@ -32,6 +32,10 @@ npx agentic-loop status        → Check progress
 | `npx agentic-loop ci` | Install GitHub Actions workflows |
 | `npx agentic-loop prd-check` | Validate PRD with auto-fix |
 | `npx agentic-loop prd-check --dry-run` | Validate PRD (report only) |
+| `npx agentic-loop uat` | Team acceptance testing (explore, test, fix) |
+| `npx agentic-loop uat --plan-only` | Generate UAT plan without executing |
+| `npx agentic-loop chaos-agent` | Chaos Agent red team (adversarial testing) |
+| `npx agentic-loop chaos-agent --plan-only` | Generate chaos plan without executing |
 | `npx agentic-loop signs` | List learned patterns |
 | `npx agentic-loop sign "pattern" category` | Add a pattern |
 | `npx agentic-loop progress` | Show recent log entries |
@@ -121,9 +125,29 @@ npx agentic-loop coverage        # Coverage report
 
 ---
 
+## UAT & Chaos Agent
+
+```bash
+# Acceptance testing — "does this work correctly?"
+npx agentic-loop uat                    # Team → plan → TDD loop
+npx agentic-loop uat --plan-only        # Generate plan only
+npx agentic-loop uat --focus auth       # Focus on one area
+npx agentic-loop uat --no-fix           # Write tests, don't fix bugs
+
+# Adversarial testing — "can we break it?"
+npx agentic-loop chaos-agent                  # Red team → plan → TDD loop
+npx agentic-loop chaos-agent --plan-only      # Generate chaos plan only
+npx agentic-loop chaos-agent --no-fix         # Find vulns without fixing
+```
+
+Both use Agent Teams for coordinated browser exploration, then strict TDD (RED writes test, GREEN fixes app).
+
+---
+
 ## Links
 
 - [How Ralph Works](RALPH.md)
+- [UAT & Chaos Agent](UAT.md)
 - [Hooks Reference](HOOKS.md)
 - [Troubleshooting](TROUBLESHOOTING.md)
 - [Contributing](CONTRIBUTING.md)

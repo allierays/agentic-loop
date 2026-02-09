@@ -93,6 +93,7 @@ Ralph shows a live activity feed as it works — what files it's reading, what c
 - [Code Check](docs/CODE-CHECK.md) - Verification pipeline after each story
 - [Customization](docs/CUSTOMIZATION.md) - Personalization and guardrails
 - [How Ralph Works](docs/RALPH.md) - Architecture, config, full reference
+- [UAT & Chaos Agent](docs/UAT.md) - Autonomous acceptance testing and adversarial red teaming
 - [Cheatsheet](docs/CHEATSHEET.md) - All commands at a glance
 - [Hooks Reference](docs/HOOKS.md) - Pre-commit and Claude Code hooks
 - [Loopgram](docs/LOOPGRAM.md) - Telegram bot for mobile idea capture and loop monitoring

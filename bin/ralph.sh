@@ -198,6 +198,10 @@ main() {
       source "$RALPH_LIB/uat.sh"
       run_uat "$@"
       ;;
+    chaos-agent)
+      source "$RALPH_LIB/uat.sh"
+      run_chaos "$@"
+      ;;
     sign)
       ralph_sign "$@"
       ;;

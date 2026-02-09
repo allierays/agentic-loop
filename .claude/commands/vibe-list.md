@@ -59,6 +59,17 @@ Print this complete reference for the user. Do not add any commentary.
 | `npx ralph check` | Run all configured checks |
 | `npx ralph verify TASK-001` | Verify a specific task |
 
+### UAT & Chaos Agent
+| Command | Description |
+|---------|-------------|
+| `npx ralph uat` | Team acceptance testing (explore, test, fix) |
+| `npx ralph uat --plan-only` | Generate test plan without executing |
+| `npx ralph uat --focus <id\|cat>` | Run specific test case or category |
+| `npx ralph uat --no-fix` | Write tests but don't fix app bugs |
+| `npx ralph chaos-agent` | Chaos Agent adversarial red team testing |
+| `npx ralph chaos-agent --plan-only` | Generate chaos plan without executing |
+| `npx ralph chaos-agent --no-fix` | Find vulnerabilities without fixing |
+
 ### Signs (Learned Patterns)
 | Command | Description |
 |---------|-------------|

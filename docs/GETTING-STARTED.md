@@ -374,6 +374,63 @@ Each loop run should go smoother than the last. Over time, your signs and config
 
 ---
 
+## Step 11: Validate with UAT & Chaos Agent
+
+Once the loop completes and all stories pass, the code works — but "works" doesn't mean "works well." Two autonomous testing commands help you validate before shipping.
+
+### UAT: Does it work correctly?
+
+UAT spawns an agent team that explores your live app, verifies features work for real users, and writes tests for anything that doesn't:
+
+```bash
+npx agentic-loop uat
+```
+
+The team (recon, happy-path, edge-cases) explores the app with Playwright, then Ralph runs a strict TDD loop: RED writes the test, GREEN fixes the app.
+
+You'll review the test plan before anything executes:
+
+```
+  UAT Test Plan
+
+  🌐 UAT-001    Login redirects to dashboard            [2 edges, 3 asserts]
+  🌐 UAT-002    Contact form submits successfully       [3 edges, 4 asserts]
+  🌐 UAT-003    Navigation links all resolve            [1 edges, 3 asserts]
+
+  Total: 3 test cases
+
+  Execute this plan? [Y/n/e(dit)]
+```
+
+### Chaos Agent: Can we break it?
+
+Chaos Agent spawns a red team that attacks your app — XSS, injection, auth bypass, chaos inputs:
+
+```bash
+npx agentic-loop chaos-agent
+```
+
+The team (recon, chaos, security) coordinates to find vulnerabilities, then Ralph writes tests and fixes them using the same TDD loop.
+
+Use `--no-fix` if you just want to document vulnerabilities without auto-fixing:
+
+```bash
+npx agentic-loop chaos-agent --no-fix
+```
+
+### When to use each
+
+| Situation | Command |
+|-----------|---------|
+| Feature just shipped, want to make sure it works | `npx agentic-loop uat` |
+| About to deploy, want security confidence | `npx agentic-loop chaos-agent` |
+| Quick scan before a PR | `npx agentic-loop uat --plan-only` |
+| Find vulns for a security review | `npx agentic-loop chaos-agent --no-fix` |
+
+Both commands are resumable — if you stop mid-run, re-running picks up where you left off. See [UAT & Chaos Agent](UAT.md) for the full reference.
+
+---
+
 ## The Full Picture
 
 Here's how the two terminals work together - you think, the loop builds:
@@ -395,8 +452,13 @@ Here's how the two terminals work together - you think, the loop builds:
 │                              │    │  7. npx agentic-loop run     │
 │                              │    │     [continues...]           │
 │                              │    │                              │
-│  8. /vibe-check              │    │                              │
-│  9. Review & ship            │    │                              │
+│                              │    │  8. npx agentic-loop uat     │
+│                              │    │     [team verifies features] │
+│                              │    │  9. npx agentic-loop chaos-agent   │
+│                              │    │     [red team attacks app]   │
+│                              │    │                              │
+│ 10. /vibe-check              │    │                              │
+│ 11. Review & ship            │    │                              │
 └──────────────────────────────┘    └──────────────────────────────┘
 ```
 
@@ -408,6 +470,8 @@ Here's how the two terminals work together - you think, the loop builds:
 - **Validate your PRD:** Run `/prd-check` to catch story issues before the loop runs
 - **Add custom checks:** Write your own PRD validation rules - see [PRD Check](PRD-CHECK.md)
 - **Run a quality check:** Use `/vibe-check` after the loop completes to catch AI-generated anti-patterns
+- **Test your features:** Run `npx agentic-loop uat` to verify features work - see [UAT & Chaos Agent](UAT.md)
+- **Red team your app:** Run `npx agentic-loop chaos-agent` to find vulnerabilities - see [UAT & Chaos Agent](UAT.md)
 - **Set your preferences:** Run `/my-dna` to tell Claude how you like to work
 - **Explore the commands:** Run `/vibe-list` for a full command reference
 - **Read the deep dive:** [RALPH.md](RALPH.md) explains the architecture in detail
