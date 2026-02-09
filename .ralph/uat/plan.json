@@ -40,7 +40,8 @@
         }
       ],
       "passes": false,
-      "retryCount": 0
+      "retryCount": 1,
+      "redRetries": 1
     },
     {
       "id": "UAT-002",
