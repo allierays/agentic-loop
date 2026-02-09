@@ -39,9 +39,11 @@
           "strategy": "structural"
         }
       ],
-      "passes": false,
-      "retryCount": 1,
-      "redRetries": 1
+      "passes": true,
+      "retryCount": 0,
+      "redRetries": 0,
+      "phase": null,
+      "greenRetries": 0
     },
     {
       "id": "UAT-002",
