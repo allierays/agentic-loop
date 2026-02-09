@@ -343,7 +343,7 @@ This is the main orchestrator (~600 lines of Bash). Key functions:
 
 | Function | What it does |
 |----------|--------------|
-| `run_loop()` | Main loop that iterates through stories until all pass or max iterations hit |
+| `run_loop()` | Main loop that iterates through stories until all pass or a story hits the retry limit |
 | `process_story()` | Handle one story: build prompt, run Claude, verify, handle result |
 | `build_prompt()` | Assemble the text that gets piped to Claude |
 | `run_claude()` | Actually spawn the Claude CLI process |

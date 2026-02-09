@@ -705,7 +705,7 @@ Commands:
   prd <notes>             Generate PRD interactively (quick mode)
   prd --file <file>       Generate PRD from file
   run                     Run autonomous loop until all stories pass
-  run --max <n>           Run with max iterations (default: 20)
+  run --max <n>           Limit to n iterations (no limit by default)
   run --fast              Skip code review for faster iterations
   run --quiet             Suppress the live activity feed
   stop                    Stop loop after current story finishes
@@ -713,6 +713,11 @@ Commands:
   status                  Show current feature and story status
   check                   Run verification checks only
   verify <story-id>       Verify a specific story
+  uat                     Run UAT loop (explore, test, fix bugs)
+  uat --plan-only         Generate test plan without executing
+  uat --focus <id|cat>    Run specific test case or category
+  uat --no-fix            Write tests but don't fix app bugs
+  uat --review            Force review of existing plan
   sign <pattern> [cat]    Add a learned pattern (sign)
   signs                   List all learned patterns
   backup                  Backup detected databases to .backups/
@@ -730,6 +735,8 @@ Examples:
   npx agentic-loop prd "Add a contact form"
   npx agentic-loop run
   npx agentic-loop run --max 10
+  npx agentic-loop uat
+  npx agentic-loop uat --focus auth
   npx agentic-loop status
   npx agentic-loop sign "Always use camelCase" frontend
 

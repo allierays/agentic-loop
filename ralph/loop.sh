@@ -638,7 +638,7 @@ run_loop() {
     exit 130
   ' INT
 
-  local max_iterations="$DEFAULT_MAX_ITERATIONS"
+  local max_iterations=""  # No cap by default — per-story circuit breaker is the safety net
   local specific_story=""
   local fast_mode=false
   local quiet_mode
@@ -772,7 +772,7 @@ run_loop() {
   local session_started=false  # Track if we've started a Claude session
   start_time=$(date +%s)
 
-  while [[ $iteration -lt $max_iterations ]]; do
+  while [[ -z "$max_iterations" || $iteration -lt $max_iterations ]]; do
     # Check for stop signal
     if [[ -f "$RALPH_DIR/.stop" ]]; then
       rm -f "$RALPH_DIR/.stop"
@@ -786,7 +786,11 @@ run_loop() {
 
     ((iteration++))
     echo ""
-    print_info "=== Iteration $iteration/$max_iterations ==="
+    if [[ -n "$max_iterations" ]]; then
+      print_info "=== Iteration $iteration/$max_iterations ==="
+    else
+      print_info "=== Iteration $iteration ==="
+    fi
     echo ""
 
     # 1. Get next incomplete story
