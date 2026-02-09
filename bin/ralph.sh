@@ -194,6 +194,10 @@ main() {
     ci)
       ralph_ci "$@"
       ;;
+    uat)
+      source "$RALPH_LIB/uat.sh"
+      run_uat "$@"
+      ;;
     sign)
       ralph_sign "$@"
       ;;

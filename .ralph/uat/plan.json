@@ -1,0 +1,481 @@
+{
+  "testSuite": {
+    "name": "UAT Ralph — agentic-loop CLI",
+    "generatedAt": "2026-02-09T00:40:00-08:00",
+    "status": "planned",
+    "reviewedAt": "2026-02-09T00:41:00-08:00"
+  },
+  "testCases": [
+    {
+      "id": "UAT-001",
+      "title": "RALPH_LOOP_VERSION constant — value, placement, and readonly",
+      "category": "data",
+      "type": "integration",
+      "userStory": "As a developer, I expect RALPH_LOOP_VERSION to be '2', readonly, and placed near RALPH_VERSION in utils.sh",
+      "testApproach": "Source utils.sh and verify constant value, readonly attribute, and proximity to RALPH_VERSION",
+      "testFile": "tests/uat/feed-001-loop-version.test.ts",
+      "targetFiles": [
+        "ralph/utils.sh"
+      ],
+      "edgeCases": [
+        "Constant cannot be reassigned (readonly enforcement)",
+        "Value is string '2' not integer 2",
+        "Constant is defined within 5 lines of RALPH_VERSION"
+      ],
+      "assertions": [
+        {
+          "input": "source ralph/utils.sh; echo $RALPH_LOOP_VERSION",
+          "expected": "Output is exactly '2'",
+          "strategy": "keyword"
+        },
+        {
+          "input": "source ralph/utils.sh; RALPH_LOOP_VERSION=99",
+          "expected": "bash error: readonly variable",
+          "strategy": "keyword"
+        },
+        {
+          "input": "grep -n 'RALPH_LOOP_VERSION\\|RALPH_VERSION' ralph/utils.sh",
+          "expected": "RALPH_LOOP_VERSION appears within 5 lines of RALPH_VERSION definition",
+          "strategy": "structural"
+        }
+      ],
+      "passes": false,
+      "retryCount": 0
+    },
+    {
+      "id": "UAT-002",
+      "title": "CLI help text — --quiet flag documentation",
+      "category": "ui",
+      "type": "integration",
+      "userStory": "As a user, I expect ralph help to document the --quiet flag near other run flags",
+      "testApproach": "Run ralph help and verify --quiet appears with correct description and positioning",
+      "testFile": "tests/uat/feed-002-quiet-help.test.ts",
+      "targetFiles": [
+        "ralph/init.sh",
+        "bin/agentic-loop.sh"
+      ],
+      "edgeCases": [
+        "--quiet appears in both bin/agentic-loop.sh header comments AND ralph_help() output",
+        "Description mentions 'activity' or 'suppress'",
+        "Appears near --fast and --max flags (within same command group)"
+      ],
+      "assertions": [
+        {
+          "input": "bin/ralph.sh help",
+          "expected": "Output contains 'run --quiet' with description mentioning activity feed suppression",
+          "strategy": "keyword"
+        },
+        {
+          "input": "head -15 bin/agentic-loop.sh",
+          "expected": "Contains '--quiet' with description 'Suppress the live activity feed'",
+          "strategy": "keyword"
+        },
+        {
+          "input": "bin/ralph.sh help | grep -A0 -B2 '\\-\\-quiet'",
+          "expected": "--quiet appears in the run command group, near --fast and --max",
+          "strategy": "structural"
+        }
+      ],
+      "passes": false,
+      "retryCount": 0
+    },
+    {
+      "id": "UAT-003",
+      "title": "CLI argument parsing — --quiet flag integration in run_loop",
+      "category": "data",
+      "type": "integration",
+      "userStory": "As a user, when I pass --quiet to ralph run, it should set quiet_mode=true and suppress activity feed output",
+      "testApproach": "Source loop.sh and test the argument parsing logic for --quiet, including config fallback",
+      "testFile": "tests/uat/quiet-flag-integration.test.ts",
+      "targetFiles": [
+        "ralph/loop.sh"
+      ],
+      "edgeCases": [
+        "--quiet CLI flag overrides config.quiet=false",
+        "config.quiet=true is used when --quiet is not passed",
+        "--quiet combined with --fast and --max",
+        "Unknown flags are silently ignored (no error)"
+      ],
+      "assertions": [
+        {
+          "input": "Parse args: --quiet",
+          "expected": "quiet_mode variable is 'true'",
+          "strategy": "keyword"
+        },
+        {
+          "input": "Parse args with config quiet=true, no --quiet flag",
+          "expected": "quiet_mode variable is 'true' from config",
+          "strategy": "keyword"
+        },
+        {
+          "input": "Parse args: --fast --quiet --max 5",
+          "expected": "fast_mode=true, quiet_mode=true, max_iterations=5",
+          "strategy": "structural"
+        }
+      ],
+      "passes": false,
+      "retryCount": 0
+    },
+    {
+      "id": "UAT-004",
+      "title": "CLI command routing — unknown commands, no args, error handling",
+      "category": "navigation",
+      "type": "integration",
+      "userStory": "As a user, I expect clear error messages for unknown commands and proper help fallback",
+      "testApproach": "Run ralph with various invalid inputs and verify error handling",
+      "testFile": "tests/uat/cli-routing.test.ts",
+      "targetFiles": [
+        "bin/ralph.sh"
+      ],
+      "edgeCases": [
+        "No arguments defaults to help",
+        "Unknown command shows error + help text",
+        "verify without story-id shows usage error",
+        "--help and -h both show help",
+        "--version and -v both show version",
+        "Special characters in command name"
+      ],
+      "assertions": [
+        {
+          "input": "bin/ralph.sh (no args)",
+          "expected": "Shows help text starting with 'agentic-loop - Tools to thrive'",
+          "strategy": "keyword"
+        },
+        {
+          "input": "bin/ralph.sh nonexistent",
+          "expected": "Shows 'Error: Unknown command: nonexistent' and exits with code 1",
+          "strategy": "keyword"
+        },
+        {
+          "input": "bin/ralph.sh verify (no story-id)",
+          "expected": "Shows 'Usage: ralph verify <story-id>' and exits with code 1",
+          "strategy": "keyword"
+        },
+        {
+          "input": "bin/ralph.sh --version",
+          "expected": "Output matches 'ralph X.Y.Z (agentic-loop)' format with valid semver",
+          "strategy": "structural"
+        }
+      ],
+      "passes": false,
+      "retryCount": 0
+    },
+    {
+      "id": "UAT-005",
+      "title": "Init idempotency — safe to run twice, file preservation",
+      "category": "data",
+      "type": "integration",
+      "userStory": "As a user, I expect ralph init to be safe to run multiple times without losing data",
+      "testApproach": "Run init twice and verify files are created first time and preserved second time",
+      "testFile": "tests/uat/init-idempotency.test.ts",
+      "targetFiles": [
+        "ralph/init.sh",
+        "bin/ralph.sh"
+      ],
+      "edgeCases": [
+        "Second init says 'already initialized'",
+        "Existing config.json is not overwritten",
+        "Existing signs.json is not overwritten",
+        "Custom PROMPT.md content is preserved",
+        "progress.txt is not reset on re-init"
+      ],
+      "assertions": [
+        {
+          "input": "ralph init in empty directory",
+          "expected": "Creates .ralph/config.json, .ralph/signs.json, .ralph/progress.txt, PROMPT.md",
+          "strategy": "structural"
+        },
+        {
+          "input": "ralph init in already-initialized directory",
+          "expected": "Output contains 'already initialized', no files modified",
+          "strategy": "keyword"
+        },
+        {
+          "input": "Modify signs.json then ralph init again",
+          "expected": "Modified signs.json content is preserved (not overwritten)",
+          "strategy": "structural"
+        }
+      ],
+      "passes": false,
+      "retryCount": 0
+    },
+    {
+      "id": "UAT-006",
+      "title": "Config migration — testUrlBase to urls.frontend",
+      "category": "data",
+      "type": "integration",
+      "userStory": "As a user with an old config, I expect testUrlBase to be migrated to urls.frontend transparently",
+      "testApproach": "Create configs with deprecated fields and verify migration handles all cases",
+      "testFile": "tests/uat/config-migration-edge.test.ts",
+      "targetFiles": [
+        "ralph/utils.sh"
+      ],
+      "edgeCases": [
+        "testUrlBase with special characters in URL",
+        "testUrlBase with trailing slash",
+        "Config with both testUrlBase and urls.frontend (urls.frontend wins)",
+        "Config with empty string testUrlBase",
+        "Migration is idempotent (safe to run twice)"
+      ],
+      "assertions": [
+        {
+          "input": "Config with testUrlBase='http://localhost:8000/api'",
+          "expected": "urls.frontend='http://localhost:8000/api', testUrlBase removed",
+          "strategy": "structural"
+        },
+        {
+          "input": "Config with testUrlBase='http://host:8000' AND urls.frontend='http://host:5173'",
+          "expected": "urls.frontend='http://host:5173' (preserved), testUrlBase removed",
+          "strategy": "structural"
+        },
+        {
+          "input": "Run migration twice on same config",
+          "expected": "Same result both times, no data loss",
+          "strategy": "structural"
+        }
+      ],
+      "passes": false,
+      "retryCount": 0
+    },
+    {
+      "id": "UAT-007",
+      "title": "Story state protection — passes field cannot be flipped by Claude",
+      "category": "data",
+      "type": "integration",
+      "userStory": "As a loop operator, I need assurance that Claude cannot mark stories as passed without verification",
+      "testApproach": "Simulate Claude tampering with passes field and verify the reset logic catches it",
+      "testFile": "tests/uat/story-state-protection.test.ts",
+      "targetFiles": [
+        "ralph/loop.sh"
+      ],
+      "edgeCases": [
+        "Claude flips one story from false to true",
+        "Claude flips ALL stories to true simultaneously",
+        "Claude adds a new story (not in snapshot)",
+        "Claude removes a story from the array",
+        "jq failure on malformed JSON (error handling)"
+      ],
+      "assertions": [
+        {
+          "input": "Snapshot passes=[false,false,true], Claude changes to [true,false,true]",
+          "expected": "Reset to [false,false,true] — first story reverted",
+          "strategy": "structural"
+        },
+        {
+          "input": "Snapshot passes=[false,false], Claude changes to [true,true]",
+          "expected": "Reset to [false,false] — both reverted",
+          "strategy": "structural"
+        },
+        {
+          "input": "Passes unchanged between snapshot and post-Claude",
+          "expected": "No reset performed, PRD untouched",
+          "strategy": "structural"
+        }
+      ],
+      "passes": false,
+      "retryCount": 0
+    },
+    {
+      "id": "UAT-008",
+      "title": "Utility functions — get_config, log_progress, progress bar",
+      "category": "data",
+      "type": "integration",
+      "userStory": "As a developer, I expect utility functions to handle edge cases gracefully",
+      "testApproach": "Test utility functions with edge-case inputs including missing files, malformed JSON, and boundary values",
+      "testFile": "tests/uat/utils-edge-cases.test.ts",
+      "targetFiles": [
+        "ralph/utils.sh"
+      ],
+      "edgeCases": [
+        "get_config with missing config file returns default",
+        "get_config with malformed JSON returns default",
+        "get_config with null value returns default",
+        "log_progress with special characters in message",
+        "log_progress rotation when file exceeds MAX_PROGRESS_FILE_LINES",
+        "progress_bar with 0/0, 1/1, 0/1 edge values"
+      ],
+      "assertions": [
+        {
+          "input": "get_config '.nonexistent' 'fallback' (config exists but key missing)",
+          "expected": "Returns 'fallback'",
+          "strategy": "keyword"
+        },
+        {
+          "input": "get_config '.key' 'default' (no config file)",
+          "expected": "Returns 'default'",
+          "strategy": "keyword"
+        },
+        {
+          "input": "log_progress 'TASK-001' 'PASS' 'msg with \"quotes\" and $vars'",
+          "expected": "Line written to progress.txt with special chars preserved",
+          "strategy": "keyword"
+        },
+        {
+          "input": "progress_bar 0 10",
+          "expected": "All empty blocks (░░░░░░)",
+          "strategy": "structural"
+        }
+      ],
+      "passes": false,
+      "retryCount": 0
+    },
+    {
+      "id": "UAT-009",
+      "title": "Stop and skip signals — file creation, cleanup, edge cases",
+      "category": "data",
+      "type": "integration",
+      "userStory": "As a user, I expect stop and skip to create signal files that the loop respects",
+      "testApproach": "Test signal file lifecycle: creation, detection, cleanup after consumption",
+      "testFile": "tests/uat/signal-files.test.ts",
+      "targetFiles": [
+        "bin/ralph.sh",
+        "ralph/loop.sh"
+      ],
+      "edgeCases": [
+        "Stop signal file created in correct location",
+        "Skip signal file created in correct location",
+        "Stop and skip together (stop should take priority)",
+        "Signal files cleaned up before run starts",
+        "Commands work in fresh directory (no prior init)"
+      ],
+      "assertions": [
+        {
+          "input": "ralph stop",
+          "expected": ".ralph/.stop file exists after command",
+          "strategy": "structural"
+        },
+        {
+          "input": "ralph skip",
+          "expected": ".ralph/.skip file exists after command",
+          "strategy": "structural"
+        },
+        {
+          "input": "ralph run (with .stop file present)",
+          "expected": ".stop file removed before loop begins (rm -f in run handler)",
+          "strategy": "structural"
+        }
+      ],
+      "passes": false,
+      "retryCount": 0
+    },
+    {
+      "id": "UAT-010",
+      "title": "Project type detection — all supported types and edge cases",
+      "category": "data",
+      "type": "integration",
+      "userStory": "As a user, I expect Ralph to correctly detect my project type and apply the right config template",
+      "testApproach": "Create directories with various project markers and verify detection logic",
+      "testFile": "tests/uat/project-detection.test.ts",
+      "targetFiles": [
+        "bin/ralph.sh",
+        "ralph/init.sh"
+      ],
+      "edgeCases": [
+        "Empty directory → 'minimal'",
+        "package.json only → 'node'",
+        "pyproject.toml only → 'python'",
+        "pyproject.toml with fastapi dependency → 'fastapi'",
+        "pyproject.toml with django dependency → 'django'",
+        "pyproject.toml with fastmcp dependency → 'fastmcp'",
+        "go.mod → 'go'",
+        "Cargo.toml → 'rust'",
+        "frontend/ + backend/ dirs → 'fullstack'",
+        "Multiple markers present (priority order)"
+      ],
+      "assertions": [
+        {
+          "input": "Empty directory, ralph init",
+          "expected": "Output contains 'minimal'",
+          "strategy": "keyword"
+        },
+        {
+          "input": "Directory with package.json, ralph init",
+          "expected": "Output contains 'node'",
+          "strategy": "keyword"
+        },
+        {
+          "input": "Directory with pyproject.toml containing fastapi, ralph init",
+          "expected": "Output contains 'fastapi'",
+          "strategy": "keyword"
+        }
+      ],
+      "passes": false,
+      "retryCount": 0
+    },
+    {
+      "id": "UAT-011",
+      "title": "Version command — reads from package.json correctly",
+      "category": "ui",
+      "type": "integration",
+      "userStory": "As a user, I expect ralph version to show the correct version from package.json",
+      "testApproach": "Run version command and verify it matches package.json, test edge cases",
+      "testFile": "tests/uat/version-command.test.ts",
+      "targetFiles": [
+        "bin/ralph.sh"
+      ],
+      "edgeCases": [
+        "version matches package.json exactly",
+        "--version flag works",
+        "-v shorthand works",
+        "Output format is 'ralph X.Y.Z (agentic-loop)'"
+      ],
+      "assertions": [
+        {
+          "input": "bin/ralph.sh version",
+          "expected": "Output is 'ralph 3.20.0 (agentic-loop)' matching package.json version",
+          "strategy": "keyword"
+        },
+        {
+          "input": "bin/ralph.sh --version",
+          "expected": "Same output as 'ralph version'",
+          "strategy": "keyword"
+        },
+        {
+          "input": "bin/ralph.sh -v",
+          "expected": "Same output as 'ralph version'",
+          "strategy": "keyword"
+        }
+      ],
+      "passes": false,
+      "retryCount": 0
+    },
+    {
+      "id": "UAT-012",
+      "title": "Blocked signal handling — reason capture, cleanup, failure directory",
+      "category": "data",
+      "type": "integration",
+      "userStory": "As a loop operator, I expect blocked signals to be captured with reasons and cleaned up properly",
+      "testApproach": "Create .blocked files with various content and verify the read/cleanup/save cycle",
+      "testFile": "tests/uat/blocked-signal.test.ts",
+      "targetFiles": [
+        "ralph/loop.sh"
+      ],
+      "edgeCases": [
+        "Block reason with special characters (quotes, newlines, pipes)",
+        "Very long block reason (1000+ chars)",
+        "Empty .blocked file",
+        "Missing .blocked file (graceful skip)",
+        "Failure saved to failures/ directory with story ID"
+      ],
+      "assertions": [
+        {
+          "input": ".blocked file with 'BLOCKED: python not found on PATH'",
+          "expected": "Reason captured as 'BLOCKED: python not found on PATH', .blocked removed",
+          "strategy": "keyword"
+        },
+        {
+          "input": "No .blocked file present",
+          "expected": "No error, graceful skip",
+          "strategy": "structural"
+        },
+        {
+          "input": ".blocked file with reason, story TASK-001 active",
+          "expected": "Reason saved to .ralph/failures/TASK-001.txt",
+          "strategy": "structural"
+        }
+      ],
+      "passes": false,
+      "retryCount": 0
+    }
+  ]
+}
