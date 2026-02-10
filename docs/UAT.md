@@ -108,6 +108,29 @@ Tries to break the app with XSS, injection, chaos inputs, auth bypass.
 npx agentic-loop chaos-agent
 ```
 
+### Docker Isolation (default)
+
+By default, the chaos-agent spins up an **isolated Docker copy** of your app so your live dev server is never touched. It parses your `docker-compose.yml`, offsets all ports by 10000 (e.g., `:5173` becomes `:15173`), and runs the red team against the isolated copy.
+
+```
+$ npx agentic-loop chaos-agent
+
+  Starting isolated Docker environment...
+    → Parsing docker-compose.yml for port mappings
+    → Generated override: api 8001→18001, web 5173→15173
+    → Isolated environment ready (frontend: :15173, api: :18001)
+
+  Phase 1: Red team exploring your app for vulnerabilities
+    → Agents attack http://localhost:15173 (your :5173 is untouched)
+
+  Tearing down isolated environment...
+    → Done. Your dev server was never touched.
+```
+
+**Requirements:** Docker and a compose file (`docker-compose.yml`, `compose.yml`, etc.)
+
+**Fallback:** If Docker isn't available or no compose file exists, the chaos-agent falls back to testing against your live app with non-destructive guardrails (no DELETE endpoints, no mass mutations, etc.).
+
 ### Team Composition
 
 | Agent | Role |
@@ -263,10 +286,21 @@ In `.ralph/config.json`:
     "sessionSeconds": 1800,
     "maxIterations": 20,
     "maxCaseRetries": 5,
-    "maxSessionSeconds": 600
+    "maxSessionSeconds": 600,
+    "isolate": true,
+    "docker": {
+      "portOffset": 10000,
+      "healthTimeout": 120,
+      "build": true
+    }
+  },
+  "docker": {
+    "composeFile": "docker-compose.yml"
   }
 }
 ```
+
+### Shared Config
 
 | Field | Default | Description |
 |-------|---------|-------------|
@@ -274,6 +308,16 @@ In `.ralph/config.json`:
 | `*.maxIterations` | `20` | Maximum TDD loop iterations |
 | `*.maxCaseRetries` | `5` | Circuit breaker — max combined RED + GREEN retries per case |
 | `*.maxSessionSeconds` | `600` | Timeout per individual Claude session (RED or GREEN) |
+
+### Docker Isolation Config (Chaos Agent)
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `chaos.isolate` | `true` | Enable Docker isolation for chaos-agent runs |
+| `chaos.docker.portOffset` | `10000` | Offset added to host ports (e.g., 5173 → 15173) |
+| `chaos.docker.healthTimeout` | `120` | Seconds to wait for containers to be healthy |
+| `chaos.docker.build` | `true` | Pass `--build` to rebuild images each run |
+| `docker.composeFile` | auto-detect | Path to compose file (checks `docker-compose.yml`, `compose.yml`, etc.) |
 
 UAT and Chaos Agent are configured independently — you can give Chaos Agent more retries or a longer discovery timeout.
 

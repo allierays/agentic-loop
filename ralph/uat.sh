@@ -32,6 +32,14 @@ UAT_MODE_LABEL=""
 UAT_CONFIG_NS=""    # config namespace: "uat" or "chaos"
 UAT_CMD_NAME=""     # CLI command name: "uat" or "chaos-agent"
 
+# Docker isolation state (set by _should_use_docker_isolation / _chaos_docker_up)
+CHAOS_ISOLATION_RESULT=""
+CHAOS_FRONTEND_URL=""
+CHAOS_API_URL=""
+CHAOS_OVERRIDE_FILE=""
+CHAOS_COMPOSE_FILE=""
+CHAOS_COMPOSE_CMD=""
+
 # TDD phases
 readonly UAT_PHASE_RED="RED"
 readonly UAT_PHASE_GREEN="GREEN"
@@ -44,6 +52,9 @@ readonly DEFAULT_UAT_MAX_CASE_RETRIES=5
 # Team mode timeouts (longer — Claude coordinates parallel agents)
 readonly DEFAULT_UAT_SESSION_SECONDS=1800
 readonly DEFAULT_CHAOS_SESSION_SECONDS=1800
+
+# Archive retention
+readonly MAX_UAT_ARCHIVE_COUNT=20
 
 # ============================================================================
 # DIRECTORY INIT
@@ -148,7 +159,7 @@ run_uat() {
       print_info "Phase 1: Exploring your app and building a test plan"
       echo ""
       if ! _discover_and_plan "$quiet_mode" "uat"; then
-        print_error "Something went wrong while exploring your app. See the progress log for details."
+        _print_discovery_failure_help
         return 1
       fi
     fi
@@ -178,6 +189,12 @@ run_uat() {
 
   # Phase 3: Report
   _print_report
+
+  # Archive and reset for next run
+  if [[ "$UAT_TESTS_WRITTEN" -gt 0 ]]; then
+    _archive_plan
+    rm -f "$UAT_PLAN_FILE"
+  fi
 
   return $loop_exit
 }
@@ -211,6 +228,30 @@ run_chaos() {
   # Banner
   _print_chaos_banner
 
+  # Isolation: spin up Docker copy for chaos to attack
+  # Call directly (not in $() subshell) so globals are preserved
+  local use_docker=false
+  _should_use_docker_isolation
+  if [[ "$CHAOS_ISOLATION_RESULT" == "true" ]]; then
+    print_info "Starting isolated Docker environment..."
+    if _chaos_docker_up; then
+      use_docker=true
+    else
+      print_warning "Docker isolation failed — testing against live app"
+      print_warning "Non-destructive guardrails are active"
+    fi
+  fi
+
+  # Helper to tear down Docker on early exit
+  _chaos_early_exit() {
+    local code="$1"
+    if [[ "$use_docker" == "true" ]]; then
+      print_info "Tearing down isolated environment..."
+      _chaos_docker_down
+    fi
+    return "$code"
+  }
+
   # Phase 1: Adversarial Discovery + Plan
   if [[ ! -f "$UAT_PLAN_FILE" ]] || [[ "$force_review" == "true" ]] || [[ "$plan_only" == "true" ]]; then
     if [[ -f "$UAT_PLAN_FILE" ]] && [[ "$force_review" == "true" ]]; then
@@ -220,7 +261,8 @@ run_chaos() {
       print_info "Phase 1: Red team exploring your app for vulnerabilities"
       echo ""
       if ! _discover_and_plan "$quiet_mode" "chaos"; then
-        print_error "Something went wrong during red team exploration. See the progress log for details."
+        _print_discovery_failure_help
+        _chaos_early_exit 1
         return 1
       fi
     fi
@@ -228,11 +270,13 @@ run_chaos() {
     # Review the plan
     if ! _review_plan; then
       print_info "Plan review cancelled. No changes were made."
+      _chaos_early_exit 0
       return 0
     fi
 
     if [[ "$plan_only" == "true" ]]; then
       print_success "Plan generated. Run 'npx agentic-loop chaos-agent' to execute."
+      _chaos_early_exit 0
       return 0
     fi
   else
@@ -250,6 +294,18 @@ run_chaos() {
 
   # Phase 3: Report
   _print_report
+
+  # Archive and reset for next run
+  if [[ "$UAT_TESTS_WRITTEN" -gt 0 ]]; then
+    _archive_plan
+    rm -f "$UAT_PLAN_FILE"
+  fi
+
+  # Isolation: tear down Docker environment
+  if [[ "$use_docker" == "true" ]]; then
+    print_info "Tearing down isolated environment..."
+    _chaos_docker_down
+  fi
 
   return $loop_exit
 }
@@ -278,15 +334,80 @@ _acquire_uat_lock() {
 
 _uat_cleanup() {
   rm -f "$RALPH_DIR/.lock"
+  # Safety net: tear down Docker if still running
+  if [[ -n "${CHAOS_OVERRIDE_FILE:-}" ]]; then
+    _chaos_docker_down 2>/dev/null
+  fi
 }
 
 _uat_interrupt() {
   echo ""
   print_warning "Interrupted. Wrapping up $UAT_MODE_LABEL..."
+  if [[ -n "${CHAOS_OVERRIDE_FILE:-}" ]]; then
+    print_info "Tearing down isolated Docker environment..."
+    _chaos_docker_down
+  fi
   # Kill all child processes (Claude sessions, test runners)
   kill 0 2>/dev/null || true
   _uat_cleanup
   exit 130
+}
+
+# ============================================================================
+# DISCOVERY FAILURE RECOVERY
+# ============================================================================
+
+_print_discovery_failure_help() {
+  echo ""
+  echo "  ┌──────────────────────────────────────────────────────┐"
+  echo "  │  Discovery failed — here's how to recover            │"
+  echo "  └──────────────────────────────────────────────────────┘"
+  echo ""
+
+  # Check common causes and give specific advice
+  local has_config=false has_app_url=false app_url=""
+  if [[ -f "$RALPH_DIR/config.json" ]]; then
+    has_config=true
+    app_url=$(jq -r '.frontendUrl // .url // empty' "$RALPH_DIR/config.json" 2>/dev/null)
+    [[ -n "$app_url" ]] && has_app_url=true
+  fi
+
+  # Check if the app is reachable
+  if [[ "$has_app_url" == "true" ]]; then
+    if ! curl -s --max-time 3 "$app_url" > /dev/null 2>&1; then
+      echo "  Likely cause: Your app at $app_url is not responding."
+      echo ""
+      echo "  Fix: Start your app first, then retry:"
+      echo "    npm run dev   # or whatever starts your app"
+      echo "    npx agentic-loop $UAT_CMD_NAME"
+      echo ""
+      return
+    fi
+  fi
+
+  if [[ "$has_config" == "false" ]]; then
+    echo "  Likely cause: No .ralph/config.json found."
+    echo ""
+    echo "  Fix: Run 'npx agentic-loop init' to create one."
+    echo ""
+    return
+  fi
+
+  # Generic recovery: show progress log and suggest retry
+  echo "  What happened:"
+  if [[ -f "$UAT_PROGRESS_FILE" ]]; then
+    echo ""
+    tail -5 "$UAT_PROGRESS_FILE" | sed 's/^/    /'
+    echo ""
+  fi
+
+  echo "  To retry:"
+  echo "    npx agentic-loop $UAT_CMD_NAME"
+  echo ""
+  echo "  To retry with more time (default: ${DEFAULT_UAT_SESSION_SECONDS}s):"
+  echo "    Set $UAT_CONFIG_NS.sessionSeconds in .ralph/config.json"
+  echo ""
+  echo "  Full log: $UAT_PROGRESS_FILE"
 }
 
 # ============================================================================
@@ -326,20 +447,26 @@ _discover_and_plan() {
 
   if [[ $claude_exit -ne 0 ]]; then
     _log_uat "DISCOVER" "Claude session failed (exit $claude_exit)"
-    print_error "App exploration session failed"
-    if [[ -f "$output_file" ]]; then
-      echo "  Last output:"
-      tail -10 "$output_file" | sed 's/^/    /'
+    if [[ $claude_exit -eq 124 ]]; then
+      print_error "Discovery timed out after ${timeout}s"
+      echo "  The exploration ran out of time before finishing."
+      echo "  Increase timeout: set $UAT_CONFIG_NS.sessionSeconds in .ralph/config.json"
+    else
+      print_error "Discovery session crashed (exit code $claude_exit)"
+      if [[ -f "$output_file" ]]; then
+        echo "  Last output:"
+        tail -5 "$output_file" | sed 's/^/    /'
+      fi
     fi
     return 1
   fi
 
   # Validate plan was generated
   if [[ ! -f "$UAT_PLAN_FILE" ]]; then
-    print_error "No test plan was created"
+    print_error "Discovery finished but no test plan was written"
     echo ""
-    echo "  The exploration finished but didn't produce a plan."
-    echo "  Check the output above for what went wrong."
+    echo "  Claude explored the app but didn't write .ralph/$UAT_CONFIG_NS/plan.json."
+    echo "  This usually means the app wasn't reachable or had no testable features."
     return 1
   fi
 
@@ -965,6 +1092,7 @@ _run_green_phase() {
       print_success "$case_id: Fixed! Test passes and nothing else broke"
       _mark_passed "$case_id"
       _track_fixed_files "$case_id"
+      _auto_sign_from_case "$case_id"
       UAT_BUGS_FIXED=$((UAT_BUGS_FIXED + 1))
       _commit_result "$case_id" "$test_file"
       UAT_CASES_PASSED=$((UAT_CASES_PASSED + 1))
@@ -1757,6 +1885,7 @@ _print_uat_banner() {
   echo " | |_| / ___ \\| |   | |__| (_) | (_) | |_) |"
   echo "  \\___/_/   \\_\\_|   |_____\\___/ \\___/| .__/"
   echo "                                      |_|"
+  echo "  Acceptance testing loop — verifying things work"
   echo ""
 }
 
@@ -1768,7 +1897,7 @@ _print_chaos_banner() {
   echo " | |___| | | | (_| | (_) \\__ \\/ ___ \\ (_| |  __/ | | | |_ "
   echo "  \\____|_| |_|\\__,_|\\___/|___/_/   \\_\\__, |\\___|_| |_|\\__|"
   echo "                                      |___/               "
-  echo "  Red team mode — trying to break things"
+  echo "  Red team loop — trying to break things"
   echo ""
 }
 
@@ -1970,9 +2099,503 @@ This is NOT a copy of the template — it's ground truth from the red team's exp
 - `targetFiles` should list the app source files the test covers
 - `testFile` path should use the project's test directory conventions
 - Always clean up: shutdown teammates and delete team when done
+
 PROMPT_SECTION
 
+  # Conditional section: Docker isolation vs non-destructive guardrails
+  if [[ -n "${CHAOS_FRONTEND_URL:-}" ]]; then
+    cat >> "$prompt_file" << PROMPT_DOCKER
+### ISOLATED ENVIRONMENT (Docker)
+
+You are attacking an ISOLATED Docker copy of the application.
+The developer's live server is NOT affected. Go deeper and harder.
+
+- Frontend: ${CHAOS_FRONTEND_URL}
+- API: ${CHAOS_API_URL}
+
+Use THESE URLs for all testing. Ignore URLs in .ralph/config.json.
+You CAN test destructive operations (DELETE endpoints, data mutations, etc.)
+since this environment is disposable.
+PROMPT_DOCKER
+  else
+    cat >> "$prompt_file" << 'PROMPT_SAFE'
+### Non-Destructive Testing (CRITICAL)
+
+The developer is actively running this app. Your testing MUST NOT corrupt application state:
+
+- **OBSERVE, don't destroy** — read data, don't delete it. Test inputs, don't wipe databases.
+- **NO destructive API calls** — do NOT call DELETE endpoints, DROP tables, or clear/reset data
+- **NO mass mutations** — don't create thousands of records, flood queues, or exhaust rate limits
+- **Prefer GET over POST/PUT/DELETE** for reconnaissance
+- **Test XSS/injection via form inputs**, not direct database manipulation
+- **If you find a destructive vulnerability**, DOCUMENT IT in the plan — don't exploit it live
+- **Leave the app in a usable state** after each agent finishes
+- **If the app crashes or becomes unresponsive**, stop testing and report what caused it
+PROMPT_SAFE
+  fi
+
   _inject_prompt_context "$prompt_file"
+}
+
+# ============================================================================
+# ISOLATION: DOCKER-BASED CHAOS ENVIRONMENT
+# ============================================================================
+
+# Check whether Docker isolation should be used for chaos-agent runs.
+# Sets CHAOS_ISOLATION_RESULT to "true" or "false".
+# Must be called directly (not in a $() subshell) so globals are preserved.
+# Also sets: CHAOS_COMPOSE_CMD, CHAOS_COMPOSE_FILE
+_should_use_docker_isolation() {
+  CHAOS_ISOLATION_RESULT="false"
+
+  # Read chaos.isolate directly — get_config uses `// empty` which treats
+  # boolean false as falsy and falls through to the default
+  local isolate="true"
+  local config="$RALPH_DIR/config.json"
+  if [[ -f "$config" ]]; then
+    local raw
+    raw=$(jq -r 'if .chaos.isolate == false then "false" elif .chaos.isolate then .chaos.isolate else "unset" end' "$config" 2>/dev/null)
+    [[ "$raw" != "unset" && "$raw" != "null" && -n "$raw" ]] && isolate="$raw"
+  fi
+  if [[ "$isolate" != "true" ]]; then
+    print_info "Docker isolation disabled (chaos.isolate=false)"
+    return 0
+  fi
+
+  CHAOS_COMPOSE_CMD=$(_detect_compose_cmd)
+  if [[ -z "$CHAOS_COMPOSE_CMD" ]]; then
+    print_info "Docker not available — skipping isolation"
+    return 0
+  fi
+
+  # Find compose file: config override, then standard names
+  local compose_file
+  compose_file=$(get_config '.docker.composeFile' "")
+  if [[ -n "$compose_file" && -f "$compose_file" ]]; then
+    CHAOS_COMPOSE_FILE="$compose_file"
+    CHAOS_ISOLATION_RESULT="true"
+    return 0
+  fi
+
+  for candidate in "docker-compose.yml" "docker-compose.yaml" "compose.yml" "compose.yaml"; do
+    if [[ -f "$candidate" ]]; then
+      CHAOS_COMPOSE_FILE="$candidate"
+      CHAOS_ISOLATION_RESULT="true"
+      return 0
+    fi
+  done
+
+  print_info "No compose file found — skipping Docker isolation"
+}
+
+# Parse the compose file for port mappings and generate an override file
+# with ports offset by chaos.docker.portOffset (default: 10000).
+# Sets: CHAOS_OVERRIDE_FILE, CHAOS_COMPOSE_FILE
+_generate_chaos_override() {
+  local port_offset
+  port_offset=$(get_config '.chaos.docker.portOffset' "10000")
+
+  local override_file
+  override_file=$(create_temp_file ".chaos-override.yml")
+
+  # Check for network_mode: host (at service-level indentation, 4+ spaces)
+  if grep -qE '^[[:space:]]{4,}network_mode:[[:space:]]*"?host"?' "$CHAOS_COMPOSE_FILE" 2>/dev/null; then
+    print_error "Compose file uses network_mode: host — cannot isolate ports"
+    return 1
+  fi
+
+  # Build override YAML
+  echo "services:" > "$override_file"
+
+  local current_service=""
+  local in_ports=false
+  local service_has_ports=false
+
+  while IFS= read -r line; do
+    # Detect top-level service name: 2-space indent, alphanumeric/dot/dash/underscore, colon
+    # Allows trailing whitespace and comments (e.g., "  web: # my service")
+    if [[ "$line" =~ ^[[:space:]]{2}[a-zA-Z0-9._-]+:[[:space:]]*(#.*)?$ ]] && ! [[ "$line" =~ ^[[:space:]]{4} ]]; then
+      current_service=$(echo "$line" | sed 's/^[[:space:]]*//' | sed 's/:[[:space:]]*#.*//' | tr -d ':')
+      in_ports=false
+      service_has_ports=false
+    fi
+
+    # Detect ports: section (must be under a service, i.e. 4+ spaces)
+    if [[ "$line" =~ ^[[:space:]]{4,}ports:[[:space:]]*(#.*)?$ ]]; then
+      in_ports=true
+      continue
+    fi
+
+    # Parse port mappings within a ports: section
+    if [[ "$in_ports" == "true" ]]; then
+      # Handle three-part format: "IP:HOST:CONTAINER" (e.g., "127.0.0.1:8080:8080")
+      if [[ "$line" =~ ^[[:space:]]*-[[:space:]]*\"?([0-9.]+):([0-9]+):([0-9]+)\"? ]]; then
+        local bind_ip="${BASH_REMATCH[1]}"
+        local host_port="${BASH_REMATCH[2]}"
+        local container_port="${BASH_REMATCH[3]}"
+        local new_port=$((host_port + port_offset))
+
+        if [[ "$new_port" -gt 65535 ]]; then
+          print_error "Port ${host_port}+${port_offset}=${new_port} exceeds 65535"
+          print_error "Reduce chaos.docker.portOffset in .ralph/config.json"
+          return 1
+        fi
+
+        if [[ "$service_has_ports" == "false" ]]; then
+          echo "  ${current_service}:" >> "$override_file"
+          echo "    ports:" >> "$override_file"
+          service_has_ports=true
+        fi
+
+        echo "      - \"${bind_ip}:${new_port}:${container_port}\"" >> "$override_file"
+      # Standard two-part format: "HOST:CONTAINER" (e.g., "8001:8001")
+      elif [[ "$line" =~ ^[[:space:]]*-[[:space:]]*\"?([0-9]+):([0-9]+)\"? ]]; then
+        local host_port="${BASH_REMATCH[1]}"
+        local container_port="${BASH_REMATCH[2]}"
+        local new_port=$((host_port + port_offset))
+
+        if [[ "$new_port" -gt 65535 ]]; then
+          print_error "Port ${host_port}+${port_offset}=${new_port} exceeds 65535"
+          print_error "Reduce chaos.docker.portOffset in .ralph/config.json"
+          return 1
+        fi
+
+        # Write service header on first port
+        if [[ "$service_has_ports" == "false" ]]; then
+          echo "  ${current_service}:" >> "$override_file"
+          echo "    ports:" >> "$override_file"
+          service_has_ports=true
+        fi
+
+        echo "      - \"${new_port}:${container_port}\"" >> "$override_file"
+      elif [[ ! "$line" =~ ^[[:space:]]*- ]] && [[ ! "$line" =~ ^[[:space:]]*$ ]] && [[ ! "$line" =~ ^[[:space:]]*# ]]; then
+        # Non-list, non-blank, non-comment line means we exited the ports section
+        in_ports=false
+      fi
+    fi
+  done < "$CHAOS_COMPOSE_FILE"
+
+  CHAOS_OVERRIDE_FILE="$override_file"
+}
+
+# Start the isolated Docker stack for chaos-agent.
+# Sets: CHAOS_FRONTEND_URL, CHAOS_API_URL
+_chaos_docker_up() {
+  # Clean up any stale containers from interrupted runs
+  _chaos_docker_down 2>/dev/null
+
+  # Call directly (not in $() subshell) so CHAOS_OVERRIDE_FILE global is preserved
+  _generate_chaos_override || return 1
+
+  local port_offset health_timeout
+  port_offset=$(get_config '.chaos.docker.portOffset' "10000")
+  health_timeout=$(get_config '.chaos.docker.healthTimeout' "120")
+
+  # Read chaos.docker.build directly — get_config treats boolean false as falsy
+  local should_build="true"
+  local config="$RALPH_DIR/config.json"
+  if [[ -f "$config" ]]; then
+    local raw_build
+    raw_build=$(jq -r 'if .chaos.docker.build == false then "false" elif .chaos.docker.build then .chaos.docker.build else "unset" end' "$config" 2>/dev/null)
+    [[ "$raw_build" != "unset" && "$raw_build" != "null" && -n "$raw_build" ]] && should_build="$raw_build"
+  fi
+
+  local build_flag=""
+  [[ "$should_build" == "true" ]] && build_flag="--build"
+
+  # Check if compose v2 supports --wait
+  local wait_flag=""
+  if $CHAOS_COMPOSE_CMD up --help 2>&1 | grep -q '\-\-wait'; then
+    wait_flag="--wait --wait-timeout $health_timeout"
+  fi
+
+  _log_uat "ISOLATE" "Starting Docker stack: $CHAOS_COMPOSE_CMD -p ralph-chaos up -d $build_flag $wait_flag"
+
+  # shellcheck disable=SC2086
+  if ! $CHAOS_COMPOSE_CMD -f "$CHAOS_COMPOSE_FILE" -f "$CHAOS_OVERRIDE_FILE" \
+       -p ralph-chaos up -d $build_flag $wait_flag 2>&1; then
+    print_error "Docker stack failed to start"
+    _log_uat "ISOLATE" "Docker stack failed"
+    _chaos_docker_down 2>/dev/null
+    return 1
+  fi
+
+  # If --wait wasn't available, poll for health
+  if [[ -z "$wait_flag" ]]; then
+    if ! _chaos_poll_health "$port_offset" "$health_timeout"; then
+      print_error "Health check timed out after ${health_timeout}s"
+      _log_uat "ISOLATE" "Health check timeout"
+      _chaos_docker_down 2>/dev/null
+      return 1
+    fi
+  fi
+
+  # Compute isolated URLs from offset ports
+  # Extract port after the last colon in URL (handles http://host:PORT/path)
+  local frontend_port api_port
+  frontend_port=$(get_config '.urls.frontend' "http://localhost:5173" | grep -oE ':[0-9]+' | tail -1 | tr -d ':')
+  api_port=$(get_config '.urls.api' "" | grep -oE ':[0-9]+' | tail -1 | tr -d ':')
+
+  if [[ -n "$frontend_port" ]]; then
+    CHAOS_FRONTEND_URL="http://localhost:$((frontend_port + port_offset))"
+  fi
+  if [[ -n "$api_port" ]]; then
+    CHAOS_API_URL="http://localhost:$((api_port + port_offset))"
+  fi
+
+  _log_uat "ISOLATE" "Docker stack ready (frontend: ${CHAOS_FRONTEND_URL:-none}, api: ${CHAOS_API_URL:-none})"
+  print_info "Isolated environment ready (frontend: ${CHAOS_FRONTEND_URL:-none}, api: ${CHAOS_API_URL:-none})"
+  return 0
+}
+
+# Fallback health check when --wait is unavailable.
+# Polls the API health endpoint or checks container state.
+_chaos_poll_health() {
+  local port_offset="$1"
+  local timeout="$2"
+
+  local health_endpoint
+  health_endpoint=$(get_config '.api.healthEndpoint' "/health")
+  local api_port
+  api_port=$(get_config '.urls.api' "" | grep -oE ':[0-9]+' | tail -1 | tr -d ':')
+
+  local start_time
+  start_time=$(date +%s)
+
+  if [[ -n "$api_port" ]]; then
+    local url="http://localhost:$((api_port + port_offset))${health_endpoint}"
+    print_info "Waiting for health check at $url..."
+    while true; do
+      local now
+      now=$(date +%s)
+      [[ $((now - start_time)) -ge "$timeout" ]] && break
+      if curl -sf --max-time 5 "$url" >/dev/null 2>&1; then
+        return 0
+      fi
+      sleep 3
+    done
+  else
+    # No API URL — just wait for containers to be running
+    print_info "Waiting for containers to be running..."
+    while true; do
+      local now
+      now=$(date +%s)
+      [[ $((now - start_time)) -ge "$timeout" ]] && break
+      # shellcheck disable=SC2086
+      local running
+      running=$($CHAOS_COMPOSE_CMD -p ralph-chaos ps --format json 2>/dev/null | \
+                grep -c '"running"' 2>/dev/null || echo "0")
+      if [[ "$running" -gt 0 ]]; then
+        return 0
+      fi
+      sleep 3
+    done
+  fi
+
+  return 1
+}
+
+# Tear down the isolated Docker stack. Idempotent — safe to call when nothing is running.
+_chaos_docker_down() {
+  if [[ -z "${CHAOS_COMPOSE_CMD:-}" || -z "${CHAOS_COMPOSE_FILE:-}" ]]; then
+    return 0
+  fi
+
+  if [[ -n "${CHAOS_OVERRIDE_FILE:-}" && -f "${CHAOS_OVERRIDE_FILE:-}" ]]; then
+    $CHAOS_COMPOSE_CMD -f "$CHAOS_COMPOSE_FILE" -f "$CHAOS_OVERRIDE_FILE" \
+      -p ralph-chaos down -v --timeout 10 2>/dev/null
+  else
+    $CHAOS_COMPOSE_CMD -f "$CHAOS_COMPOSE_FILE" \
+      -p ralph-chaos down -v --timeout 10 2>/dev/null
+  fi
+
+  CHAOS_FRONTEND_URL=""
+  CHAOS_API_URL=""
+  CHAOS_OVERRIDE_FILE=""
+}
+
+# ============================================================================
+# SELF-LEARNING: ARCHIVE, AUTO-SIGN, HISTORY
+# ============================================================================
+
+# Auto-add a sign when chaos-agent fixes a vulnerability (GREEN success only).
+# UAT mode is skipped — functional test titles are too generic to be useful signs.
+_auto_sign_from_case() {
+  local case_id="$1"
+
+  # Only for chaos-agent — security findings are high-signal
+  [[ "$UAT_CONFIG_NS" != "chaos" ]] && return 0
+
+  # Read case data from plan.json
+  local case_json title test_approach pattern
+  case_json=$(jq --arg id "$case_id" '.testCases[] | select(.id==$id)' "$UAT_PLAN_FILE" 2>/dev/null)
+  [[ -z "$case_json" ]] && return 0
+
+  title=$(echo "$case_json" | jq -r '.title // empty')
+  [[ -z "$title" ]] && return 0
+
+  test_approach=$(echo "$case_json" | jq -r '.testApproach // empty')
+
+  # Build pattern: "title -- testApproach" or just title
+  if [[ -n "$test_approach" ]]; then
+    pattern="$title -- $test_approach"
+  else
+    pattern="$title"
+  fi
+
+  # Truncate at 200 chars
+  [[ ${#pattern} -gt 200 ]] && pattern="${pattern:0:200}"
+
+  # Check for duplicates
+  if _sign_is_duplicate "$pattern"; then
+    _log_uat "$case_id" "AUTO_SIGN: Skipped duplicate — $pattern"
+    return 0
+  fi
+
+  # Add sign with output suppressed (redirect to log)
+  if ralph_sign "$pattern" "security" "true" "$case_id" > /dev/null 2>&1; then
+    _log_uat "$case_id" "AUTO_SIGN: Added [security] $pattern"
+    print_info "Learned: [security] $pattern"
+  else
+    _log_uat "$case_id" "AUTO_SIGN: Failed to add sign"
+  fi
+}
+
+# Archive a completed plan for future reference.
+_archive_plan() {
+  local archive_dir="$UAT_MODE_DIR/archive"
+  mkdir -p "$archive_dir"
+
+  local timestamp
+  timestamp=$(date +%Y%m%d-%H%M%S 2>/dev/null || date +%Y%m%d-%H%M%S)
+
+  local archive_file="$archive_dir/plan-${timestamp}.json"
+
+  # Record current git hash in the archived plan
+  local git_hash=""
+  if command -v git &>/dev/null && [[ -d ".git" ]]; then
+    git_hash=$(git rev-parse HEAD 2>/dev/null || echo "")
+  fi
+
+  if [[ -n "$git_hash" ]]; then
+    jq --arg hash "$git_hash" '.testSuite.gitHash = $hash' "$UAT_PLAN_FILE" > "$archive_file" 2>/dev/null
+  else
+    cp "$UAT_PLAN_FILE" "$archive_file"
+  fi
+
+  _prune_archives
+  _log_uat "ARCHIVE" "Plan archived: $archive_file"
+  print_info "Plan archived for future reference"
+}
+
+# Remove oldest archives beyond retention limit.
+_prune_archives() {
+  local archive_dir="$UAT_MODE_DIR/archive"
+  [[ ! -d "$archive_dir" ]] && return 0
+
+  local count
+  count=$(find "$archive_dir" -name 'plan-*.json' -type f 2>/dev/null | wc -l | tr -d ' ')
+
+  if [[ "$count" -gt "$MAX_UAT_ARCHIVE_COUNT" ]]; then
+    local to_remove=$((count - MAX_UAT_ARCHIVE_COUNT))
+    # Sort by modification time (oldest first), remove excess
+    find "$archive_dir" -name 'plan-*.json' -type f -print0 2>/dev/null \
+      | xargs -0 ls -1t 2>/dev/null \
+      | tail -"$to_remove" \
+      | while IFS= read -r f; do
+          rm -f "$f"
+        done
+    _log_uat "ARCHIVE" "Pruned $to_remove old archive(s)"
+  fi
+}
+
+# Read git hash from the most recent archived plan.
+# Returns 1 if no archive exists.
+_get_last_run_git_hash() {
+  local archive_dir="$UAT_MODE_DIR/archive"
+  [[ ! -d "$archive_dir" ]] && return 1
+
+  # Find most recent archive by name (timestamps sort lexically)
+  local latest
+  latest=$(find "$archive_dir" -name 'plan-*.json' -type f 2>/dev/null | sort -r | head -1)
+  [[ -z "$latest" ]] && return 1
+
+  local hash
+  hash=$(jq -r '.testSuite.gitHash // empty' "$latest" 2>/dev/null)
+  [[ -z "$hash" ]] && return 1
+
+  echo "$hash"
+}
+
+# List files changed since last run (excluding .ralph/).
+# Returns empty if no prior run or git unavailable.
+_get_changed_files_since_last_run() {
+  command -v git &>/dev/null || return 0
+  [[ -d ".git" ]] || return 0
+
+  local last_hash
+  last_hash=$(_get_last_run_git_hash) || return 0
+
+  # Verify the hash is still valid (not from a force push)
+  if ! git rev-parse --verify "$last_hash" &>/dev/null; then
+    return 0
+  fi
+
+  git diff --name-only "${last_hash}..HEAD" 2>/dev/null | grep -v '\.ralph/' || true
+}
+
+# Build markdown summary of the last 5 archived plans.
+_build_archive_summary() {
+  local archive_dir="$UAT_MODE_DIR/archive"
+  [[ ! -d "$archive_dir" ]] && return 0
+
+  local archives
+  archives=$(find "$archive_dir" -name 'plan-*.json' -type f 2>/dev/null | sort -r | head -5)
+  [[ -z "$archives" ]] && return 0
+
+  local archive_count
+  archive_count=$(find "$archive_dir" -name 'plan-*.json' -type f 2>/dev/null | wc -l | tr -d ' ')
+
+  echo ""
+  echo "### Prior Run History ($archive_count previous run$([ "$archive_count" -ne 1 ] && echo "s"))"
+  echo ""
+  echo "These tests have ALREADY been run. Do NOT repeat them."
+  echo ""
+
+  local run_num=0
+  while IFS= read -r archive_file; do
+    [[ -z "$archive_file" ]] && continue
+    run_num=$((run_num + 1))
+
+    # Extract timestamp from filename: plan-YYYYMMDD-HHMMSS.json
+    local ts
+    ts=$(basename "$archive_file" .json | sed 's/^plan-//')
+
+    echo "**Run $run_num** ($ts):"
+
+    # List test cases with status
+    jq -r '.testCases[] | "  \(.id) [\(.category // "general")] \(.title) — \(if .passes then (if .skipped then "SKIPPED" else "PASSED" end) else "FAILED" end)"' \
+      "$archive_file" 2>/dev/null || true
+
+    echo ""
+  done <<< "$archives"
+}
+
+# Build markdown section listing files changed since last run.
+_build_changed_files_section() {
+  local changed_files
+  changed_files=$(_get_changed_files_since_last_run)
+  [[ -z "$changed_files" ]] && return 0
+
+  local file_count
+  file_count=$(echo "$changed_files" | wc -l | tr -d ' ')
+
+  echo ""
+  echo "### Files Changed Since Last Run ($file_count file$([ "$file_count" -ne 1 ] && echo "s"))"
+  echo ""
+  echo "PRIORITIZE testing these files — they are most likely to have new vulnerabilities."
+  echo ""
+  echo "$changed_files"
 }
 
 # ============================================================================
@@ -2000,6 +2623,32 @@ _inject_prompt_context() {
     echo "### Project Config" >> "$prompt_file"
     echo "" >> "$prompt_file"
     echo "Read \`.ralph/config.json\` for URLs and directories." >> "$prompt_file"
+  fi
+
+  # Inject prior run history (what was already tested)
+  _build_archive_summary >> "$prompt_file"
+
+  # Inject changed files (what to focus on)
+  _build_changed_files_section >> "$prompt_file"
+
+  # "Do Not Repeat" instruction block
+  local has_history=false
+  [[ -d "$UAT_MODE_DIR/archive" ]] && \
+    [[ -n "$(find "$UAT_MODE_DIR/archive" -name 'plan-*.json' -type f 2>/dev/null | head -1)" ]] && \
+    has_history=true
+
+  if [[ "$has_history" == "true" ]]; then
+    cat >> "$prompt_file" << 'DO_NOT_REPEAT'
+
+### Focus: New Ground Only
+
+You have access to prior run history above. Follow these rules:
+- Do NOT repeat tests that already passed in prior runs
+- PRIORITIZE files changed since the last run
+- Go DEEPER — find new attack vectors, edge cases, and cross-feature interactions
+- If prior runs tested a feature superficially, test it more thoroughly
+- Focus on interactions BETWEEN features (e.g., auth + forms, navigation + data)
+DO_NOT_REPEAT
   fi
 
   # Inject signs

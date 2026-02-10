@@ -57,6 +57,7 @@ function runUatBash(script: string, opts?: { expectFail?: boolean }): { stdout: 
     export RALPH_LIB="${join(PROJECT_ROOT, 'ralph')}"
     export RALPH_TEMPLATES="${join(PROJECT_ROOT, 'templates')}"
     source "$RALPH_LIB/utils.sh"
+    source "$RALPH_LIB/signs.sh"
     source "$RALPH_LIB/loop.sh"
     source "$RALPH_LIB/uat.sh"
     ${script}
@@ -804,5 +805,635 @@ describe('phase state transitions in plan.json', () => {
     expect(tc.redRetries).toBe(0)
     expect(tc.greenRetries).toBe(0)
     expect(tc.phase).toBeNull()
+  })
+})
+
+// ============================================================================
+// 12. ARCHIVE — plan archived after run
+// ============================================================================
+
+describe('plan archiving (_archive_plan)', () => {
+  it('creates timestamped archive file in archive dir', () => {
+    writePlan('uat', validPlan())
+
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "uat" "UAT"
+      _archive_plan
+      ls "$UAT_MODE_DIR/archive/" | grep "plan-"
+    `)
+    // stdout includes print_info output; extract just the filename line
+    const lines = stdout.split('\n')
+    const archiveLine = lines.find(l => l.startsWith('plan-'))!
+    expect(archiveLine).toMatch(/^plan-\d{8}-\d{6}\.json$/)
+  })
+
+  it('archived plan contains gitHash matching current HEAD', () => {
+    writePlan('chaos', validPlan({ discoveryMethod: 'chaos-agent' }))
+
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
+      _archive_plan
+      # Read the gitHash from the archived plan
+      latest=$(ls -1t "$UAT_MODE_DIR/archive/"plan-*.json | head -1)
+      jq -r '.testSuite.gitHash' "$latest"
+    `)
+
+    // Get current HEAD for comparison
+    const head = execSync('git rev-parse HEAD', {
+      cwd: testDir,
+      encoding: 'utf-8',
+      env: { ...process.env, ...GIT_ENV }
+    }).trim()
+
+    // stdout includes print_info output; last line is the hash
+    const lastLine = stdout.split('\n').pop()!.trim()
+    expect(lastLine).toBe(head)
+  })
+
+  it('prunes oldest archives when count exceeds MAX_UAT_ARCHIVE_COUNT', () => {
+    mkdirSync(join(ralphDir, 'uat', 'archive'), { recursive: true })
+
+    // Create 22 fake archives (exceeds limit of 20)
+    for (let i = 0; i < 22; i++) {
+      const ts = `20260101-${String(i).padStart(6, '0')}`
+      writeFileSync(
+        join(ralphDir, 'uat', 'archive', `plan-${ts}.json`),
+        JSON.stringify(validPlan())
+      )
+    }
+
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "uat" "UAT"
+      _prune_archives
+      ls "$UAT_MODE_DIR/archive/"plan-*.json | wc -l | tr -d ' '
+    `)
+    expect(parseInt(stdout)).toBe(20)
+  })
+
+  it('archive is skipped when UAT_TESTS_WRITTEN is 0', () => {
+    writePlan('uat', validPlan())
+
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "uat" "UAT"
+      UAT_TESTS_WRITTEN=0
+      # Simulate the guard from run_uat
+      if [[ "$UAT_TESTS_WRITTEN" -gt 0 ]]; then
+        _archive_plan
+        echo "ARCHIVED"
+      else
+        echo "SKIPPED"
+      fi
+    `)
+    expect(stdout).toBe('SKIPPED')
+  })
+})
+
+// ============================================================================
+// 13. AUTO-SIGN — chaos-agent learns from fixed vulnerabilities
+// ============================================================================
+
+describe('auto-sign from fixed vulnerabilities (_auto_sign_from_case)', () => {
+  it('adds sign to signs.json with category security for chaos mode', () => {
+    const plan = validPlan({
+      discoveryMethod: 'chaos-agent',
+      testCases: [{
+        id: 'UAT-001',
+        title: 'XSS in search input',
+        category: 'security',
+        type: 'e2e',
+        testFile: 'tests/e2e/xss.spec.ts',
+        testApproach: 'Inject script tags and verify escaping',
+        targetFiles: ['src/pages/search.tsx'],
+        edgeCases: [],
+        assertions: [{ input: '<script>alert(1)</script>', expected: 'Escaped output', strategy: 'security' }],
+        passes: true,
+        retryCount: 0,
+        source: 'chaos-agent:security'
+      }]
+    })
+    writePlan('chaos', plan)
+
+    runUatBash(`
+      _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
+      _auto_sign_from_case "UAT-001"
+    `)
+
+    const signs = JSON.parse(readFileSync(join(ralphDir, 'signs.json'), 'utf-8'))
+    expect(signs.signs.length).toBe(1)
+    expect(signs.signs[0].category).toBe('security')
+    expect(signs.signs[0].pattern).toContain('XSS in search input')
+    expect(signs.signs[0].pattern).toContain('Inject script tags')
+  })
+
+  it('is a no-op for UAT mode (UAT_CONFIG_NS != chaos)', () => {
+    const plan = validPlan({
+      testCases: [{
+        id: 'UAT-001',
+        title: 'Login form validates email',
+        category: 'auth',
+        type: 'e2e',
+        testFile: 'tests/e2e/login.spec.ts',
+        testApproach: 'Submit invalid email',
+        targetFiles: ['src/pages/login.tsx'],
+        edgeCases: [],
+        assertions: [{ input: 'invalid', expected: 'Error shown', strategy: 'keyword' }],
+        passes: true,
+        retryCount: 0,
+        source: 'uat-team:happy-path'
+      }]
+    })
+    writePlan('uat', plan)
+
+    runUatBash(`
+      _init_uat_dirs "uat" "UAT"
+      _auto_sign_from_case "UAT-001"
+    `)
+
+    const signs = JSON.parse(readFileSync(join(ralphDir, 'signs.json'), 'utf-8'))
+    expect(signs.signs.length).toBe(0)
+  })
+
+  it('does not add duplicate patterns', () => {
+    const plan = validPlan({
+      discoveryMethod: 'chaos-agent',
+      testCases: [{
+        id: 'UAT-001',
+        title: 'XSS in search input',
+        category: 'security',
+        type: 'e2e',
+        testFile: 'tests/e2e/xss.spec.ts',
+        testApproach: 'Inject script tags and verify escaping',
+        targetFiles: ['src/pages/search.tsx'],
+        edgeCases: [],
+        assertions: [{ input: '<script>', expected: 'Escaped', strategy: 'security' }],
+        passes: true,
+        retryCount: 0,
+        source: 'chaos-agent:security'
+      }]
+    })
+    writePlan('chaos', plan)
+
+    // Run twice
+    runUatBash(`
+      _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
+      _auto_sign_from_case "UAT-001"
+      _auto_sign_from_case "UAT-001"
+    `)
+
+    const signs = JSON.parse(readFileSync(join(ralphDir, 'signs.json'), 'utf-8'))
+    expect(signs.signs.length).toBe(1)
+  })
+
+  it('builds pattern from title + testApproach', () => {
+    const plan = validPlan({
+      discoveryMethod: 'chaos-agent',
+      testCases: [{
+        id: 'UAT-001',
+        title: 'SQL injection in login',
+        category: 'security',
+        type: 'e2e',
+        testFile: 'tests/e2e/sqli.spec.ts',
+        testApproach: 'Use parameterized queries instead of string concatenation',
+        targetFiles: ['src/api/auth.ts'],
+        edgeCases: [],
+        assertions: [{ input: "'; DROP TABLE users; --", expected: 'Query escaped', strategy: 'security' }],
+        passes: true,
+        retryCount: 0,
+        source: 'chaos-agent:security'
+      }]
+    })
+    writePlan('chaos', plan)
+
+    runUatBash(`
+      _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
+      _auto_sign_from_case "UAT-001"
+    `)
+
+    const signs = JSON.parse(readFileSync(join(ralphDir, 'signs.json'), 'utf-8'))
+    expect(signs.signs[0].pattern).toBe('SQL injection in login -- Use parameterized queries instead of string concatenation')
+  })
+})
+
+// ============================================================================
+// 14. HISTORY INJECTION — archive summary and changed files
+// ============================================================================
+
+describe('history injection into discovery prompts', () => {
+  it('_build_archive_summary outputs prior run history when archives exist', () => {
+    mkdirSync(join(ralphDir, 'uat', 'archive'), { recursive: true })
+    writeFileSync(
+      join(ralphDir, 'uat', 'archive', 'plan-20260209-120000.json'),
+      JSON.stringify(validPlan({
+        testCases: [{
+          id: 'UAT-001',
+          title: 'Login works',
+          category: 'auth',
+          type: 'e2e',
+          testFile: 'tests/e2e/login.spec.ts',
+          targetFiles: [],
+          edgeCases: [],
+          assertions: [{ input: 'x', expected: 'y', strategy: 'keyword' }],
+          passes: true,
+          retryCount: 0
+        }]
+      }))
+    )
+
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "uat" "UAT"
+      _build_archive_summary
+    `)
+    expect(stdout).toContain('Prior Run History')
+    expect(stdout).toContain('ALREADY been run')
+    expect(stdout).toContain('UAT-001')
+    expect(stdout).toContain('PASSED')
+  })
+
+  it('_build_archive_summary outputs nothing when no archives exist', () => {
+    // No archive dir created
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "uat" "UAT"
+      _build_archive_summary
+      echo "END"
+    `)
+    expect(stdout).toBe('END')
+  })
+
+  it('_build_changed_files_section lists files changed since archived git hash', () => {
+    // Create an archive with the current HEAD hash
+    mkdirSync(join(ralphDir, 'uat', 'archive'), { recursive: true })
+    const head = execSync('git rev-parse HEAD', {
+      cwd: testDir,
+      encoding: 'utf-8',
+      env: { ...process.env, ...GIT_ENV }
+    }).trim()
+
+    writeFileSync(
+      join(ralphDir, 'uat', 'archive', 'plan-20260209-120000.json'),
+      JSON.stringify({ testSuite: { gitHash: head }, testCases: [] })
+    )
+
+    // Make a new commit with a changed file
+    writeFileSync(join(testDir, 'src-new.ts'), 'const x = 1;')
+    execSync('git add -A && git commit -m "add src-new" --no-verify', {
+      cwd: testDir,
+      encoding: 'utf-8',
+      env: { ...process.env, ...GIT_ENV }
+    })
+
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "uat" "UAT"
+      _build_changed_files_section
+    `)
+    expect(stdout).toContain('Files Changed Since Last Run')
+    expect(stdout).toContain('src-new.ts')
+  })
+
+  it('_build_changed_files_section outputs nothing on first run (no archive)', () => {
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "uat" "UAT"
+      _build_changed_files_section
+      echo "END"
+    `)
+    expect(stdout).toBe('END')
+  })
+})
+
+// ============================================================================
+// 15. PLAN RESET — plan.json deleted after archive
+// ============================================================================
+
+describe('plan reset after archive', () => {
+  it('plan.json is deleted after archive so next run starts fresh', () => {
+    writePlan('uat', validPlan())
+
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "uat" "UAT"
+      UAT_TESTS_WRITTEN=1
+      # Simulate the archive + reset from run_uat
+      _archive_plan
+      rm -f "$UAT_PLAN_FILE"
+      [[ -f "$UAT_PLAN_FILE" ]] && echo "EXISTS" || echo "DELETED"
+    `)
+    expect(stdout).toContain('DELETED')
+
+    // But archive should exist
+    const archiveDir = join(ralphDir, 'uat', 'archive')
+    const archives = execSync(`ls ${archiveDir}/plan-*.json 2>/dev/null | wc -l`, {
+      encoding: 'utf-8'
+    }).trim()
+    expect(parseInt(archives)).toBeGreaterThan(0)
+  })
+})
+
+// ============================================================================
+// 16. DOCKER ISOLATION — override generation, isolation decision, prompt injection
+// ============================================================================
+
+describe('Docker isolation (_should_use_docker_isolation)', () => {
+  it('sets CHAOS_ISOLATION_RESULT="true" when compose file exists and Docker available', () => {
+    // Create a compose file
+    writeFileSync(join(testDir, 'docker-compose.yml'), `
+services:
+  web:
+    ports:
+      - "5173:5173"
+  api:
+    ports:
+      - "8001:8001"
+`)
+
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
+      # Mock _detect_compose_cmd to return a value (Docker may not be installed in CI)
+      _detect_compose_cmd() { echo "docker compose"; }
+      _should_use_docker_isolation
+      echo "RESULT=$CHAOS_ISOLATION_RESULT"
+      echo "CMD=$CHAOS_COMPOSE_CMD"
+      echo "FILE=$CHAOS_COMPOSE_FILE"
+    `)
+    expect(stdout).toContain('RESULT=true')
+    // Verify globals are preserved (not lost in subshell)
+    expect(stdout).toContain('CMD=docker compose')
+    expect(stdout).toContain('FILE=docker-compose.yml')
+  })
+
+  it('sets CHAOS_ISOLATION_RESULT="false" when chaos.isolate is false', () => {
+    writeFileSync(join(ralphDir, 'config.json'), JSON.stringify({
+      checks: {},
+      chaos: { isolate: false }
+    }))
+    writeFileSync(join(testDir, 'docker-compose.yml'), 'services:\n  web:\n    ports:\n      - "5173:5173"')
+
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
+      _detect_compose_cmd() { echo "docker compose"; }
+      _should_use_docker_isolation
+      echo "RESULT=$CHAOS_ISOLATION_RESULT"
+    `)
+    expect(stdout).toContain('RESULT=false')
+  })
+
+  it('sets CHAOS_ISOLATION_RESULT="false" when no compose file exists', () => {
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
+      _detect_compose_cmd() { echo "docker compose"; }
+      _should_use_docker_isolation
+      echo "RESULT=$CHAOS_ISOLATION_RESULT"
+    `)
+    expect(stdout).toContain('RESULT=false')
+  })
+})
+
+describe('Docker override generation (_generate_chaos_override)', () => {
+  it('produces override YAML with offset ports', () => {
+    writeFileSync(join(testDir, 'docker-compose.yml'), `services:
+  web:
+    ports:
+      - "5173:5173"
+  api:
+    ports:
+      - "8001:8001"
+`)
+    writeFileSync(join(ralphDir, 'config.json'), JSON.stringify({
+      checks: {},
+      chaos: { docker: { portOffset: 10000 } }
+    }))
+
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
+      CHAOS_COMPOSE_FILE="docker-compose.yml"
+      _generate_chaos_override
+      cat "$CHAOS_OVERRIDE_FILE"
+    `)
+    expect(stdout).toContain('15173:5173')
+    expect(stdout).toContain('18001:8001')
+  })
+
+  it('handles multiple port mappings per service', () => {
+    writeFileSync(join(testDir, 'docker-compose.yml'), `services:
+  api:
+    ports:
+      - "8001:8001"
+      - "8002:8002"
+`)
+    writeFileSync(join(ralphDir, 'config.json'), JSON.stringify({
+      checks: {},
+      chaos: { docker: { portOffset: 10000 } }
+    }))
+
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
+      CHAOS_COMPOSE_FILE="docker-compose.yml"
+      _generate_chaos_override
+      cat "$CHAOS_OVERRIDE_FILE"
+    `)
+    expect(stdout).toContain('18001:8001')
+    expect(stdout).toContain('18002:8002')
+  })
+
+  it('rejects ports that would exceed 65535', () => {
+    writeFileSync(join(testDir, 'docker-compose.yml'), `services:
+  web:
+    ports:
+      - "60000:60000"
+`)
+    writeFileSync(join(ralphDir, 'config.json'), JSON.stringify({
+      checks: {},
+      chaos: { docker: { portOffset: 10000 } }
+    }))
+
+    const { exitCode, stdout, stderr } = runUatBash(`
+      _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
+      CHAOS_COMPOSE_FILE="docker-compose.yml"
+      _generate_chaos_override
+    `)
+    const combined = stdout + '\n' + stderr
+    expect(combined).toContain('exceeds 65535')
+    expect(exitCode).not.toBe(0)
+  })
+
+  it('handles quoted port formats', () => {
+    writeFileSync(join(testDir, 'docker-compose.yml'), `services:
+  web:
+    ports:
+      - "5173:5173"
+  api:
+    ports:
+      - 8001:8001
+`)
+    writeFileSync(join(ralphDir, 'config.json'), JSON.stringify({
+      checks: {},
+      chaos: { docker: { portOffset: 10000 } }
+    }))
+
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
+      CHAOS_COMPOSE_FILE="docker-compose.yml"
+      _generate_chaos_override
+      cat "$CHAOS_OVERRIDE_FILE"
+    `)
+    expect(stdout).toContain('15173:5173')
+    expect(stdout).toContain('18001:8001')
+  })
+
+  it('handles three-part port format with IP binding', () => {
+    writeFileSync(join(testDir, 'docker-compose.yml'), `services:
+  api:
+    ports:
+      - "127.0.0.1:8001:8001"
+`)
+    writeFileSync(join(ralphDir, 'config.json'), JSON.stringify({
+      checks: {},
+      chaos: { docker: { portOffset: 10000 } }
+    }))
+
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
+      CHAOS_COMPOSE_FILE="docker-compose.yml"
+      _generate_chaos_override
+      cat "$CHAOS_OVERRIDE_FILE"
+    `)
+    expect(stdout).toContain('127.0.0.1:18001:8001')
+  })
+
+  it('rejects network_mode: host', () => {
+    writeFileSync(join(testDir, 'docker-compose.yml'), `services:
+  api:
+    network_mode: host
+    ports:
+      - "8001:8001"
+`)
+
+    const { exitCode, stdout, stderr } = runUatBash(`
+      _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
+      CHAOS_COMPOSE_FILE="docker-compose.yml"
+      _generate_chaos_override
+    `)
+    const combined = stdout + '\n' + stderr
+    expect(combined).toContain('network_mode: host')
+    expect(exitCode).not.toBe(0)
+  })
+
+  it('skips services without ports', () => {
+    writeFileSync(join(testDir, 'docker-compose.yml'), `services:
+  redis:
+    image: redis:7
+  web:
+    ports:
+      - "5173:5173"
+`)
+    writeFileSync(join(ralphDir, 'config.json'), JSON.stringify({
+      checks: {},
+      chaos: { docker: { portOffset: 10000 } }
+    }))
+
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
+      CHAOS_COMPOSE_FILE="docker-compose.yml"
+      _generate_chaos_override
+      cat "$CHAOS_OVERRIDE_FILE"
+    `)
+    expect(stdout).toContain('15173:5173')
+    expect(stdout).not.toContain('redis')
+  })
+
+  it('handles service names with digits and dots', () => {
+    writeFileSync(join(testDir, 'docker-compose.yml'), `services:
+  db.master:
+    ports:
+      - "5432:5432"
+  redis6:
+    ports:
+      - "6379:6379"
+`)
+    writeFileSync(join(ralphDir, 'config.json'), JSON.stringify({
+      checks: {},
+      chaos: { docker: { portOffset: 10000 } }
+    }))
+
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
+      CHAOS_COMPOSE_FILE="docker-compose.yml"
+      _generate_chaos_override
+      cat "$CHAOS_OVERRIDE_FILE"
+    `)
+    expect(stdout).toContain('db.master')
+    expect(stdout).toContain('15432:5432')
+    expect(stdout).toContain('redis6')
+    expect(stdout).toContain('16379:6379')
+  })
+
+  it('handles comments between port entries', () => {
+    writeFileSync(join(testDir, 'docker-compose.yml'), `services:
+  api:
+    ports:
+      - "4000:4000"
+      # Debug port
+      - "9229:9229"
+`)
+    writeFileSync(join(ralphDir, 'config.json'), JSON.stringify({
+      checks: {},
+      chaos: { docker: { portOffset: 10000 } }
+    }))
+
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
+      CHAOS_COMPOSE_FILE="docker-compose.yml"
+      _generate_chaos_override
+      cat "$CHAOS_OVERRIDE_FILE"
+    `)
+    expect(stdout).toContain('14000:4000')
+    expect(stdout).toContain('19229:9229')
+  })
+
+  it('sets CHAOS_OVERRIDE_FILE global (not lost in subshell)', () => {
+    writeFileSync(join(testDir, 'docker-compose.yml'), `services:
+  web:
+    ports:
+      - "5173:5173"
+`)
+    writeFileSync(join(ralphDir, 'config.json'), JSON.stringify({
+      checks: {},
+      chaos: { docker: { portOffset: 10000 } }
+    }))
+
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
+      CHAOS_COMPOSE_FILE="docker-compose.yml"
+      _generate_chaos_override
+      [[ -n "$CHAOS_OVERRIDE_FILE" && -f "$CHAOS_OVERRIDE_FILE" ]] && echo "GLOBAL_SET" || echo "GLOBAL_LOST"
+    `)
+    expect(stdout).toContain('GLOBAL_SET')
+  })
+})
+
+describe('chaos prompt Docker injection', () => {
+  it('includes "ISOLATED ENVIRONMENT" when CHAOS_FRONTEND_URL is set', () => {
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
+      CHAOS_FRONTEND_URL="http://localhost:15173"
+      CHAOS_API_URL="http://localhost:18001"
+      prompt_file=$(create_temp_file ".chaos-prompt.md")
+      _build_chaos_agent_prompt "$prompt_file"
+      cat "$prompt_file"
+    `)
+    expect(stdout).toContain('ISOLATED ENVIRONMENT')
+    expect(stdout).toContain('http://localhost:15173')
+    expect(stdout).toContain('http://localhost:18001')
+    expect(stdout).not.toContain('Non-Destructive Testing')
+  })
+
+  it('includes "Non-Destructive Testing" when no Docker isolation', () => {
+    const { stdout } = runUatBash(`
+      _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
+      CHAOS_FRONTEND_URL=""
+      CHAOS_API_URL=""
+      prompt_file=$(create_temp_file ".chaos-prompt.md")
+      _build_chaos_agent_prompt "$prompt_file"
+      cat "$prompt_file"
+    `)
+    expect(stdout).toContain('Non-Destructive Testing')
+    expect(stdout).not.toContain('ISOLATED ENVIRONMENT')
   })
 })

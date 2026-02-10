@@ -1027,3 +1027,15 @@ run_migrations_if_needed() {
     return 1
   fi
 }
+
+# Detect the available Docker Compose command.
+# Returns "docker compose" (v2) or "docker-compose" (v1), or empty string if neither.
+_detect_compose_cmd() {
+  if docker compose version &>/dev/null; then
+    echo "docker compose"
+  elif command -v docker-compose &>/dev/null; then
+    echo "docker-compose"
+  else
+    echo ""
+  fi
+}
