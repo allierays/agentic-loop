@@ -334,8 +334,8 @@ $existing_signs
 - Extract a single, actionable pattern that prevents this class of failure
 - The pattern should be general enough to apply to future stories, not specific to this one
 - NEVER include credentials, passwords, API keys, tokens, emails, or secrets in the pattern
-  Instead of: "Login with admin@example.com / Password123"
-  Write: "Use Playwright to login with test credentials from environment variables"
+  Instead of: \"Login with admin@example.com / Password123\"
+  Write: \"Use Playwright to login with test credentials from environment variables\"
 - If the failure is trivial, unclear, or you can't extract a useful pattern, respond with just: NONE
 - Category must be one of: backend, frontend, testing, general, database, security
 

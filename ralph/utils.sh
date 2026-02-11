@@ -859,7 +859,9 @@ find_all_migration_tools() {
   done
 
   # Return unique tools
-  printf '%s\n' "${tools[@]}" | sort -u
+  if [[ ${#tools[@]} -gt 0 ]]; then
+    printf '%s\n' "${tools[@]}" | sort -u
+  fi
 }
 
 # Validate batch assignments in a PRD file
