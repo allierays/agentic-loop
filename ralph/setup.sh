@@ -307,6 +307,11 @@ setup_gitignore() {
     ".ralph/last_*"
     ".ralph/screenshots/"
     ".ralph/archive/"
+    ".ralph/progress.txt"
+    ".ralph/tool-log.txt"
+    ".ralph/suggested-signs.txt"
+    ".ralph/.preflight_cache"
+    ".ralph/.lock"
     ".backups/"
     ".claude/settings.json"
   )
@@ -353,9 +358,13 @@ setup_claude_hooks() {
 
   # Copy hooks into the project (so they survive package moves)
   mkdir -p "$project_hooks_dir"
-  cp "$src_hooks_dir"/*.sh "$project_hooks_dir/" 2>/dev/null || true
-  chmod +x "$project_hooks_dir"/*.sh 2>/dev/null || true
-  echo "  Copied hooks to $project_hooks_dir/"
+  if cp "$src_hooks_dir"/*.sh "$project_hooks_dir/" 2>/dev/null; then
+    chmod +x "$project_hooks_dir"/*.sh 2>/dev/null || true
+    echo "  Copied hooks to $project_hooks_dir/"
+  else
+    print_warning "Failed to copy hooks from $src_hooks_dir to $project_hooks_dir/"
+    echo "  Hooks will reference package paths instead (may break after npm update)"
+  fi
 
   # Note if global hooks exist
   if [[ -d "$global_hooks_dir" ]] && ls -1 "$global_hooks_dir"/*.sh &>/dev/null; then
@@ -631,9 +640,23 @@ setup_mcp() {
     tmp=$(mktemp)
     jq '.mcpServers["chrome-devtools"] = {
       "command": "npx",
-      "args": ["chrome-devtools-mcp@latest"]
+      "args": ["-y", "chrome-devtools-mcp@latest"]
     }' "$claude_json" > "$tmp" && mv "$tmp" "$claude_json"
     echo "  Added chrome-devtools MCP server (debugging & inspection)"
+    added_any=true
+  fi
+
+  # Add WebMCP if not configured
+  # Allows websites to expose custom MCP tools to Claude via WebSocket
+  if ! jq -e '.mcpServers["webmcp"]' "$claude_json" > /dev/null 2>&1; then
+    [[ "$added_any" == "false" ]] && echo "Configuring MCP servers..."
+    local tmp
+    tmp=$(mktemp)
+    jq '.mcpServers["webmcp"] = {
+      "command": "npx",
+      "args": ["-y", "@jason.today/webmcp@latest"]
+    }' "$claude_json" > "$tmp" && mv "$tmp" "$claude_json"
+    echo "  Added WebMCP server (website-exposed tools via WebSocket)"
     added_any=true
   fi
 
