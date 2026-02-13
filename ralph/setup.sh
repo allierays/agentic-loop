@@ -169,6 +169,7 @@ ralph_setup() {
   setup_custom_checks
   setup_gitignore
   setup_claude_hooks "$pkg_root"
+  setup_claude_hud
   setup_slash_commands "$pkg_root"
   setup_claude_md
   setup_mcp
@@ -446,6 +447,106 @@ setup_claude_hooks() {
   echo "  Configured .claude/settings.json"
 }
 
+# Install claude-hud statusline plugin for Claude Code
+setup_claude_hud() {
+  local hud_dir="$HOME/.claude/plugins/claude-hud"
+  local marketplaces_file="$HOME/.claude/plugins/known_marketplaces.json"
+
+  # Check dependencies
+  if ! command -v git &>/dev/null; then
+    print_warning "git not found — skipping claude-hud install"
+    return 0
+  fi
+  if ! command -v node &>/dev/null; then
+    print_warning "node not found — skipping claude-hud install"
+    return 0
+  fi
+  if ! command -v jq &>/dev/null; then
+    print_warning "jq not found — skipping claude-hud install"
+    return 0
+  fi
+
+  echo "Setting up claude-hud statusline..."
+
+  # Clone if not already present
+  if [[ ! -d "$hud_dir" ]]; then
+    mkdir -p "$HOME/.claude/plugins"
+    if ! git clone --depth 1 https://github.com/jarrodwatts/claude-hud.git "$hud_dir" 2>/dev/null; then
+      print_warning "Failed to clone claude-hud — skipping"
+      return 0
+    fi
+    echo "  Cloned claude-hud plugin"
+  else
+    echo "  claude-hud already installed"
+  fi
+
+  # Build if dist/index.js is missing
+  if [[ ! -f "$hud_dir/dist/index.js" ]]; then
+    echo "  Building claude-hud..."
+    if ! (cd "$hud_dir" && npm ci --production=false --ignore-scripts 2>/dev/null && npm run build 2>/dev/null); then
+      print_warning "Failed to build claude-hud — statusline may not work"
+      echo "    Try manually: cd $hud_dir && npm ci && npm run build"
+      return 0
+    fi
+    echo "  Built successfully"
+  fi
+
+  # Register in known_marketplaces.json
+  if [[ -f "$marketplaces_file" ]]; then
+    if ! jq -e '."claude-hud"' "$marketplaces_file" > /dev/null 2>&1; then
+      local tmp
+      tmp=$(mktemp)
+      jq '."claude-hud" = {
+        "source": {
+          "source": "github",
+          "repo": "jarrodwatts/claude-hud"
+        },
+        "installLocation": ($ENV.HOME + "/.claude/plugins/claude-hud"),
+        "lastUpdated": (now | todate)
+      }' "$marketplaces_file" > "$tmp" && mv "$tmp" "$marketplaces_file"
+      echo "  Registered in known_marketplaces.json"
+    fi
+  else
+    mkdir -p "$(dirname "$marketplaces_file")"
+    jq -n '{
+      "claude-hud": {
+        "source": {
+          "source": "github",
+          "repo": "jarrodwatts/claude-hud"
+        },
+        "installLocation": ($ENV.HOME + "/.claude/plugins/claude-hud"),
+        "lastUpdated": (now | todate)
+      }
+    }' > "$marketplaces_file"
+    echo "  Created known_marketplaces.json with claude-hud"
+  fi
+
+  # Write agentic-loop-tuned config
+  cat > "$hud_dir/config.json" << 'EOF'
+{
+  "lineLayout": "expanded",
+  "pathLevels": 2,
+  "gitStatus": {
+    "enabled": true,
+    "showDirty": true,
+    "showAheadBehind": true
+  },
+  "display": {
+    "showContextBar": true,
+    "contextValue": "percent",
+    "showModel": true,
+    "showDuration": true,
+    "showSpeed": false,
+    "showUsage": true,
+    "showTools": true,
+    "showAgents": true,
+    "showTodos": true
+  }
+}
+EOF
+  echo "  Configured claude-hud for agentic-loop (expanded layout, all panels)"
+}
+
 # Copy slash commands (skills format for Claude Code)
 setup_slash_commands() {
   local pkg_root="$1"
@@ -569,6 +670,8 @@ ${python_runner:+- Python: Use \`$python_runner\` (not bare \`python\`)}
     framework_template="$pkg_root/templates/examples/CLAUDE-${framework_type}.md"
   fi
 
+  local style_marker="<!-- vibe-and-thrive-detected -->"
+
   if [[ -f "CLAUDE.md" ]]; then
     # Append framework template if it exists and not already included
     if [[ -n "$framework_template" && -f "$framework_template" ]]; then
@@ -581,6 +684,16 @@ ${python_runner:+- Python: Use \`$python_runner\` (not bare \`python\`)}
         echo "  Appended ${framework_type} conventions to CLAUDE.md"
       fi
     fi
+    # Add writing style defaults if not already present
+    if ! grep -q "$style_marker" "CLAUDE.md" 2>/dev/null; then
+      cat >> CLAUDE.md << EOF
+
+$style_marker
+## Writing Style
+- Active voice only. Never use passive voice.
+- Never use em dashes. Use commas, periods, or parentheses instead.
+EOF
+    fi
     echo "$detected_section" >> CLAUDE.md
     echo "  Updated CLAUDE.md"
   else
@@ -590,6 +703,11 @@ ${python_runner:+- Python: Use \`$python_runner\` (not bare \`python\`)}
 
 ## Your Rules
 <!-- Add your project-specific rules, patterns, and conventions here -->
+
+<!-- vibe-and-thrive-detected -->
+## Writing Style
+- Active voice only. Never use passive voice.
+- Never use em dashes. Use commas, periods, or parentheses instead.
 EOF
 
     # Include framework template if available
@@ -715,20 +833,28 @@ setup_precommit_hooks() {
   # Create .pre-commit-config.yaml if it doesn't exist
   if [[ ! -f ".pre-commit-config.yaml" ]]; then
     cat > .pre-commit-config.yaml << 'EOF'
+# Pre-commit hooks powered by agentic-loop vibe-check
+# Runs on staged files before each commit
 repos:
-  - repo: https://github.com/allierays/agentic-loop
-    rev: v1.0.0
+  - repo: local
     hooks:
-      - id: backup-db
-        name: Backup database before commit
-      - id: check-secrets
-        name: Check for hardcoded secrets
-      - id: check-hardcoded-urls
-        name: Check for hardcoded URLs
-      - id: check-debug
-        name: Check for debug statements
-      - id: check-signs-secrets
-        name: Check signs.json for credentials
+      - id: vibe-check
+        name: Vibe Check
+        entry: npx vibe-check --fail-on error
+        language: node
+        types_or: [javascript, ts, python, json]
+        pass_filenames: true
+
+  # Standard hooks
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.txt$'
+      - id: end-of-file-fixer
+        exclude: '\.txt$'
+      - id: check-yaml
+      - id: check-added-large-files
 EOF
     echo "  Created .pre-commit-config.yaml"
   else

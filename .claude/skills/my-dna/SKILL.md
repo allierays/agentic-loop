@@ -95,8 +95,10 @@ Use a marker `<!-- my-dna -->` to identify the section. If marker exists, replac
 ### Core Values
 - [List their selected values]
 
-### Voice
+### Writing Style (responses and all file content)
 [Their style + any notes from writing sample]
+- Never use em dashes. Use commas, periods, or parentheses instead.
+Apply this style to everything: responses, code comments, docs, page copy, commit messages, and any content written to files.
 
 ### Project
 - **Priority:** [ship it / solid / beautiful / scale]
