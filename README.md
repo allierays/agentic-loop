@@ -67,11 +67,15 @@ npx agentic-loop setup
 claude  (optinally you cna use, but you don't need it --dangerously-skip-permissions)
 /tour                    # Guided walkthrough (recommended first time)
 /idea 'your feature'     # Generate a PRD
+
+---
+# Already have an idea/plan/PRD file? 
+/prd   #Run the /prd command to turn any file into a prd.json
 ```
 
 **Terminal 2 - Ralph Loop:**
 ```bash
-npx agentic-loop run         # Execute PRDs autonomously
+npx agentic-loop run         # Execute PRDs autonomously (Spins up claude -p)
 npx agentic-loop run --quiet # Same, but suppress activity feed
 ```
 
