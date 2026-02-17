@@ -64,7 +64,7 @@ npx agentic-loop setup
 
 **Terminal 1 - Claude Code:**
 ```bash
-claude --dangerously-skip-permissions
+claude  (optinally you cna use, but you don't need it --dangerously-skip-permissions)
 /tour                    # Guided walkthrough (recommended first time)
 /idea 'your feature'     # Generate a PRD
 ```
