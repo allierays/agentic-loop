@@ -15,7 +15,8 @@ You describe what you want to build. Claude Code writes a PRD (Product Requireme
 │  TERMINAL 1: Claude CLI                │  TERMINAL 2: Execute                    │
 ├────────────────────────────────────────┼─────────────────────────────────────────┤
 │                                        │                                         │
-│  claude --dangerously-skip-permissions │  npx agentic-loop run                   │
+│  claude                                │                                         │
+|(--dangerously-skip-permissions)        │  npx agentic-loop run                   │
 │                                        │                                         │
 │  PLAN FEATURES                         │  ┌─ prd-check (once) ───────────────┐   │
 │  /idea 'your feature or bugfix'        │  │ Validate all stories upfront     │   │
