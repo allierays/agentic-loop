@@ -95,6 +95,26 @@ If user chooses **'append'**:
 - **Always use TASK- prefix** for new stories (e.g., if highest is US-005 or TASK-005, new stories start at TASK-006)
 - New stories will be added after existing ones
 
+### Step 3.5: Read Existing Test Infrastructure
+
+Before writing stories, discover the project's existing test setup so stories reference real fixtures, helpers, and patterns:
+
+```bash
+# Find test config and fixtures
+ls tests/conftest.py tests/fixtures/ src/__tests__/ e2e/ 2>/dev/null
+cat tests/conftest.py 2>/dev/null | head -50
+cat e2e/*.config.ts 2>/dev/null | head -30
+
+# Find existing test patterns
+grep -r "def test_\|async def test_\|it(\|describe(" tests/ src/__tests__/ e2e/ 2>/dev/null | head -20
+```
+
+Use what you find to:
+- Reference correct fixture names in story `notes` (e.g., "Use `db_session` and `client` fixtures from `conftest.py`")
+- Match existing test file organization (e.g., `tests/domains/auth/` not `tests/test_auth.py`)
+- Include specific test scenarios in `notes` based on patterns you see in existing tests
+- Reference real helpers (e.g., "Use `MockRequest` from `test_auth.py` for request mocking")
+
 ### Step 4: Split into Stories
 
 Break the idea into small, executable stories:
@@ -162,6 +182,28 @@ Does acceptanceCriteria include:
 - Does `constraints` include any rules this story must follow?
 - For frontend: Is `testUrl` set?
 - For frontend: Is `mcp` set to `["playwright", "devtools"]`?
+- For frontend: Does `notes` include Playwright MCP visual verification instructions? (See "Playwright MCP for Visual Verification" section below)
+
+#### 6f. E2E Coverage (MANDATORY for user-facing features)
+If the feature has ANY frontend stories that add or modify user-facing UI:
+- There MUST be at least one story with `"e2e"` in its `testing.types`
+- That story MUST have Playwright test files in `testing.files.e2e`
+- That story's `testSteps` MUST include `npx playwright test ...`
+- The E2E story should be the LAST story (depends on all others) to test the full integrated flow
+- If no E2E story exists, CREATE one as the final story
+
+#### 6g. Test Scenario Specificity
+Every story's `notes` field MUST include **3+ specific test scenarios** that describe what to test and how. Vague notes like "Test the service methods" are not acceptable.
+
+Good example:
+```
+"notes": "Test scenarios: (1) Exchange valid auth code → returns JWT with correct claims. (2) Exchange expired code → returns 401 with 'code_expired' error. (3) Exchange code with wrong redirect_uri → returns 400. (4) Verify nonce mismatch is rejected. Use existing test fixtures: db_session, client from conftest.py."
+```
+
+Bad example:
+```
+"notes": "Test the authentication service methods with proper mocking."
+```
 
 **Fix any issues you find:**
 
@@ -175,8 +217,12 @@ Does acceptanceCriteria include:
 | Frontend missing contextFiles | Add idea file + styleguide paths |
 | Frontend missing testUrl | Add URL from config |
 | Frontend missing mcp | Add `"mcp": ["playwright", "devtools"]` |
+| Frontend notes missing Playwright MCP guidance | Add visual verification instructions to notes (see Playwright MCP section) |
 | Story missing techStack | Add relevant subset of detected tech |
 | Story missing constraints | Add applicable rules for this story |
+| testSteps use import-checks (`python -c "from X import Y"`) | Replace with curl, pytest, or real behavioral tests |
+| No E2E story for user-facing feature | Add a final E2E story with Playwright tests |
+| Story notes lack specific test scenarios | Add 3+ concrete scenarios with inputs, expected outputs, and fixture references |
 
 ### Step 7: Reorder if Needed
 
@@ -583,8 +629,29 @@ Specify which MCP tools Claude should use for verification:
 | `devtools` | Console errors, network inspection, DOM debugging |
 | `postgres` | Database verification (future) |
 
-**Frontend stories** default to `["playwright", "devtools"]`.
+**Frontend stories** MUST have `"mcp": ["playwright", "devtools"]`.
 **Backend-only stories** can use `[]` or omit.
+
+### Playwright MCP for Visual Verification
+
+Frontend stories should include guidance in `notes` for using Playwright MCP during implementation. This is how Ralph visually verifies that UI changes actually render correctly — screenshots catch layout bugs, missing elements, and broken styles that unit tests miss.
+
+**Every frontend story's `notes` should include Playwright MCP instructions like:**
+
+```
+Use Playwright MCP to verify:
+1. Navigate to {testUrl} and take a screenshot
+2. Verify [specific element] is visible and correctly styled
+3. Click [interactive element] and verify [expected behavior]
+4. Check browser console for errors after interactions
+```
+
+**Example for a login page SSO button story:**
+```json
+"notes": "Use Playwright MCP to verify: navigate to /login, screenshot the page, confirm 'Sign in with Okta' button is visible below the email/password form with a divider. Click the button and verify it redirects to /api/v1/auth/okta/authorize. Check devtools console for errors."
+```
+
+This is NOT a replacement for automated Playwright tests — it's additional visual verification that Ralph performs during the implementation step using the MCP browser tools.
 
 ---
 
@@ -697,10 +764,14 @@ Ralph reads `.ralph/config.json` and expands `{config.urls.backend}` before runn
   "grep -q 'function createUser' app/services/user.py",  // ❌ PASSES if code exists, even if broken
   "grep -q 'export default' src/components/Dashboard.tsx", // ❌ PASSES even if component crashes
   "test -f src/api/users.ts",                            // ❌ PASSES if file exists, even if empty
+  "python -c \"from app.services.auth import AuthService\"", // ❌ PASSES if import works, says nothing about behavior
+  "python -c \"hasattr(AuthService, 'login')\"",          // ❌ PASSES if method exists, even if completely broken
   "Visit http://localhost:3000/dashboard",                // ❌ Not executable
   "User can see the dashboard"                            // ❌ Not executable
 ]
 ```
+
+**NEVER use import-checks (`python -c "from X import Y"` or `hasattr`) as test steps.** These only verify a symbol exists — they don't test behavior, error handling, or integration. A function that raises on every call still passes an import check.
 
 **NEVER use grep/test to verify behavior.** These will mark stories as PASSED when the feature is broken.
 

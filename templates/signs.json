@@ -48,6 +48,13 @@
       "category": "testing",
       "learnedFrom": null,
       "createdAt": "2026-01-25T00:00:00-08:00"
+    },
+    {
+      "id": "sign-008",
+      "pattern": "NEVER use import-checks as test steps (python -c 'from X import Y', hasattr, test -f). These only verify a symbol exists, not that it works. A function that raises on every call still passes an import check. Always use real behavioral tests: curl for API endpoints, pytest with actual function calls, or Playwright for UI.",
+      "category": "testing",
+      "learnedFrom": "Okta SSO PRD review — all 4 backend stories had import-check testSteps that would pass even with completely broken code",
+      "createdAt": "2026-02-17T00:00:00-08:00"
     }
   ]
 }

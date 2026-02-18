@@ -405,6 +405,20 @@ _check_story_issues() {
     fi
   fi
 
+  # Import-check anti-pattern: python -c "from X import Y" or hasattr()
+  if [[ -n "$test_steps" ]] && echo "$test_steps" | grep -qE '(python[3]? -c .*(from |import |hasattr))'; then
+    echo "testSteps use import-checks (python -c 'from/import/hasattr') — replace with real behavioral tests"
+  fi
+
+  # Frontend stories must include Playwright MCP visual verification guidance in notes
+  if [[ "$story_type" == "frontend" ]]; then
+    local story_notes
+    story_notes=$(jq -r --arg id "$story_id" '.stories[] | select(.id==$id) | .notes // ""' "$prd_file")
+    if ! echo "$story_notes" | grep -qiE "(playwright.*mcp|mcp.*playwright|visual.*verif|screenshot|navigate.*screenshot)"; then
+      echo "frontend notes should include Playwright MCP visual verification guidance"
+    fi
+  fi
+
   # All testSteps are server-dependent
   if [[ -n "$test_steps" ]]; then
     local has_offline=false has_server=false
@@ -443,6 +457,8 @@ _validate_and_fix_stories() {
   local cnt_naming_convention=0 cnt_bare_pytest=0 cnt_bare_python=0
   local cnt_server_only=0
   local cnt_custom=0
+  local cnt_import_check=0
+  local cnt_playwright_notes=0
 
   echo "  Checking test coverage..."
 
@@ -508,6 +524,8 @@ _validate_and_fix_stories() {
         "missing pagination criteria") cnt_list_pagination=$((cnt_list_pagination + 1)) ;;
         "API consumer needs camelCase transformation note") cnt_naming_convention=$((cnt_naming_convention + 1)) ;;
         "all testSteps need a live server"*) cnt_server_only=$((cnt_server_only + 1)) ;;
+        "testSteps use import-checks"*) cnt_import_check=$((cnt_import_check + 1)) ;;
+        "frontend notes should include Playwright"*) cnt_playwright_notes=$((cnt_playwright_notes + 1)) ;;
       esac
     done <<< "$shared_issues"
 
@@ -539,6 +557,17 @@ _validate_and_fix_stories() {
     fi
   done <<< "$story_ids"
 
+  # Global check: if any frontend stories exist, at least one story should have E2E tests
+  local has_frontend_stories has_e2e_story
+  has_frontend_stories=$(jq -r '[.stories[] | select(.type == "frontend")] | length' "$prd_file" 2>/dev/null)
+  has_e2e_story=$(jq -r '[.stories[] | select(.testing.types[]? == "e2e")] | length' "$prd_file" 2>/dev/null)
+  if [[ "$has_frontend_stories" -gt 0 && "$has_e2e_story" == "0" ]]; then
+    echo ""
+    print_warning "No E2E story found — frontend features should have at least one Playwright E2E story"
+    echo "  Add a final story with testing.types: [\"e2e\"] and Playwright testSteps"
+    echo ""
+  fi
+
   # If issues found, show summary and attempt fix
   if [[ "$needs_fix" == "true" ]]; then
     echo "  Optimizing test coverage for $story_count stories..."
@@ -558,6 +587,8 @@ _validate_and_fix_stories() {
     [[ $cnt_bare_pytest -gt 0 ]] && echo "    ${cnt_bare_pytest}x use '${py_runner:-python3} pytest' not bare 'pytest'"
     [[ $cnt_bare_python -gt 0 ]] && echo "    ${cnt_bare_python}x use 'python3' not bare 'python' (macOS compatibility)"
     [[ $cnt_server_only -gt 0 ]] && echo "    ${cnt_server_only}x all testSteps need live server (add offline fallback)"
+    [[ $cnt_import_check -gt 0 ]] && echo "    ${cnt_import_check}x testSteps use import-checks (replace with real tests)"
+    [[ $cnt_playwright_notes -gt 0 ]] && echo "    ${cnt_playwright_notes}x frontend: add Playwright MCP visual verification to notes"
     [[ $cnt_custom -gt 0 ]] && echo "    ${cnt_custom} stories with custom check issues"
 
     # Skip auto-fix in dry-run mode
