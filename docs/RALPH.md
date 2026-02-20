@@ -9,6 +9,7 @@ Ralph is an autonomous coding agent that implements features from a PRD (Product
 │                        RALPH LOOP                           │
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
+│  0. Tint terminal background (macOS Terminal.app only)      │
 │  1. Read prd.json → find next story where passes=false      │
 │  2. Build prompt (story + context + failures + signs)       │
 │  3. Run Claude (first story fresh, subsequent --continue)   │
@@ -16,6 +17,7 @@ Ralph is an autonomous coding agent that implements features from a PRD (Product
 │  5. Pass? → commit, next story                              │
 │     Fail? → save error, retry same story                    │
 │  6. Repeat until all stories pass or a story gets stuck     │
+│  7. Restore terminal background on exit                     │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
@@ -379,7 +381,7 @@ Now every future story will see this pattern.
 
 | Command | What it does |
 |---------|--------------|
-| `npx agentic-loop run` | Start the loop (shows live activity feed) |
+| `npx agentic-loop run` | Start the loop (activity feed + terminal tint on macOS) |
 | `npx agentic-loop run --story TASK-001` | Run specific story only |
 | `npx agentic-loop run --max 5` | Limit to 5 iterations (no limit by default) |
 | `npx agentic-loop run --quiet` | Suppress the live activity feed |
@@ -471,6 +473,7 @@ Use `{config.urls.backend}` and `{config.urls.frontend}` in testSteps. Ralph exp
 | `playwright.enabled` | `true` | Enable e2e tests |
 | `styleguide` | `""` | Path to styleguide for frontend stories |
 | `maxSessionSeconds` | `600` | Claude session timeout |
+| `terminalTint` | `"#1a2e2e"` | Terminal background hex color, or `"off"` to disable |
 
 ### Test Credentials
 
@@ -555,6 +558,8 @@ your-project/
 
 | Issue | Solution |
 |-------|----------|
+| Terminal background not tinting | Only works in macOS Terminal.app. No-op on iTerm2, VS Code, Linux. If Terminal.app asks for Automation permission, allow it. |
+| Terminal background stuck after `kill -9` | Forced kill bypasses cleanup. Close and reopen the tab, or run: `osascript -e 'tell application "Terminal" to set background color of front window to {0, 0, 0}'` |
 | "Invalid API key" | Remove `ANTHROPIC_API_KEY` from `.env` - Ralph uses Claude Max subscription |
 | "jq: command not found" | Install jq: `brew install jq` (macOS) or `apt install jq` (Linux) |
 | Browser verification skipped | Install Playwright: `npm install playwright && npx playwright install chromium` |
@@ -566,7 +571,7 @@ your-project/
 
 ### Writing Good PRDs
 
-The `/idea` command generates PRDs, but you can improve them:
+The `/prd` command generates PRDs, but you can improve them:
 
 1. **Atomic stories** - Each story should be independently testable
 2. **Clear acceptance criteria** - Specific, verifiable outcomes

@@ -119,7 +119,7 @@ validate_prd() {
     print_error "prd.json is not valid JSON."
     echo ""
     echo "Fix it manually or regenerate with:"
-    echo "  /idea 'your feature'"
+    echo "  /prd 'your feature'"
     echo ""
     return 1
   fi
@@ -131,7 +131,7 @@ validate_prd() {
     print_error "prd.json is missing .feature.name"
     echo ""
     echo "Add a feature name to your PRD or regenerate with:"
-    echo "  /idea 'your feature'"
+    echo "  /prd 'your feature'"
     echo ""
     return 1
   fi
@@ -140,7 +140,7 @@ validate_prd() {
   if ! jq -e '.stories' "$prd_file" >/dev/null 2>&1; then
     print_error "prd.json is missing 'stories' array."
     echo ""
-    echo "Regenerate with: /idea 'your feature'"
+    echo "Regenerate with: /prd 'your feature'"
     echo ""
     return 1
   fi
@@ -151,7 +151,7 @@ validate_prd() {
   if [[ "$story_count" == "0" ]]; then
     print_error "prd.json has no stories."
     echo ""
-    echo "Regenerate with: /idea 'your feature'"
+    echo "Regenerate with: /prd 'your feature'"
     echo ""
     return 1
   fi
@@ -163,7 +163,7 @@ validate_prd() {
     print_error "Some stories are missing required fields (id, title):"
     echo "$invalid_stories" | head -5
     echo ""
-    echo "Fix the PRD or regenerate with: /idea 'your feature'"
+    echo "Fix the PRD or regenerate with: /prd 'your feature'"
     echo ""
     return 1
   fi

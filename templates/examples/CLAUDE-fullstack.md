@@ -249,9 +249,9 @@ make typecheck       # Check TypeScript types
 
 ## Workflow
 
-1. **Idea** - Run `/idea "feature description"` to brainstorm
-2. **Approve** - Review the idea file, then approve
-3. **PRD** - Review generated stories in `.ralph/prd.json`
+1. **PRD** - Run `/prd "feature description"` to generate stories
+2. **Review** - Review generated stories in `.ralph/prd.json`
+3. **Validate** - PRD validation checks story coherence
 4. **Run** - Execute `ralph run` for autonomous coding
 5. **Audit** - Run `/vibe-check` before shipping
 6. **Commit** - Pre-commit hooks catch remaining issues

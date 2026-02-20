@@ -4,29 +4,21 @@ Ralph ships with built-in quality checks, but every project is different. This g
 
 ---
 
-## The basics: /idea vs /prd vs prd.json
+## The basics: /prd vs prd.json
 
-These three things work together. Here's when to use each.
+### /prd — from idea to execution plan
 
-### /idea — when you're still figuring it out
+Run `/prd` when you want to turn an idea into executable stories. You can:
+- Describe it directly: `/prd "add user auth"`
+- Point to a plan file: `/prd plans/auth-feature`
+- Point to an idea file: `/prd auth`
 
-Run `/idea` when you have a rough concept but haven't nailed down the details. Ralph will ask you questions — what's in scope, what's not, how it should work — and write up a structured idea file in `docs/ideas/`. Think of it as a brainstorming session with a note-taker.
-
-Once you approve the idea, Ralph offers to turn it into a PRD automatically.
-
-**Use /idea when:** you're starting from scratch and want help thinking it through.
-
-### /prd — when you know what you want built
-
-Run `/prd` when you already have a clear picture of the feature. You can point it at an idea file (`/prd my-feature`) or just describe what you want (`/prd Add user authentication with email and password`).
-
-Ralph splits your feature into small, ordered stories that it can execute one at a time. Each story gets its own test steps, acceptance criteria, and file list.
-
-**Use /prd when:** you're ready to generate work for Ralph to execute.
+Claude asks hardening questions (security, scale, scope), explores your codebase,
+and splits the feature into small, ordered stories.
 
 ### prd.json — the execution plan
 
-This is the file Ralph actually reads when it runs. It lives at `.ralph/prd.json` and contains your stories in order. You don't usually edit this by hand — `/idea` and `/prd` generate it for you — but you can if you need to.
+This is the file Ralph actually reads when it runs. It lives at `.ralph/prd.json` and contains your stories in order. You don't usually edit this by hand — `/prd` generates it for you — but you can if you need to.
 
 Each story in the PRD has:
 - **testSteps** — shell commands Ralph runs to verify the work (curl, npm test, pytest, etc.)
@@ -156,7 +148,6 @@ fi
 
 | What | When to use | What it produces |
 |------|------------|-----------------|
-| `/idea` | Brainstorming a new feature | `docs/ideas/feature.md` |
-| `/prd` | Ready to generate executable stories | `.ralph/prd.json` |
+| `/prd` | Turning an idea into executable stories | `.ralph/prd.json` |
 | `ralph sign` | Ralph keeps making the same mistake | `.ralph/signs.json` entry |
 | Custom checks | Your project has rules Ralph doesn't know about | Validation warnings in PRD check |

@@ -11,7 +11,7 @@ Print this cheatsheet for the user. Do not add any commentary or explanation.
 ## The Loop
 
 ```
-/idea [feature]          brainstorm & generate PRD
+/prd [feature]           brainstorm & generate PRD
 npx ralph run            autonomous coding loop (live activity feed)
 npx ralph run --quiet    same, but suppress activity feed
 npx ralph status         check progress

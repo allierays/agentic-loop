@@ -186,7 +186,7 @@ ralph_setup() {
   echo "  --- Terminal 1: Claude Code ---"
   echo "  claude --dangerously-skip-permissions"
   echo "  /tour                   # Guided walkthrough"
-  echo "  /idea 'your feature'    # Generate a PRD"
+  echo "  /prd 'your feature'     # Generate a PRD"
   echo ""
   echo "  --- Terminal 2: Ralph Loop ---"
   echo "  npx agentic-loop run         # Execute PRDs autonomously"
@@ -198,7 +198,7 @@ setup_ralph_dir() {
   local pkg_root="$1"
 
   echo "Creating .ralph/ directory..."
-  mkdir -p ".ralph/archive" ".ralph/screenshots"
+  mkdir -p ".ralph/archive" ".ralph/screenshots" ".ralph/hooks"
 
   # Copy config template based on detected project type
   if [[ ! -f ".ralph/config.json" ]]; then
@@ -402,26 +402,34 @@ setup_claude_hooks() {
   inject_context=$(_resolve_hook "inject-context.sh")
   save_learnings=$(_resolve_hook "save-learnings.sh")
 
+  # Wrap hook path with existence check so missing files don't produce errors.
+  # If the hook script is deleted after setup (git clean, etc.), this prevents
+  # "No such file or directory" errors on every Claude session end.
+  _safe_cmd() {
+    local path="$1"
+    printf 'if [ -f "%s" ]; then "%s"; else echo '"'"'{"continue": true}'"'"'; fi' "$path" "$path"
+  }
+
   # Build hooks arrays using jq for proper JSON
   local post_edit_hooks post_all_hooks session_start_hooks stop_hooks
 
   # PostToolUse: warn-* hooks on Edit|Write
   post_edit_hooks="[]"
   for hook_path in "$warn_debug" "$warn_secrets" "$warn_urls" "$warn_empty_catch"; do
-    [[ -n "$hook_path" ]] && post_edit_hooks=$(echo "$post_edit_hooks" | jq --arg cmd "$hook_path" '. + [{"type": "command", "command": $cmd, "timeout": 5}]')
+    [[ -n "$hook_path" ]] && post_edit_hooks=$(echo "$post_edit_hooks" | jq --arg cmd "$(_safe_cmd "$hook_path")" '. + [{"type": "command", "command": $cmd, "timeout": 5}]')
   done
 
   # PostToolUse: log-tools on all
   post_all_hooks="[]"
-  [[ -n "$log_tools" ]] && post_all_hooks=$(jq -n --arg cmd "$log_tools" '[{"type": "command", "command": $cmd, "timeout": 3}]')
+  [[ -n "$log_tools" ]] && post_all_hooks=$(jq -n --arg cmd "$(_safe_cmd "$log_tools")" '[{"type": "command", "command": $cmd, "timeout": 3}]')
 
   # SessionStart: inject-context
   session_start_hooks="[]"
-  [[ -n "$inject_context" ]] && session_start_hooks=$(jq -n --arg cmd "$inject_context" '[{"type": "command", "command": $cmd, "timeout": 5}]')
+  [[ -n "$inject_context" ]] && session_start_hooks=$(jq -n --arg cmd "$(_safe_cmd "$inject_context")" '[{"type": "command", "command": $cmd, "timeout": 5}]')
 
   # Stop: save-learnings
   stop_hooks="[]"
-  [[ -n "$save_learnings" ]] && stop_hooks=$(jq -n --arg cmd "$save_learnings" '[{"type": "command", "command": $cmd, "timeout": 10}]')
+  [[ -n "$save_learnings" ]] && stop_hooks=$(jq -n --arg cmd "$(_safe_cmd "$save_learnings")" '[{"type": "command", "command": $cmd, "timeout": 10}]')
 
   # Build the complete hooks config
   local hooks_config

@@ -12,21 +12,27 @@ From idea to shipped code with AI.
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### Step 1: Brainstorm Your Idea
+### Step 1: Plan Your Feature
 
-Start with `/idea` in Claude Code:
+Start with `/prd` in Claude Code:
 
 ```
-/idea "add user authentication with OAuth"
+/prd "add user authentication with OAuth"
 ```
 
-Claude enters plan mode and helps you:
-- Understand the goal
-- Explore the codebase for existing patterns
-- Ask clarifying questions
-- Design the approach
+You can also point to a plan file:
 
-**Output:** `docs/ideas/user-authentication.md`
+```
+/prd plans/auth-feature
+```
+
+Claude will:
+- Ask hardening questions (security, scale, scope)
+- Explore your codebase for existing patterns
+- Split into stories in `.ralph/prd.json`
+- Open for your approval
+
+**Output:** `.ralph/prd.json`
 
 ### Step 2: Approve the PRD
 
@@ -168,7 +174,7 @@ Pre-commit hooks run automatically on `git commit`:
 
 | Step | Action | Tool |
 |------|--------|------|
-| 1. Idea | Brainstorm feature | `/idea` |
+| 1. Plan | Plan feature | `/prd` |
 | 2. Approve | Review idea + PRD | TextEdit |
 | 3. Run | Autonomous coding | `ralph run` |
 | 4. Audit | Check quality | `/vibe-check` |
@@ -193,7 +199,7 @@ Pre-commit hooks run automatically on `git commit`:
 
 ### For Bug Fixes
 
-1. **Describe** the bug in `/idea`
+1. **Describe** the bug in `/prd`
 2. **Approve** the fix PRD
 3. **Run** Ralph to implement
 4. **Verify** with `/vibe-check`
@@ -222,7 +228,7 @@ Not everything needs the full workflow. For trivial changes:
 2. Run `/vibe-check`
 3. Commit
 
-Use judgment—but for anything non-trivial, use `/idea`.
+Use judgment—but for anything non-trivial, use `/prd`.
 
 ---
 
@@ -258,7 +264,7 @@ console.log('Server starting...'); // noqa: debug
 
 After following this workflow, you should have:
 
-- **Clear requirements** documented in `docs/ideas/`
+- **Clear requirements** in `.ralph/prd.json`
 - **Working code** that passes test steps
 - **Clean code** audited for issues
 - **Version control** with meaningful commits

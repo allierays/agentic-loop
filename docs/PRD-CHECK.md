@@ -106,6 +106,6 @@ In `.ralph/config.json`:
 
 ## See Also
 
-- [Customizing Ralph](customizing-ralph.md) - Signs, custom checks, /idea vs /prd
+- [Customizing Ralph](customizing-ralph.md) - Signs, custom checks, /prd
 - [Code Check](CODE-CHECK.md) - Verification after each story
 - [How Ralph Works](RALPH.md) - Full architecture details

@@ -121,7 +121,7 @@ Yes. Press `Ctrl+C` in the Ralph window to stop. Your progress is saved—you ca
 You can:
 - Ask Claude to change it (in Window 1)
 - Edit the code yourself
-- Start over with a new `/idea`
+- Start over with a new `/prd`
 
 ### "Is my code safe?"
 

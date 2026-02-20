@@ -118,7 +118,7 @@ ralph_prd() {
   printf '%s\n' '      "acceptanceCriteria": ["AC 1", "AC 2"],' >> "$prompt_file"
   printf '%s\n' '      "errorHandling": ["what happens on failure"],' >> "$prompt_file"
   printf '%s\n' '      "testSteps": ["executable shell commands only"],' >> "$prompt_file"
-  printf '%s\n' '      "contextFiles": ["docs/ideas/feature.md"],' >> "$prompt_file"
+  printf '%s\n' '      "contextFiles": ["docs/ideas/feature.md", "docs/plans/feature-plan.md"],' >> "$prompt_file"
   printf '%s\n' '      "notes": ""' >> "$prompt_file"
   printf '%s\n' '    }' >> "$prompt_file"
   printf '%s\n' '  ]' >> "$prompt_file"

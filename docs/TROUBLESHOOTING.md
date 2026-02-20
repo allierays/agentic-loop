@@ -45,6 +45,17 @@ sudo dnf install jq
 npx agentic-loop setup
 ```
 
+## Terminal background stuck after force kill
+
+If you `kill -9` the Ralph process, the terminal background won't restore automatically (forced kill bypasses cleanup traps). Fix it by closing and reopening the tab, or manually:
+
+```bash
+# Reset to black background
+osascript -e 'tell application "Terminal" to set background color of front window to {0, 0, 0}'
+```
+
+> **Note:** The terminal tint only applies to macOS Terminal.app. iTerm2, VS Code terminal, and Linux terminals are unaffected.
+
 ## API validation failing with 422/400
 
 These are warnings, not failures. The endpoint exists but needs parameters or authentication. Check your `.ralph/config.json` for auth settings.

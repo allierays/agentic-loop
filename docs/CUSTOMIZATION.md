@@ -21,6 +21,7 @@ When you run setup, Ralph automatically:
 
 Each time Ralph starts or processes a story, it automatically:
 
+- **Tints the terminal background** — on macOS Terminal.app, Ralph applies a subtle dark teal background so you can instantly tell it apart from your Claude Code terminal. The original color is restored when the loop ends (Ctrl+C, completion, or error). Run `/color` in a Claude session to pick a different tint, or disable it entirely. No-op on Linux, iTerm2, VS Code, and other terminals.
 - **Runs preflight checks** — verifies API/frontend connectivity, Docker services, database migrations, and timeout utilities before starting
 - **Validates your PRD** — checks for missing test steps, vague requirements, and structural issues. If it finds problems, Claude auto-fixes them
 - **Verifies code after Claude writes it** — runs a 5-step pipeline: lint, unit tests, PRD test steps, API smoke test, frontend smoke test
@@ -135,10 +136,12 @@ These aren't part of the automated loop — they're tools you can use whenever y
 | Pre-commit hooks | Every `git commit` | Automatic (installed during setup) |
 | Claude Code hooks | While Claude edits files | Automatic (installed during setup) |
 | Timeout utility install | `npx agentic-loop setup` | Automatic (macOS with Homebrew) |
+| Terminal background tint | Start of `npx agentic-loop run` | Automatic (macOS Terminal.app only) |
 | Preflight checks | Start of `npx agentic-loop run` | Automatic |
 | PRD validation + auto-fix | Start of loop | Automatic |
 | Code verification (5-step) | After Claude writes each story | Automatic |
 | Sign auto-promotion | After story retry succeeds | Automatic |
+| `/color` | When you run it | Manual |
 | `/my-dna` | When you run it | Manual |
 | `/styleguide` | When you run it | Manual |
 | `/sign` | When you run it | Manual |

@@ -12,8 +12,8 @@ Print this complete reference for the user. Do not add any commentary.
 
 | Command | Description |
 |---------|-------------|
-| `/idea [feature]` | Brainstorm in plan mode, generate PRD for Ralph |
-| `/sign` | Add a learned pattern for Ralph to remember |
+| `/prd [feature]` | Brainstorm feature, generate executable PRD for Ralph |
+| `/sign`| Add a learned pattern for Ralph to remember |
 | `/my-dna` | Set up your personal style preferences |
 | `/vibe-check` | Audit code quality before shipping |
 | `/review` | Code review with OWASP security checks |
@@ -78,7 +78,7 @@ Print this complete reference for the user. Do not add any commentary.
 ## The Loop
 
 ```
-/idea [feature]          Brainstorm → PRD
+/prd [feature]           Brainstorm → PRD
 npx ralph run            Autonomous coding
 npx ralph status         Check progress
 npx ralph stop           Stop after current story
@@ -88,10 +88,10 @@ npx ralph stop           Stop after current story
 
 ## Slash Command Details
 
-### /idea [feature description]
-Brainstorm in plan mode, explore codebase, ask clarifying questions.
-- Writes idea to `docs/ideas/{feature}.md`
-- On approval, splits into PRD stories
+### /prd [feature description]
+Brainstorm feature, explore codebase, ask clarifying questions.
+- Accepts a description, idea file (`docs/ideas/{name}.md`), or plan file (`docs/plans/{name}.md`)
+- Splits into executable PRD stories
 - Writes to `.ralph/prd.json`
 
 ### /review [file or selection]
@@ -194,7 +194,7 @@ npx ralph unsign "camelCase"
 
 CLAUDE.md            # Project standards (shared with team)
 PROMPT.md            # Base prompt for Ralph sessions
-docs/ideas/          # Brainstorm outputs from /idea
+docs/ideas/          # Brainstorm outputs from /prd
 
 # Global files (your home directory)
 ~/.claude/

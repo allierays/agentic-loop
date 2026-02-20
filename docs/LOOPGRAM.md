@@ -16,7 +16,7 @@ Your credentials are never shared. The `allowedUserIds` config ensures only you 
 
 - **Smart Context Search**: `/context <topic>` searches your codebase and summarizes what exists
 - **Loop Monitoring**: `/loop` checks the status of running Ralph loops
-- **Idea Capture**: `/save` summarizes conversations and saves to `docs/ideas/`
+- **Idea Capture**: `/save` summarizes conversations and saves to `docs/ideas/`, or use `/prd` to generate stories directly
 - **Multi-Project Support**: One bot, multiple Telegram groups - each maps to a different project
 
 ## Setup

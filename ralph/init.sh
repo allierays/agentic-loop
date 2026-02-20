@@ -13,7 +13,7 @@ ralph_init() {
   echo "Initializing ralph..."
 
   # Create directory structure
-  mkdir -p "$RALPH_DIR/archive" "$RALPH_DIR/screenshots"
+  mkdir -p "$RALPH_DIR/archive" "$RALPH_DIR/screenshots" "$RALPH_DIR/hooks"
 
   # Detect project type and generate appropriate config
   local project_type
@@ -68,7 +68,7 @@ ralph_init() {
   echo "Next steps:"
   echo "  1. Review .ralph/config.json (test credentials, checks, etc.)"
   echo "  2. Generate PRD:"
-  echo "     - Thorough: /idea 'feature description' (brainstorm + architecture + scalability)"
+  echo "     - Thorough: /prd 'feature description' (brainstorm + architecture + scalability)"
   echo "     - Quick:    ralph prd 'feature description' (basic PRD)"
   echo "  3. Start loop: ralph run"
 }
@@ -677,7 +677,7 @@ What is this?
     commands without asking permission each time. This enables fluid,
     uninterrupted collaboration while you brainstorm and refine ideas.
 
-    Use /idea to brainstorm big features. Claude saves your ideas to
+    Use /prd to brainstorm big features. Claude saves your ideas to
     docs/ideas/, then breaks them into small, executable PRDs.
 
   Terminal 2 - Ralph (autonomous execution):
@@ -690,7 +690,7 @@ What is this?
 Quick Start:
   1. npx agentic-loop setup
   2. Terminal 1: claude --dangerously-skip-permissions
-  3. In Claude: /idea "your feature description"
+  3. In Claude: /prd "your feature description"
   4. Terminal 2: npx agentic-loop run
   5. Monitor Terminal 2 - it should be autonomous. If issues come up,
      stop the loop (Ctrl+C) and paste the errors into Terminal 1.
@@ -729,12 +729,12 @@ Commands:
   help                    Show this help message
 
 PRD Generation:
-  /idea <description>           Thorough brainstorm (in Claude Code)
+  /prd <description>            Thorough brainstorm (in Claude Code)
   npx agentic-loop prd <notes>     Quick PRD generation
 
 Examples:
   npm install agentic-loop && npx agentic-loop setup
-  /idea "Add user authentication with OAuth"
+  /prd "Add user authentication with OAuth"
   npx agentic-loop prd "Add a contact form"
   npx agentic-loop run
   npx agentic-loop run --max 10

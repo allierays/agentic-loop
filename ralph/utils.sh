@@ -49,6 +49,40 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Terminal background theming for Ralph
+# Saves original background color and applies a teal tint to visually
+# distinguish the Ralph terminal from Claude Code.
+# Only works in macOS Terminal.app — no-op on Linux, iTerm2, VS Code, etc.
+# Note: AppleScript targets "front window" (focused window) not the specific
+# window running the script. In practice this works because the user just
+# ran the command, but rapid window switching can cause a mismatch.
+_ORIGINAL_TERMINAL_BG=""
+
+set_terminal_bg() {
+  local hex="${1:-#1a2e2e}"  # Default: subtle dark teal
+
+  # Only works in Terminal.app
+  [[ "$TERM_PROGRAM" != "Apple_Terminal" ]] && return 0
+
+  # Save current background color for restore
+  _ORIGINAL_TERMINAL_BG=$(osascript -e 'tell application "Terminal" to get background color of front window' 2>/dev/null) || return 0
+
+  # Parse hex to 16-bit RGB values (Terminal.app uses 0-65535 range)
+  local r=$((16#${hex:1:2} * 257))
+  local g=$((16#${hex:3:2} * 257))
+  local b=$((16#${hex:5:2} * 257))
+
+  osascript -e "tell application \"Terminal\" to set background color of front window to {$r, $g, $b}" 2>/dev/null || true
+}
+
+restore_terminal_bg() {
+  [[ -z "$_ORIGINAL_TERMINAL_BG" ]] && return 0
+  [[ "$TERM_PROGRAM" != "Apple_Terminal" ]] && return 0
+
+  osascript -e "tell application \"Terminal\" to set background color of front window to {$_ORIGINAL_TERMINAL_BG}" 2>/dev/null || true
+  _ORIGINAL_TERMINAL_BG=""
+}
+
 # Get existing frontend directories in this project
 get_frontend_dirs() {
   local dirs=()
@@ -410,6 +444,7 @@ create_temp_file() {
 
 # Clean up only tracked temp files on exit
 cleanup() {
+  restore_terminal_bg
   if [[ ${#RALPH_TEMP_FILES[@]} -gt 0 ]]; then
     for f in "${RALPH_TEMP_FILES[@]}"; do
       rm -f "$f" 2>/dev/null

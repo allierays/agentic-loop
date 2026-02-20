@@ -630,6 +630,7 @@ run_loop() {
   # pipeline in a background subshell and `wait`ing for it, which lets the trap
   # fire immediately. The trap kills the subshell, touches .stop, then exits.
   trap '
+    restore_terminal_bg
     echo ""
     print_warning "Ctrl+C received — stopping loop..."
     [[ -n "$_CLAUDE_PIPELINE_PID" ]] && kill -TERM "$_CLAUDE_PIPELINE_PID" 2>/dev/null
@@ -637,6 +638,13 @@ run_loop() {
     kill 0 2>/dev/null
     exit 130
   ' INT
+
+  # Tint terminal background so Ralph's terminal is visually distinct
+  local tint_color
+  tint_color=$(get_config '.terminalTint' "#1a2e2e")
+  if [[ "$tint_color" != "off" ]]; then
+    set_terminal_bg "$tint_color"
+  fi
 
   local max_iterations=""  # No cap by default — per-story circuit breaker is the safety net
   local specific_story=""
@@ -720,9 +728,9 @@ run_loop() {
       echo ""
       echo "  2. Inside Claude, type:"
       echo ""
-      echo "       /idea \"your feature description\""
+      echo "       /prd \"your feature description\""
       echo ""
-      echo "  Note: /idea is a Claude skill — it only works inside an active"
+      echo "  Note: /prd is a Claude skill — it only works inside an active"
       echo "  Claude session, not from your regular terminal."
       echo ""
       echo "  See Step 4 of the Getting Started guide:"
@@ -1700,6 +1708,6 @@ archive_feature() {
   echo "All stories passed! PRD kept at: $RALPH_DIR/prd.json"
   echo ""
   echo "Next:"
-  echo "  Start a Claude Code session and run /idea to brainstorm your next feature."
+  echo "  Start a Claude Code session and run /prd to brainstorm your next feature."
   echo "  ralph status            # See completed stories"
 }

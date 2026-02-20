@@ -16,37 +16,22 @@ The postinstall automatically copies skills to your project's `.claude/skills/`.
 
 ## Available Commands
 
-### `/idea`
+### `/prd`
 
-**The core workflow command.** Brainstorm a feature and generate a PRD for Ralph.
+**The core workflow command.** Generate an executable PRD for Ralph.
 
 ```
-/idea "add user authentication with OAuth"
+/prd "add user authentication with OAuth"
+/prd docs/ideas/auth.md
+/prd plans/my-feature
 ```
 
 Claude will:
-1. Enter plan mode
-2. Explore your codebase
-3. Ask clarifying questions
-4. Write idea to `docs/ideas/{feature}.md`
+1. Read your input (description, idea file, or plan file)
+2. Ask hardening questions (security, scale, scope)
+3. Explore your codebase
+4. Split into stories in `.ralph/prd.json`
 5. Open for your approval
-6. Split into stories in `.ralph/prd.json`
-7. Open PRD for your approval
-
-Two approval gates. Nothing executes without your say-so.
-
----
-
-### `/prd`
-
-**Generate a PRD directly** from an idea file or description.
-
-```
-/prd docs/ideas/auth.md
-/prd "add user logout button"
-```
-
-Use `/prd` for quick PRD generation when you don't need the full `/idea` brainstorming flow. The `/idea` command calls `/prd` internally after the idea file is approved.
 
 ---
 
@@ -71,7 +56,7 @@ Interactive walkthrough of agentic-loop.
 ```
 
 Great for new users. Explains:
-- The /idea → Ralph → Ship workflow
+- The /prd → Ralph → Ship workflow
 - How pre-commit hooks work
 - Available commands
 
@@ -250,8 +235,7 @@ Hooks that block will prevent the commit. Warnings let you commit but alert you.
 
 | Command | Purpose |
 |---------|---------|
-| `/idea` | Brainstorm → PRD → Ready for Ralph |
-| `/prd` | Generate PRD directly from idea file |
+| `/prd` | Brainstorm → Harden → PRD → Ready for Ralph |
 | `/prd-check` | Validate PRD before running the loop |
 | `/vibe-help` | Quick reference cheatsheet |
 | `/tour` | Interactive walkthrough |

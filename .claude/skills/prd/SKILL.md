@@ -1,5 +1,5 @@
 ---
-description: Generate an executable PRD for Ralph from an idea file or description.
+description: Brainstorm, harden, and generate an executable PRD for Ralph from a description, idea file, or plan file.
 ---
 
 # /prd - Generate PRD for Ralph
@@ -19,21 +19,27 @@ $ARGUMENTS
 ### Step 1: Determine Input Type
 
 **If `$ARGUMENTS` is empty:**
-1. Check for idea files:
+1. Scan for existing source files:
    ```bash
-   ls docs/ideas/*.md 2>/dev/null || echo "No ideas found"
+   ls docs/ideas/*.md 2>/dev/null || echo "No idea files found"
+   ls docs/plans/*.md 2>/dev/null || echo "No plan files found"
    ```
-2. Ask: "Would you like to:
-   - Convert an idea file (e.g., `/prd auth` for `docs/ideas/auth.md`)
+2. List what's available and ask: "Would you like to:
+   - Convert a source file (e.g., `/prd auth` or `/prd plans/my-feature`)
    - Describe a feature directly (e.g., `/prd 'Add user logout button'`)"
 
-**If `$ARGUMENTS` looks like a file reference** (no spaces, matches `docs/ideas/*.md`):
+**If `$ARGUMENTS` looks like a plan file** (`plans/` prefix, `docs/plans/` path, or full path to a plan file):
 - If it's a full path, use it directly
-- If it's just a name like `content-engine`, look for `docs/ideas/content-engine.md`
+- If it's `plans/name` or just a prefix, look for `docs/plans/{name}.md`
+- Proceed to "Read and Understand the Plan"
+
+**If `$ARGUMENTS` looks like an idea file reference** (no spaces, matches `docs/ideas/*.md`):
+- If it's a full path, use it directly
+- If it's just a name like `content-engine`, check `docs/ideas/content-engine.md` first, fall back to `docs/plans/content-engine.md`
 - Proceed to "Read and Understand the Idea"
 
 **If `$ARGUMENTS` is a description** (has spaces, is a sentence):
-- This is the **quick PRD flow** - no `docs/ideas/` file created
+- This is the **quick PRD flow** - no source file created
 - Good for small features that don't need documentation
 - Skip to "Confirm Understanding" below
 
@@ -48,9 +54,9 @@ Say: "I've read `{path}`. Here's my understanding:
 **Solution:** {one line}
 **Scope:** {key items}
 
-I'll now split this into {N} stories for Ralph. Continue?"
+I'll now ask a few hardening questions before generating stories."
 
-**STOP and wait for user confirmation.**
+**Proceed to Step 2.5.**
 
 ### Step 2b: Confirm Understanding (from description)
 
@@ -65,12 +71,58 @@ Use the detected tech stack, test runners, and constraints when building each st
 
 Then say: "I'll create a PRD for: **{description}**
 
-Before I generate stories, quick questions:
-1. **Type:** Frontend or backend?
-2. **Scale:** Any specific limits (users, items, rate limits)?
-3. **Anything else** I should know?
+Here's what I found in your codebase: [brief summary of tech stack, existing patterns]
 
-(Or say 'go' to proceed with defaults)"
+I'll now ask a few hardening questions before generating stories."
+
+**Proceed to Step 2.5.**
+
+### Step 2c: Read and Understand the Plan (from plan file)
+
+Read the plan file and summarize:
+
+Say: "I've read `{path}`. Here's my understanding:
+
+**Feature/Goal:** {name}
+**Approach:** {summary of approach}
+**Key Files:** {files mentioned}
+**Scope:** {key items}
+
+I'll now ask a few hardening questions before generating stories."
+
+**Proceed to Step 2.5.**
+
+### Step 2.5: Harden the Requirements
+
+**This step runs for ALL input types** (idea file, plan file, or description). Review what you already know from the input and ask ONLY about gaps — skip questions the input already answers.
+
+Say: "Before I generate stories, I want to make sure we've covered the key areas:"
+
+**Scope & UX** (always ask):
+- What's in scope vs out of scope?
+- Is this user-facing? What does the user see/do?
+- What are the edge cases?
+- **Responsive design** (if frontend): Must it work on mobile/tablet? What breakpoints? Any layout changes between screen sizes?
+
+**Security** (ask if feature involves auth, user input, or sensitive data):
+- Authentication: Who can access this? Login required?
+- Passwords: How stored? (must be hashed, never plain text)
+- User input: What validation needed? (SQL injection, XSS)
+- Sensitive data: What should NEVER be in API responses?
+- Rate limiting: Should this be rate limited?
+
+**Scale** (ask if feature involves lists, data, or APIs):
+- How many items expected? (10s, 1000s, millions?)
+- Pagination needed? What's the max per page?
+- Caching needed? How fresh must data be?
+- Database indexes: What will be queried/sorted frequently?
+
+**Migration** (ask if feature involves restructuring or moving code):
+- Source → destination mapping: Where does code currently live? Where should it end up?
+- Phases: What's the logical order?
+- Verification: What commands prove each phase worked?
+
+End with: "(Or say **'go'** to proceed with defaults for anything not answered)"
 
 **STOP and wait for user input** (can be brief or 'go').
 
@@ -176,7 +228,7 @@ Does acceptanceCriteria include:
 - Large datasets → "Database query uses index on [column]"
 
 #### 6e. Context (for all stories)
-- Does `contextFiles` include the idea file (has ASCII mockups)?
+- Does `contextFiles` include the source file (idea or plan file, especially if it has ASCII mockups)?
 - Does `contextFiles` include styleguide (if exists)?
 - Does `techStack` include the relevant stack for this story?
 - Does `constraints` include any rules this story must follow?
@@ -191,6 +243,26 @@ If the feature has ANY frontend stories that add or modify user-facing UI:
 - That story's `testSteps` MUST include `npx playwright test ...`
 - The E2E story should be the LAST story (depends on all others) to test the full integrated flow
 - If no E2E story exists, CREATE one as the final story
+
+#### 6h. Responsive Design (for frontend stories)
+Every frontend story that creates or modifies user-facing UI MUST include:
+- `acceptanceCriteria` with responsive behavior: "Layout adapts to mobile (< 768px), tablet (768-1024px), and desktop (> 1024px)"
+- `testSteps` with a viewport resize check OR Playwright test that validates mobile layout
+- `notes` with Playwright MCP instructions to screenshot at mobile and desktop widths
+
+**Example acceptanceCriteria:**
+```
+"Component renders in single-column layout on mobile (< 768px)",
+"Navigation collapses to hamburger menu on mobile",
+"Touch targets are at least 44x44px on mobile"
+```
+
+**Example testSteps:**
+```
+"npx playwright test tests/e2e/dashboard.spec.ts --project=mobile"
+```
+
+If a frontend story has no responsive criteria and the feature is user-facing, add them.
 
 #### 6g. Test Scenario Specificity
 Every story's `notes` field MUST include **3+ specific test scenarios** that describe what to test and how. Vague notes like "Test the service methods" are not acceptable.
@@ -214,7 +286,7 @@ Bad example:
 | Story depends on something not created | Reorder or add missing dependency |
 | Auth story missing security criteria | Add password hashing, rate limiting to acceptanceCriteria |
 | List endpoint missing pagination | Add pagination criteria to acceptanceCriteria |
-| Frontend missing contextFiles | Add idea file + styleguide paths |
+| Frontend missing contextFiles | Add source file (idea or plan) + styleguide paths |
 | Frontend missing testUrl | Add URL from config |
 | Frontend missing mcp | Add `"mcp": ["playwright", "devtools"]` |
 | Frontend notes missing Playwright MCP guidance | Add visual verification instructions to notes (see Playwright MCP section) |
@@ -223,6 +295,7 @@ Bad example:
 | testSteps use import-checks (`python -c "from X import Y"`) | Replace with curl, pytest, or real behavioral tests |
 | No E2E story for user-facing feature | Add a final E2E story with Playwright tests |
 | Story notes lack specific test scenarios | Add 3+ concrete scenarios with inputs, expected outputs, and fixture references |
+| Frontend story missing responsive design | Add mobile/tablet/desktop acceptanceCriteria and viewport test steps |
 
 ### Step 7: Reorder if Needed
 
@@ -274,7 +347,7 @@ Once approved, say:
 
 "PRD is ready!
 
-**Source:** `{idea-file-path}`
+**Source:** `{source-file-path}`
 **PRD:** `.ralph/prd.json` ({N} stories)
 
 To start autonomous development, open another terminal and run:
@@ -296,7 +369,7 @@ Ralph will work through each story, running tests and committing as it goes."
 {
   "feature": {
     "name": "Feature Name",
-    "ideaFile": "docs/ideas/{feature-name}.md",
+    "ideaFile": "docs/ideas/{feature-name}.md or docs/plans/{feature-name}.md",
     "branch": "feature/{feature-name}",
     "status": "pending"
   },
@@ -404,7 +477,7 @@ Ralph will work through each story, running tests and committing as it goes."
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `feature` | Yes | Feature name, ideaFile, branch, status |
+| `feature` | Yes | Feature name, ideaFile (idea or plan path), branch, status |
 | `metadata` | Yes | Created date, estimated stories, complexity |
 
 **Note:** URLs come from `.ralph/config.json`, not the PRD. Use `{config.urls.backend}` in testSteps.
@@ -786,6 +859,7 @@ Use `contextFiles` to point Claude to important reference material:
 ```json
 "contextFiles": [
   "docs/ideas/dashboard.md",
+  "docs/plans/auth-feature.md",
   "src/styles/styleguide.html",
   "docs/api-spec.md"
 ]
@@ -807,7 +881,9 @@ This is where ASCII mockups, design specs, and detailed requirements live. Claud
 ### UI Stories Must Include
 - `testUrl` - Where to verify
 - `mcp: ["playwright", "devtools"]` - Browser tools
-- Acceptance criteria for: page loads, elements render, mobile works
+- Acceptance criteria for: page loads, elements render correctly
+- **Responsive design criteria**: layout adapts at mobile (< 768px), tablet (768-1024px), desktop (> 1024px) breakpoints
+- Playwright test or MCP verification at multiple viewport widths
 
 ### API Stories Must Include
 - `apiContract` - Expected request/response

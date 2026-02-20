@@ -108,70 +108,54 @@ if [[ "$FORCE" != "true" ]] && jq -e '.hooks' "$SETTINGS_FILE" > /dev/null 2>&1;
   fi
 fi
 
-# Build hooks config with actual path
-HOOKS_CONFIG=$(cat <<EOF
-{
-  "PostToolUse": [
-    {
-      "matcher": "Edit|Write",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "$SCRIPT_DIR/warn-debug.sh",
-          "timeout": 5
-        },
-        {
-          "type": "command",
-          "command": "$SCRIPT_DIR/warn-secrets.sh",
-          "timeout": 5
-        },
-        {
-          "type": "command",
-          "command": "$SCRIPT_DIR/warn-urls.sh",
-          "timeout": 5
-        },
-        {
-          "type": "command",
-          "command": "$SCRIPT_DIR/warn-empty-catch.sh",
-          "timeout": 5
-        }
-      ]
-    },
-    {
-      "matcher": "*",
-      "hooks": [
-        {
-          "type": "command",
-          "command": "$SCRIPT_DIR/log-tools.sh",
-          "timeout": 3
-        }
-      ]
-    }
-  ],
-  "SessionStart": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "$SCRIPT_DIR/inject-context.sh",
-          "timeout": 5
-        }
-      ]
-    }
-  ],
-  "Stop": [
-    {
-      "hooks": [
-        {
-          "type": "command",
-          "command": "$SCRIPT_DIR/save-learnings.sh",
-          "timeout": 10
-        }
-      ]
-    }
-  ]
+# Wrap hook path with existence check so missing files don't produce errors
+_safe_cmd() {
+  local path="$1"
+  printf 'if [ -f "%s" ]; then "%s"; else echo '"'"'{"continue": true}'"'"'; fi' "$path" "$path"
 }
-EOF
+
+# Build hooks config using jq for proper JSON escaping
+HOOKS_CONFIG=$(jq -n \
+  --arg warn_debug "$(_safe_cmd "$SCRIPT_DIR/warn-debug.sh")" \
+  --arg warn_secrets "$(_safe_cmd "$SCRIPT_DIR/warn-secrets.sh")" \
+  --arg warn_urls "$(_safe_cmd "$SCRIPT_DIR/warn-urls.sh")" \
+  --arg warn_empty_catch "$(_safe_cmd "$SCRIPT_DIR/warn-empty-catch.sh")" \
+  --arg log_tools "$(_safe_cmd "$SCRIPT_DIR/log-tools.sh")" \
+  --arg inject_context "$(_safe_cmd "$SCRIPT_DIR/inject-context.sh")" \
+  --arg save_learnings "$(_safe_cmd "$SCRIPT_DIR/save-learnings.sh")" \
+  '{
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {"type": "command", "command": $warn_debug, "timeout": 5},
+          {"type": "command", "command": $warn_secrets, "timeout": 5},
+          {"type": "command", "command": $warn_urls, "timeout": 5},
+          {"type": "command", "command": $warn_empty_catch, "timeout": 5}
+        ]
+      },
+      {
+        "matcher": "*",
+        "hooks": [
+          {"type": "command", "command": $log_tools, "timeout": 3}
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {"type": "command", "command": $inject_context, "timeout": 5}
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {"type": "command", "command": $save_learnings, "timeout": 10}
+        ]
+      }
+    ]
+  }'
 )
 
 # Merge hooks into settings

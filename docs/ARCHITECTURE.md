@@ -59,22 +59,19 @@ This is the main user journey - from a rough idea to shipped, working code.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
-│  PHASE 1: BRAINSTORM (/idea command)                                    │
+│  PHASE 1: PLANNING (/prd command)                                        │
 │                                                                          │
-│  User types: /idea "add user authentication"                             │
+│  User types: /prd "add user authentication"                              │
+│  (or /prd plans/auth-feature, or /prd docs/ideas/auth.md)               │
 │                              │                                           │
 │                              ▼                                           │
-│  Claude asks clarifying questions, explores your codebase to understand  │
-│  existing patterns, then writes a structured idea file.                  │
+│  Claude asks hardening questions (security, scale, scope),               │
+│  explores your codebase to understand existing patterns.                 │
 │                              │                                           │
 │                              ▼                                           │
-│  Output: docs/ideas/user-authentication.md                               │
-│  (Contains: problem, solution, scope, architecture hints)                │
-│                              │                                           │
-│                              ▼                                           │
-│  User reviews and says "approved"                                        │
+│  User reviews and approves                                               │
 ├─────────────────────────────────────────────────────────────────────────┤
-│  PHASE 2: PLANNING (/prd command, called automatically by /idea)         │
+│  PHASE 2: STORY GENERATION                                               │
 │                                                                          │
 │  Claude reads the idea file and splits it into small, testable stories.  │
 │  Each story is either "frontend" or "backend" (never both).              │
@@ -105,25 +102,17 @@ This is the main user journey - from a rough idea to shipped, working code.
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### /idea Command (.claude/skills/idea/SKILL.md)
-
-The `/idea` command is a markdown file that Claude reads as instructions. When you type `/idea "feature"`, Claude follows these steps:
-
-1. **Brainstorm** - Ask clarifying questions about scope, edge cases, UX
-2. **Explore** - Use Glob/Grep to understand existing code patterns
-3. **Write** - Create `docs/ideas/{feature}.md` with structured documentation
-4. **Wait** - Stop and ask user to review and approve
-5. **Delegate** - Call `/prd` command to generate the PRD
-
 ### /prd Command (.claude/skills/prd/SKILL.md)
 
-The `/prd` command generates the actual task list (PRD = Product Requirements Document). This is where the "single source of truth" lives - all schema definitions, testing requirements, and story format are defined here.
+The `/prd` command is the core workflow command. When you type `/prd "feature"`, Claude follows these steps:
 
-1. **Read input** - Either an idea file path or a direct description
-2. **Detect tech stack** - Scan package.json, pyproject.toml, go.mod, Cargo.toml
-3. **Split into stories** - Each story is atomic (frontend OR backend, not both)
-4. **Generate testSteps** - Backend stories get `curl` commands, frontend gets `tsc --noEmit` + playwright
-5. **Write PRD** - Output to `.ralph/prd.json`
+1. **Read input** - A description, idea file path, or plan file path
+2. **Harden** - Ask questions about security, scale, scope
+3. **Explore** - Use Glob/Grep to understand existing code patterns
+4. **Detect tech stack** - Scan package.json, pyproject.toml, go.mod, Cargo.toml
+5. **Split into stories** - Each story is atomic (frontend OR backend, not both)
+6. **Generate testSteps** - Backend stories get `curl` commands, frontend gets `tsc --noEmit` + playwright
+7. **Write PRD** - Output to `.ralph/prd.json`
 
 ### PRD Schema
 
@@ -186,7 +175,7 @@ Setup detects your project type and configures everything:
 │                                                                          │
 │  3. Create .claude/ directory                                            │
 │     - settings.json (hook configuration)                                 │
-│     - commands/ (slash commands: /idea, /prd, /review, etc.)             │
+│     - commands/ (slash commands: /prd, /review, etc.)                    │
 │                                                                          │
 │  4. Create CLAUDE.md                                                     │
 │     - Project coding conventions                                         │
@@ -500,8 +489,8 @@ Claude Code has a feature called "slash commands" - markdown files in `.claude/s
 
 ### How They Work
 
-When you type `/idea "add auth"` in Claude Code:
-1. Claude looks for `.claude/skills/idea/SKILL.md`
+When you type `/prd "add auth"` in Claude Code:
+1. Claude looks for `.claude/skills/prd/SKILL.md`
 2. Claude reads the entire file as instructions
 3. Claude follows those instructions with your input ("add auth")
 
@@ -509,8 +498,7 @@ When you type `/idea "add auth"` in Claude Code:
 
 | File | Command | What it does |
 |------|---------|--------------|
-| `idea.md` | `/idea` | Brainstorm feature → write idea file → call /prd |
-| `prd.md` | `/prd` | Generate PRD from idea file (single source of truth for schema) |
+| `prd.md` | `/prd` | Brainstorm, harden, and generate PRD (single source of truth for schema) |
 | `review.md` | `/review` | Security-focused code review (OWASP top 10) |
 | `vibe-check.md` | `/vibe-check` | Quick code quality audit |
 | `sign.md` | `/sign` | Add a learned pattern |

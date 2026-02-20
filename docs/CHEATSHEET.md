@@ -7,7 +7,7 @@ Quick reference for all commands.
 ## The Workflow
 
 ```
-/idea "your feature"           → Brainstorm & generate PRD
+/prd "your feature"            → Brainstorm & generate PRD
 npx agentic-loop run           → Autonomous coding loop
 npx agentic-loop status        → Check progress
 /vibe-check                    → Audit before shipping
@@ -20,7 +20,7 @@ npx agentic-loop status        → Check progress
 | Command | Purpose |
 |---------|---------|
 | `npx agentic-loop setup` | Set up hooks, commands, and config |
-| `npx agentic-loop run` | Execute stories autonomously (shows live activity feed) |
+| `npx agentic-loop run` | Execute stories autonomously (activity feed + terminal tint on macOS) |
 | `npx agentic-loop run --max 10` | Limit to 10 iterations (no limit by default) |
 | `npx agentic-loop run --quiet` | Suppress the live activity feed |
 | `npx agentic-loop stop` | Stop after current story |
@@ -46,8 +46,7 @@ npx agentic-loop status        → Check progress
 
 | Command | Purpose |
 |---------|---------|
-| `/idea` | Brainstorm feature → create idea file → generate PRD |
-| `/prd` | Generate PRD directly from idea file or description |
+| `/prd` | Brainstorm, harden, and generate PRD from description, idea file, or plan file |
 | `/prd-check` | Validate PRD before running the loop |
 | `/tour` | Interactive walkthrough |
 | `/vibe-check` | Code quality audit |
@@ -55,6 +54,7 @@ npx agentic-loop status        → Check progress
 | `/sign` | Add a learned pattern |
 | `/explain` | Explain code line by line |
 | `/styleguide` | Generate UI component reference |
+| `/color` | Pick Ralph's terminal background tint |
 | `/my-dna` | Set up your coding preferences |
 
 ---

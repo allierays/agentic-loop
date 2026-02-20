@@ -115,15 +115,21 @@ This is where you use Claude as a **thought partner**. You're not writing code h
 In the same Claude session from Step 3, describe what you want to build:
 
 ```
-/idea "add a contact form that sends emails"
+/prd "add a contact form that sends emails"
 ```
 
-Claude enters **plan mode**. It will:
+Claude will:
 
-1. **Ask clarifying questions** - "Should it have a captcha?" "What email service?" "What fields?"
+1. **Ask hardening questions** - Security, scale, scope: "Should it have a captcha?" "What email service?" "What fields?"
 2. **Explore your codebase** - Find existing patterns, routes, components, and conventions
-3. **Generate an idea file** - Saved to `docs/ideas/contact-form.md`
-4. **Split into stories** - Small, testable tasks saved to `.ralph/prd.json`
+3. **Split into stories** - Small, testable tasks saved to `.ralph/prd.json`
+4. **Open for your approval**
+
+You can also point to a plan file if you've already written one:
+
+```
+/prd plans/contact-form
+```
 
 Answer Claude's questions honestly. The more specific you are, the better the PRD will be. You don't need to know *how* to build it - just *what* you want. Claude figures out the technical approach. Think about the things a good developer would ask you: How do you want to maintain this long term? What's your budget for infrastructure? How many users does your application have? These are the kinds of conversations to have with your thought partner.
 
@@ -440,7 +446,7 @@ Here's how the two terminals work together - you think, the loop builds:
 │  TERMINAL 1: You + Claude    │    │  TERMINAL 2: The Loop        │
 │  (thinking & planning)       │    │  (building & testing)        │
 │                              │    │                              │
-│  1. /idea "feature"          │    │                              │
+│  1. /prd "feature"           │    │                              │
 │  2. Answer questions         │    │                              │
 │  3. Review PRD               │    │                              │
 │                              │    │  4. npx agentic-loop run     │

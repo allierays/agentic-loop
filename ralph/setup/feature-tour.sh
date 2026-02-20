@@ -130,7 +130,7 @@ demo_skills() {
 
   echo -e "  ${BOLD}In Claude Code, type these commands:${NC}\n"
 
-  echo -e "  ${CYAN}/idea${NC}            Brainstorm → PRD → Ready for Ralph"
+  echo -e "  ${CYAN}/prd${NC}             Brainstorm → PRD → Ready for Ralph"
   sleep 0.1
   echo -e "  ${CYAN}/vibe-help${NC}       Quick reference cheatsheet"
   sleep 0.1

@@ -13,7 +13,6 @@ describe('install flow', () => {
 
     it('has all required skills', () => {
       const requiredSkills = [
-        'idea',
         'tour',
         'vibe-check',
         'review',
@@ -31,9 +30,9 @@ describe('install flow', () => {
       })
     })
 
-    it('/idea skill has PRD generation', () => {
-      const ideaPath = join(skillsDir, 'idea', 'SKILL.md')
-      const content = readFileSync(ideaPath, 'utf-8')
+    it('/prd skill has PRD generation', () => {
+      const prdPath = join(skillsDir, 'prd', 'SKILL.md')
+      const content = readFileSync(prdPath, 'utf-8')
 
       expect(content).toContain('prd.json')
       expect(content).toContain('Generate PRD')
@@ -54,7 +53,6 @@ describe('install flow', () => {
 
     it('has legacy command files', () => {
       const requiredCommands = [
-        'idea.md',
         'tour.md',
         'vibe-check.md',
         'review.md',
