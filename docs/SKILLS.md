@@ -201,6 +201,31 @@ Your DNA is read during every Ralph session, so code reflects your personal styl
 
 ---
 
+### `/color`
+
+**Pick the terminal background tint** Ralph uses during `npx agentic-loop run`.
+
+```
+/color
+```
+
+Choose from presets (dark teal, purple, red) or enter a custom hex. macOS Terminal.app only.
+
+---
+
+### `/tab-rename`
+
+**Rename the current terminal tab** so you can tell your Claude Code sessions apart.
+
+```
+/tab-rename my-api
+/tab-rename
+```
+
+When called with an argument, sets the tab title immediately. Without an argument, auto-detects a name from your project. Works in macOS Terminal.app and iTerm2.
+
+---
+
 ## CLAUDE.md
 
 The setup also creates a `CLAUDE.md` file that teaches Claude your coding standards:
@@ -245,3 +270,5 @@ Hooks that block will prevent the commit. Warnings let you commit but alert you.
 | `/styleguide` | Generate design system |
 | `/sign` | Add a learned pattern |
 | `/my-dna` | Set up personal coding preferences |
+| `/color` | Pick Ralph's terminal background tint |
+| `/tab-rename` | Rename terminal tab |

@@ -144,6 +144,7 @@ These aren't part of the automated loop — they're tools you can use whenever y
 | Code verification (5-step) | After Claude writes each story | Automatic |
 | Sign auto-promotion | After story retry succeeds | Automatic |
 | `/color` | When you run it | Manual |
+| `/tab-rename` | When you run it | Manual |
 | `/my-dna` | When you run it | Manual |
 | `/styleguide` | When you run it | Manual |
 | `/sign` | When you run it | Manual |

@@ -12,33 +12,33 @@ You describe what you want to build. Claude Code writes a PRD (Product Requireme
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────────┐
-│  TERMINAL 1: Claude CLI                │  TERMINAL 2: Execute                    │
+│  TERMINAL 1: Plan & Generate           │  TERMINAL 2: Execute                    │
 ├────────────────────────────────────────┼─────────────────────────────────────────┤
 │                                        │                                         │
-│  claude                                │                                         │
-|(--dangerously-skip-permissions)        │  npx agentic-loop run                   │
+│  claude --dangerously-skip-permissions │  npx agentic-loop run                   │
 │                                        │                                         │
-│  PLAN FEATURES                         │  ┌─ prd-check (once) ───────────────┐   │
-│  /prd 'your feature or bugfix'         │  │ Validate all stories upfront     │   │
-│  → Claude asks hardening questions     │  │ Auto-fix missing test steps      │   │
-│  → Explores codebase                   │  └──────────────────────────────────┘   │
-│  → Generates PRD                       │            ↓                            │
-│  (or use plan mode first, then         │
-│   /prd plans/my-feature.md)            │
-│  ENHANCE AS YOU LEARN                  │   ──────────────────────────────────    │
-│  → Add signs when Ralph repeats        │  │ Read prd.json → get next story   │   │
-│    the same mistake                    │  │ Load PROMPT.md, signs, config    │   │
-│  → Tune timeouts, retries, checks      │  │ Load last_failure.txt (if retry) │   │
-│  → Refine test commands for your       │  │ Build prompt with full context   │   │
-│    stack                               │  │ Spawn Claude → write code        │   │
-│                                        │  │                                  │   │
-│  (OPTIONAL) CUSTOMIZE YOUR LOOP        │  │ code-check:                      │   │
-│  /my-dna      → your coding style      │  │   [1] Lint                       │   │
-│  /styleguide  → UI consistency         │  │   [2] Tests                      │   │
+│  THE PIPELINE                          │  ┌─ prd-check (once) ───────────────┐   │
+│  1. Plan mode                          │  │ Validate all stories upfront     │   │
+│     → Think through the feature        │  │ Auto-fix missing test steps      │   │
+│     → Claude explores codebase         │  └──────────────────────────────────┘   │
+│     → Plan saved to docs/plans/        │            ↓                            │
+│                                        │                                         │
+│  2. /prd plans/my-feature              │  ┌──────────────────────────────────┐   │
+│     → Hardening questions              │  │ Read prd.json → get next story   │   │
+│     → Generates .ralph/prd.json        │  │ Load PROMPT.md, signs, config    │   │
+│                                        │  │ Load last_failure.txt (if retry) │   │
+│  3. /prd-check                         │  │ Build prompt with full context   │   │
+│     → Validate stories                 │  │ Spawn Claude → write code        │   │
+│     → Cross-ref signs                  │  │                                  │   │
+│     → Auto-fix issues                  │  │ code-check:                      │   │
+│                                        │  │   [1] Lint                       │   │
+│  ENHANCE AS YOU LEARN                  │  │   [2] Tests                      │   │
 │  /sign        → teach patterns         │  │   [3] PRD test steps             │   │
-│  config.json  → tune your setup        │  │   [4] API smoke                  │   │
-│                                        │  │   [5] Frontend smoke             │   │
-│                                        │  │                                  │   │
+│  /my-dna      → your coding style      │  │   [4] API smoke                  │   │
+│  /styleguide  → UI consistency         │  │   [5] Frontend smoke             │   │
+│  /color       → terminal tint          │  │                                  │   │
+│  /tab-rename  → name your tabs         │  │                                  │   │
+│  config.json  → tune your setup        │  │                                  │   │
 │                                        │  │ Pass → commit, next story        │   │
 │                                        │  │ Fail → save to last_failure.txt, │   │
 │                                        │  │        retry                     │   │
@@ -47,10 +47,10 @@ You describe what you want to build. Claude Code writes a PRD (Product Requireme
 └────────────────────────────────────────┴─────────────────────────────────────────┘
 ```
 
-**Terminal 1** is where you shape *what* gets built and *how* Ralph builds it.
-**Terminal 2** is where Ralph executes autonomously.
+**Terminal 1** is where you plan and generate. Plan mode lets you think through a feature with Claude before committing to code. `/prd` turns that plan into executable stories. `/prd-check` validates them.
+**Terminal 2** is where Ralph executes autonomously — coding, testing, and committing each story in a loop.
 
-Your loop gets smarter over time. When Ralph struggles with something, add a sign. When tests flake, tune the config. The customization never really stops—it's how you make Ralph work for *your* project.
+The loop gets smarter over time. When Ralph struggles with something, teach it with `/sign`. Tune timeouts and checks in `config.json`. Capture your coding style with `/my-dna`.
 
 ---
 
@@ -63,26 +63,29 @@ npm install agentic-loop
 npx agentic-loop setup
 ```
 
-**Terminal 1 - Claude Code:**
+**Terminal 1 — Plan and generate with Claude:**
 ```bash
-claude
-/tour                    # Guided walkthrough (recommended first time)
-/prd 'your feature'      # Generate a PRD (asks hardening questions first)
+claude --dangerously-skip-permissions
 
----
-# Already have a plan file from plan mode?
-/prd plans/my-plan       # Turn a plan into a PRD
+# 1. Use plan mode to think through your feature
+#    Claude explores the codebase, you discuss, plan saved to docs/plans/
+
+# 2. Turn the plan into executable stories
+/prd plans/my-feature
+
+# 3. Validate before running
+/prd-check
 ```
 
-**Terminal 2 - Ralph Loop:**
+**Terminal 2 — Run the loop:**
 ```bash
-npx agentic-loop run         # Execute PRDs autonomously (Spins up claude -p)
+npx agentic-loop run         # Execute PRDs autonomously (spins up claude -p)
 npx agentic-loop run --quiet # Same, but suppress activity feed
 ```
 
 Ralph shows a live activity feed as it works — what files it's reading, what code it's writing, and why. Use `--quiet` to suppress it. On macOS Terminal.app, Ralph tints the terminal background dark teal so you can tell the two terminals apart at a glance — the original color is restored when the loop ends.
 
-> **Tip:** Use two terminals. Plan with Claude in one, run Ralph in the other.
+> **Tip:** Plan first, then generate. Use plan mode to explore and think, `/prd` to create stories, `/prd-check` to validate, and `ralph run` to execute.
 
 ---
 

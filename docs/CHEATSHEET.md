@@ -55,6 +55,7 @@ npx agentic-loop status        → Check progress
 | `/explain` | Explain code line by line |
 | `/styleguide` | Generate UI component reference |
 | `/color` | Pick Ralph's terminal background tint |
+| `/tab-rename` | Rename terminal tab |
 | `/my-dna` | Set up your coding preferences |
 
 ---

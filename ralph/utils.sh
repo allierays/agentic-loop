@@ -84,6 +84,17 @@ restore_terminal_bg() {
   _ORIGINAL_TERMINAL_BG=""
 }
 
+# Set terminal tab title (works in Terminal.app, iTerm2, and most xterm-compatible terminals)
+set_tab_title() {
+  local title="$1"
+  printf '\033]0;%s\007' "$title"
+}
+
+# Restore tab title to default (empty = terminal decides)
+restore_tab_title() {
+  printf '\033]0;\007'
+}
+
 # Get existing frontend directories in this project
 get_frontend_dirs() {
   local dirs=()
@@ -445,6 +456,7 @@ create_temp_file() {
 
 # Clean up only tracked temp files on exit
 cleanup() {
+  restore_tab_title
   restore_terminal_bg
   if [[ ${#RALPH_TEMP_FILES[@]} -gt 0 ]]; then
     for f in "${RALPH_TEMP_FILES[@]}"; do

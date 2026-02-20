@@ -734,6 +734,7 @@ run_loop() {
   # pipeline in a background subshell and `wait`ing for it, which lets the trap
   # fire immediately. The trap kills the subshell, touches .stop, then exits.
   trap '
+    restore_tab_title
     restore_terminal_bg
     echo ""
     print_warning "Ctrl+C received — stopping loop..."
@@ -749,6 +750,11 @@ run_loop() {
   if [[ "$tint_color" != "off" ]]; then
     set_terminal_bg "$tint_color"
   fi
+
+  # Set tab title to project name so the Ralph terminal is identifiable
+  local project_name
+  project_name=$(basename "$(pwd)")
+  set_tab_title "Ralph: $project_name"
 
   local max_iterations=""  # No cap by default — per-story circuit breaker is the safety net
   local specific_story=""
@@ -1052,6 +1058,9 @@ run_loop() {
     total_stories=$(jq '[.stories[]] | length' "$RALPH_DIR/prd.json")
     passed_stories=$(jq '[.stories[] | select(.passes==true)] | length' "$RALPH_DIR/prd.json")
     current_num=$((passed_stories + 1))
+
+    # Update tab title with current story
+    set_tab_title "Ralph: $story — $story_title"
 
     # Display dynamic banner (truncate long text to fit box)
     local max_width=53
