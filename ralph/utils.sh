@@ -34,6 +34,7 @@ readonly BROWSER_PAGE_TIMEOUT_MS=30000
 readonly CURL_TIMEOUT_SECONDS=10
 readonly SIGN_EXTRACTION_TIMEOUT_SECONDS=30
 readonly PREFLIGHT_CACHE_TTL_SECONDS=600
+readonly UPDATE_CHECK_TTL_SECONDS=86400  # Check for updates once per day
 
 # Common project directories (avoid duplication across files)
 readonly FRONTEND_DIRS=("apps/web" "frontend" "client" "web")

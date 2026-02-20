@@ -2,6 +2,103 @@
 # shellcheck shell=bash
 # loop.sh - The autonomous development loop
 
+# Check for newer version on npm and offer to update
+check_for_updates() {
+  local cache_file="$RALPH_DIR/.update_cache"
+
+  # Skip if checked recently (once per day)
+  if [[ -f "$cache_file" ]]; then
+    local cached_time
+    read -r cached_time _ < "$cache_file"
+    local now
+    now=$(date +%s)
+    if [[ $(( now - cached_time )) -lt $UPDATE_CHECK_TTL_SECONDS ]]; then
+      return 0
+    fi
+  fi
+
+  local latest
+  latest=$(npm view agentic-loop version --json 2>/dev/null | tr -d '"' || echo "")
+
+  # Write cache regardless of result (don't retry on failure)
+  echo "$(date +%s) $latest" > "$cache_file"
+
+  # If registry unreachable or empty, skip silently
+  [[ -z "$latest" ]] && return 0
+
+  # Compare versions — if already current or newer, skip
+  if [[ "$RALPH_VERSION" == "$latest" ]]; then
+    return 0
+  fi
+
+  # Simple semver comparison: split on dots and compare numerically
+  local IFS='.'
+  # shellcheck disable=SC2206  # Intentional word-split on IFS='.'
+  local -a current_parts=($RALPH_VERSION)
+  # shellcheck disable=SC2206
+  local -a latest_parts=($latest)
+
+  local i
+  for i in 0 1 2; do
+    local c="${current_parts[$i]:-0}"
+    local l="${latest_parts[$i]:-0}"
+    if [[ "$c" -gt "$l" ]]; then
+      return 0  # Current is ahead (dev build)
+    elif [[ "$c" -lt "$l" ]]; then
+      break  # Current is behind — needs update
+    fi
+  done
+
+  echo ""
+  print_warning "Update available: v$RALPH_VERSION → v$latest"
+
+  # Detect install method to determine update command
+  local update_cmd=""
+  local script_path
+  script_path="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
+  if [[ "$script_path" == *"node_modules/agentic-loop"* ]]; then
+    # Local install
+    update_cmd="npm update agentic-loop"
+  elif npm list -g agentic-loop --depth=0 &>/dev/null 2>&1; then
+    # Global install
+    update_cmd="npm update -g agentic-loop"
+  else
+    # npx or unknown — use npx with latest
+    update_cmd="npx agentic-loop@latest"
+  fi
+
+  read -r -p "  Update now and restart? [Y/n] " response
+  if [[ "$response" =~ ^[Nn] ]]; then
+    echo "  Skipping update. Run: $update_cmd"
+    echo ""
+    return 0
+  fi
+
+  echo "  Updating..."
+  if [[ "$update_cmd" == "npx agentic-loop@latest" ]]; then
+    # For npx users, clear the cache so next npx call fetches latest
+    local npx_cache
+    npx_cache=$(npm config get cache 2>/dev/null || echo "$HOME/.npm")
+    rm -rf "${npx_cache}/_npx" 2>/dev/null || true
+    print_success "  npx cache cleared — restarting with v$latest..."
+    echo ""
+    exec npx agentic-loop@latest run "$@"
+  else
+    if eval "$update_cmd" 2>&1 | tail -3; then
+      print_success "  Updated to v$latest — restarting..."
+      echo ""
+      # Re-exec ralph.sh with "run" + original args
+      local ralph_bin
+      ralph_bin="$(cd "$(dirname "${BASH_SOURCE[0]}")/../bin" && pwd)/ralph.sh"
+      exec "$ralph_bin" run "$@"
+    else
+      print_warning "  Update failed. Run manually: $update_cmd"
+      echo ""
+    fi
+  fi
+}
+
 # Pre-loop checks to catch common issues before wasting iterations
 preflight_checks() {
   echo ""
@@ -621,6 +718,9 @@ _docker_safety_warning() {
 }
 
 run_loop() {
+  # Save original args for update restart
+  local _original_args=("$@")
+
   # PID of the currently running Claude pipeline (used by trap to kill it)
   _CLAUDE_PIPELINE_PID=""
 
@@ -682,6 +782,9 @@ run_loop() {
 
   # Validate prerequisites
   check_dependencies
+
+  # Check for newer version on npm (once per day, non-blocking if offline)
+  check_for_updates "${_original_args[@]}"
 
   # Warn if no Docker compose file (safety net for autonomous execution)
   _docker_safety_warning
