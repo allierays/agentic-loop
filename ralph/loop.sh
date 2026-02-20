@@ -794,7 +794,7 @@ run_loop() {
   check_dependencies
 
   # Check for newer version on npm (once per day, non-blocking if offline)
-  check_for_updates "${_original_args[@]}"
+  check_for_updates "${_original_args[@]+"${_original_args[@]}"}"
 
   # Warn if no Docker compose file (safety net for autonomous execution)
   _docker_safety_warning

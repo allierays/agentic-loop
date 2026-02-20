@@ -58,6 +58,7 @@ NC='\033[0m' # No Color
 # window running the script. In practice this works because the user just
 # ran the command, but rapid window switching can cause a mismatch.
 _ORIGINAL_TERMINAL_BG=""
+_ORIGINAL_TERMINAL_FG=""
 
 set_terminal_bg() {
   local hex="${1:-#1a2e2e}"  # Default: subtle dark teal
@@ -65,8 +66,9 @@ set_terminal_bg() {
   # Only works in Terminal.app
   [[ "$TERM_PROGRAM" != "Apple_Terminal" ]] && return 0
 
-  # Save current background color for restore
+  # Save current background and text colors for restore
   _ORIGINAL_TERMINAL_BG=$(osascript -e 'tell application "Terminal" to get background color of front window' 2>/dev/null) || return 0
+  _ORIGINAL_TERMINAL_FG=$(osascript -e 'tell application "Terminal" to get normal text color of front window' 2>/dev/null) || true
 
   # Parse hex to 16-bit RGB values (Terminal.app uses 0-65535 range)
   local r=$((16#${hex:1:2} * 257))
@@ -74,6 +76,18 @@ set_terminal_bg() {
   local b=$((16#${hex:5:2} * 257))
 
   osascript -e "tell application \"Terminal\" to set background color of front window to {$r, $g, $b}" 2>/dev/null || true
+
+  # If the background is dark, ensure text is light enough to read
+  # Calculate perceived brightness: (R*299 + G*587 + B*114) / 1000 (8-bit scale)
+  local r8=$((16#${hex:1:2}))
+  local g8=$((16#${hex:3:2}))
+  local b8=$((16#${hex:5:2}))
+  local brightness=$(( (r8 * 299 + g8 * 587 + b8 * 114) / 1000 ))
+
+  if [[ $brightness -lt 128 ]]; then
+    # Dark background — set light text (soft white: #e0e0e0)
+    osascript -e 'tell application "Terminal" to set normal text color of front window to {57568, 57568, 57568}' 2>/dev/null || true
+  fi
 }
 
 restore_terminal_bg() {
@@ -82,6 +96,11 @@ restore_terminal_bg() {
 
   osascript -e "tell application \"Terminal\" to set background color of front window to {$_ORIGINAL_TERMINAL_BG}" 2>/dev/null || true
   _ORIGINAL_TERMINAL_BG=""
+
+  if [[ -n "$_ORIGINAL_TERMINAL_FG" ]]; then
+    osascript -e "tell application \"Terminal\" to set normal text color of front window to {$_ORIGINAL_TERMINAL_FG}" 2>/dev/null || true
+    _ORIGINAL_TERMINAL_FG=""
+  fi
 }
 
 # Set terminal tab title (works in Terminal.app, iTerm2, and most xterm-compatible terminals)
