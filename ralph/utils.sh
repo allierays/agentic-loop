@@ -106,12 +106,12 @@ restore_terminal_bg() {
 # Set terminal tab title (works in Terminal.app, iTerm2, and most xterm-compatible terminals)
 set_tab_title() {
   local title="$1"
-  printf '\033]0;%s\007' "$title"
+  printf '\033]0;%s\007' "$title" >&2
 }
 
 # Restore tab title to default (empty = terminal decides)
 restore_tab_title() {
-  printf '\033]0;\007'
+  printf '\033]0;\007' >&2
 }
 
 # Get existing frontend directories in this project
