@@ -24,9 +24,11 @@ $ARGUMENTS
    ls docs/ideas/*.md 2>/dev/null || echo "No idea files found"
    ls docs/plans/*.md 2>/dev/null || echo "No plan files found"
    ```
-2. List what's available and ask: "Would you like to:
-   - Convert a source file (e.g., `/prd auth` or `/prd plans/my-feature`)
-   - Describe a feature directly (e.g., `/prd 'Add user logout button'`)"
+2. If source files exist, use AskUserQuestion to let the user pick:
+   - **Question:** "What should I build the PRD from?"
+   - **Header:** "PRD source"
+   - **Options:** List discovered idea/plan files (up to 3-4 most relevant), plus a "Describe a feature" option that says "Type a description directly (e.g., 'Add user logout button')"
+   - If no source files found, skip AskUserQuestion and just say: "Describe the feature you'd like to build (e.g., `/prd 'Add user logout button'`)"
 
 **If `$ARGUMENTS` looks like a plan file** (`plans/` prefix, `docs/plans/` path, or full path to a plan file):
 - If it's a full path, use it directly
@@ -122,9 +124,13 @@ Say: "Before I generate stories, I want to make sure we've covered the key areas
 - Phases: What's the logical order?
 - Verification: What commands prove each phase worked?
 
-End with: "(Or say **'go'** to proceed with defaults for anything not answered)"
-
-**STOP and wait for user input** (can be brief or 'go').
+After presenting the hardening questions, use AskUserQuestion:
+- **Question:** "Answer the questions above, or proceed with sensible defaults?"
+- **Header:** "Hardening"
+- **Options:**
+  - **"Go with defaults"** — "Proceed with sensible defaults for unanswered questions"
+  - **"Let me answer"** — "I'll respond to the questions above"
+- If the user selects "Let me answer" or "Other", **STOP and wait for their response** before continuing.
 
 ### Step 3: Check for Existing PRD
 
@@ -133,16 +139,11 @@ cat .ralph/prd.json 2>/dev/null
 ```
 
 If it exists, read it and say:
-"`.ralph/prd.json` exists with {N} stories ({M} completed, {P} pending).
+"`.ralph/prd.json` exists with {N} stories ({M} completed, {P} pending). I'll append new stories to it."
 
-Options:
-- **'append'** - Add new stories to the existing PRD (recommended)
-- **'overwrite'** - Replace it entirely
-- **'cancel'** - Stop here"
+**Default behavior is append** — just proceed. Do NOT ask for confirmation unless the user explicitly says "overwrite" or "replace".
 
-**STOP and wait for user choice.**
-
-If user chooses **'append'**:
+When appending:
 - Find highest existing story number (ignore prefix - could be US-005 or TASK-005)
 - **Always use TASK- prefix** for new stories (e.g., if highest is US-005 or TASK-005, new stories start at TASK-006)
 - New stories will be added after existing ones
@@ -332,14 +333,18 @@ Open the PRD for review:
 open -a TextEdit .ralph/prd.json
 ```
 
-Say: "I've {created|updated} the PRD with {N} stories and opened it in TextEdit.
+Say: "I've {created|updated} the PRD with {N} stories and opened it in TextEdit."
 
-Review the PRD and let me know:
-- **'approved'** - Ready to run in your other terminal
-- **'edit [changes]'** - Tell me what to change
-- Or edit the JSON directly and say **'done'**"
+Then use AskUserQuestion with **multiSelect: true**:
+- **Question:** "How does the PRD look?"
+- **Header:** "PRD review"
+- **multiSelect:** true
+- **Options:**
+  - **"Approved"** — "PRD is good — ready to run with Ralph"
+  - **"Edit"** — "I'll tell you what to change"
+  - **"I edited the JSON"** — "I made changes directly in the file, re-validate it"
 
-**STOP and wait for user response.**
+If the user selects "Edit" (with or without other selections), **STOP and wait for their changes**. If "I edited the JSON" is selected, re-read and re-validate the PRD. If only "Approved" is selected, proceed to Step 9.
 
 ### Step 9: Final Instructions
 

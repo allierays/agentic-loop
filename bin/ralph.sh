@@ -152,6 +152,12 @@ main() {
         echo ""
         exit 1
       fi
+      # Auto-refresh skills/hooks/signs when the package version changes
+      local version_file="$RALPH_DIR/.last_version"
+      if [[ ! -f "$version_file" ]] || [[ "$(cat "$version_file" 2>/dev/null)" != "$RALPH_VERSION" ]]; then
+        setup_refresh
+        echo "$RALPH_VERSION" > "$version_file"
+      fi
       # Clear any previous stop signal
       rm -f "$RALPH_DIR/.stop"
       run_loop "$@"

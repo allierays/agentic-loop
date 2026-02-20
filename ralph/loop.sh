@@ -92,7 +92,8 @@ check_for_updates() {
     if $update_cmd 2>&1 | tail -3; then
       print_success "  Updated to v$latest — restarting..."
       echo ""
-      # Re-exec ralph.sh with "run" + original args
+      # Re-exec ralph.sh — version-change detection in the run path
+      # will auto-refresh skills, hooks, and signs from the new package
       local ralph_bin
       ralph_bin="$(cd "$(dirname "${BASH_SOURCE[0]}")/../bin" && pwd)/ralph.sh"
       exec "$ralph_bin" run "$@"

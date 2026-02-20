@@ -118,6 +118,50 @@ _migrate_credentials_to_env() {
   echo ""
 }
 
+# Lightweight refresh after auto-update — syncs files from the new package version
+# without re-running interactive or first-time-only setup steps.
+setup_refresh() {
+  local pkg_root
+  pkg_root="$(cd "$RALPH_LIB/.." && pwd)"
+
+  echo "  Syncing updated files..."
+
+  # Re-copy slash commands/skills
+  setup_slash_commands "$pkg_root"
+
+  # Re-copy hooks (scripts + settings.json wiring)
+  setup_claude_hooks "$pkg_root"
+
+  # Merge any new default signs
+  if [[ -f ".ralph/signs.json" ]] && [[ -f "$pkg_root/templates/signs.json" ]] && command -v jq &>/dev/null; then
+    local existing_ids new_signs_added=0
+    existing_ids=$(jq -r '.signs[].id // empty' ".ralph/signs.json" 2>/dev/null | tr '\n' '|')
+
+    while IFS= read -r sign; do
+      local sign_id
+      sign_id=$(echo "$sign" | jq -r '.id // empty')
+      if [[ -n "$sign_id" && ! "$existing_ids" =~ "$sign_id" ]]; then
+        local tmp_file
+        tmp_file=$(mktemp)
+        jq --argjson new_sign "$sign" '.signs += [$new_sign]' ".ralph/signs.json" > "$tmp_file"
+        mv "$tmp_file" ".ralph/signs.json"
+        ((new_signs_added++)) || true
+      fi
+    done < <(jq -c '.signs[]' "$pkg_root/templates/signs.json" 2>/dev/null)
+
+    if [[ $new_signs_added -gt 0 ]]; then
+      echo "  Merged $new_signs_added new sign(s)"
+    fi
+  fi
+
+  # Append any new PROMPT.md sections
+  if [[ -f "PROMPT.md" ]] && [[ -f "$pkg_root/templates/PROMPT.md" ]]; then
+    append_prompt_sections "$pkg_root/templates/PROMPT.md" "PROMPT.md"
+  fi
+
+  print_success "  Setup refreshed"
+}
+
 ralph_setup() {
   echo ""
   echo "    _                    _   _        _                       "
@@ -252,7 +296,7 @@ setup_ralph_dir() {
           tmp_file=$(mktemp)
           jq --argjson new_sign "$sign" '.signs += [$new_sign]' ".ralph/signs.json" > "$tmp_file"
           mv "$tmp_file" ".ralph/signs.json"
-          ((new_signs_added++))
+          ((new_signs_added++)) || true
         fi
       done < <(jq -c '.signs[]' "$pkg_root/templates/signs.json" 2>/dev/null)
 
@@ -312,6 +356,7 @@ setup_gitignore() {
     ".ralph/tool-log.txt"
     ".ralph/suggested-signs.txt"
     ".ralph/.preflight_cache"
+    ".ralph/.last_version"
     ".ralph/.lock"
     ".backups/"
     ".claude/settings.json"
