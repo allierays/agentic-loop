@@ -723,8 +723,9 @@ _docker_safety_warning() {
 }
 
 run_loop() {
-  # Save original args for update restart
-  local _original_args=("$@")
+  # Save original args for update restart (explicit empty init for Bash 3.2 compatibility)
+  local _original_args=()
+  [[ $# -gt 0 ]] && _original_args=("$@")
 
   # PID of the currently running Claude pipeline (used by trap to kill it)
   _CLAUDE_PIPELINE_PID=""
