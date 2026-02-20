@@ -18,7 +18,11 @@ check_for_updates() {
   fi
 
   local latest
-  latest=$(npm view agentic-loop version --json 2>/dev/null | tr -d '"' || echo "")
+  latest=$(timeout 5 npm view agentic-loop version --json 2>/dev/null | tr -d '"' || echo "")
+  # Fall back to gtimeout on macOS if timeout isn't available
+  if [[ -z "$latest" ]] && command -v gtimeout &>/dev/null; then
+    latest=$(gtimeout 5 npm view agentic-loop version --json 2>/dev/null | tr -d '"' || echo "")
+  fi
 
   # Write cache regardless of result (don't retry on failure)
   echo "$(date +%s) $latest" > "$cache_file"
@@ -85,7 +89,7 @@ check_for_updates() {
     echo ""
     exec npx agentic-loop@latest run "$@"
   else
-    if eval "$update_cmd" 2>&1 | tail -3; then
+    if $update_cmd 2>&1 | tail -3; then
       print_success "  Updated to v$latest — restarting..."
       echo ""
       # Re-exec ralph.sh with "run" + original args
