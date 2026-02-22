@@ -175,6 +175,22 @@ setup_refresh() {
     append_prompt_sections "$pkg_root/templates/PROMPT.md" "PROMPT.md"
   fi
 
+  # Append working principles to CLAUDE.md if not already present
+  if [[ -f "CLAUDE.md" ]]; then
+    local principles_marker="<!-- agentic-loop-principles -->"
+    if ! grep -q "$principles_marker" "CLAUDE.md" 2>/dev/null; then
+      cat >> CLAUDE.md << EOF
+
+$principles_marker
+## Working Principles
+- When given a bug: just fix it. Read logs, trace the error, resolve it. Zero hand-holding.
+- Before marking anything done, ask: "Would a staff engineer approve this?" Run tests, check logs, prove correctness.
+- If an approach is not working after 2 attempts, stop and re-evaluate rather than pushing through.
+EOF
+      echo "  Added Working Principles to CLAUDE.md"
+    fi
+  fi
+
   print_success "  Setup refreshed"
 }
 
@@ -512,10 +528,11 @@ setup_claude_hooks() {
     }'
   )
 
-  # Merge hooks into settings
+  # Merge hooks and plansDirectory into settings
   local tmp
   tmp=$(mktemp)
-  jq --argjson hooks "$hooks_config" '.hooks = $hooks' "$settings_file" > "$tmp" && mv "$tmp" "$settings_file"
+  jq --argjson hooks "$hooks_config" '.hooks = $hooks | .plansDirectory //= "./docs/plans"' "$settings_file" > "$tmp" && mv "$tmp" "$settings_file"
+  mkdir -p "docs/plans"
   echo "  Configured .claude/settings.json"
 }
 
@@ -743,6 +760,7 @@ ${python_runner:+- Python: Use \`$python_runner\` (not bare \`python\`)}
   fi
 
   local style_marker="<!-- vibe-and-thrive-detected -->"
+  local principles_marker="<!-- agentic-loop-principles -->"
 
   if [[ -f "CLAUDE.md" ]]; then
     # Append framework template if it exists and not already included
@@ -766,6 +784,17 @@ $style_marker
 - Never use em dashes. Use commas, periods, or parentheses instead.
 EOF
     fi
+    # Add working principles if not already present
+    if ! grep -q "$principles_marker" "CLAUDE.md" 2>/dev/null; then
+      cat >> CLAUDE.md << EOF
+
+$principles_marker
+## Working Principles
+- When given a bug: just fix it. Read logs, trace the error, resolve it. Zero hand-holding.
+- Before marking anything done, ask: "Would a staff engineer approve this?" Run tests, check logs, prove correctness.
+- If an approach is not working after 2 attempts, stop and re-evaluate rather than pushing through.
+EOF
+    fi
     echo "$detected_section" >> CLAUDE.md
     echo "  Updated CLAUDE.md"
   else
@@ -780,6 +809,12 @@ EOF
 ## Writing Style
 - Active voice only. Never use passive voice.
 - Never use em dashes. Use commas, periods, or parentheses instead.
+
+<!-- agentic-loop-principles -->
+## Working Principles
+- When given a bug: just fix it. Read logs, trace the error, resolve it. Zero hand-holding.
+- Before marking anything done, ask: "Would a staff engineer approve this?" Run tests, check logs, prove correctness.
+- If an approach is not working after 2 attempts, stop and re-evaluate rather than pushing through.
 EOF
 
     # Include framework template if available
