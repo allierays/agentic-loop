@@ -37,11 +37,11 @@ function runRalph(args: string, opts?: { expectFail?: boolean }): { stdout: stri
 
 describe('UAT-005: Init idempotency — safe to run twice, file preservation', () => {
   // Assertion 1: ralph init in empty directory creates all expected files
-  it('first init creates .ralph/config.json, .ralph/signs.json, .ralph/progress.txt, PROMPT.md', () => {
+  it('first init creates .ralph/config.json, .ralph/lessons.json, .ralph/progress.txt, PROMPT.md', () => {
     const { exitCode } = runRalph('init')
 
     expect(existsSync(join(testDir, '.ralph', 'config.json'))).toBe(true)
-    expect(existsSync(join(testDir, '.ralph', 'signs.json'))).toBe(true)
+    expect(existsSync(join(testDir, '.ralph', 'lessons.json'))).toBe(true)
     expect(existsSync(join(testDir, '.ralph', 'progress.txt'))).toBe(true)
     expect(existsSync(join(testDir, 'PROMPT.md'))).toBe(true)
     expect(exitCode).toBe(0)
@@ -55,14 +55,14 @@ describe('UAT-005: Init idempotency — safe to run twice, file preservation', (
     expect(() => JSON.parse(configContent)).not.toThrow()
   })
 
-  // Assertion 1 (structural): signs.json should be valid JSON with signs array
-  it('first init creates valid signs.json with signs array', () => {
+  // Assertion 1 (structural): lessons.json should be valid JSON with lessons array
+  it('first init creates valid lessons.json with lessons array', () => {
     runRalph('init')
 
-    const signsContent = readFileSync(join(testDir, '.ralph', 'signs.json'), 'utf-8')
-    const signs = JSON.parse(signsContent)
-    expect(signs).toHaveProperty('signs')
-    expect(Array.isArray(signs.signs)).toBe(true)
+    const lessonsContent = readFileSync(join(testDir, '.ralph', 'lessons.json'), 'utf-8')
+    const lessons = JSON.parse(lessonsContent)
+    expect(lessons).toHaveProperty('lessons')
+    expect(Array.isArray(lessons.lessons)).toBe(true)
   })
 
   // Assertion 1 (structural): progress.txt should contain INIT entry
@@ -80,7 +80,7 @@ describe('UAT-005: Init idempotency — safe to run twice, file preservation', (
 
     // Record file contents after first init
     const configAfterFirst = readFileSync(join(testDir, '.ralph', 'config.json'), 'utf-8')
-    const signsAfterFirst = readFileSync(join(testDir, '.ralph', 'signs.json'), 'utf-8')
+    const lessonsAfterFirst = readFileSync(join(testDir, '.ralph', 'lessons.json'), 'utf-8')
     const progressAfterFirst = readFileSync(join(testDir, '.ralph', 'progress.txt'), 'utf-8')
     const promptAfterFirst = readFileSync(join(testDir, 'PROMPT.md'), 'utf-8')
 
@@ -93,38 +93,38 @@ describe('UAT-005: Init idempotency — safe to run twice, file preservation', (
 
     // Files should not be modified
     const configAfterSecond = readFileSync(join(testDir, '.ralph', 'config.json'), 'utf-8')
-    const signsAfterSecond = readFileSync(join(testDir, '.ralph', 'signs.json'), 'utf-8')
+    const lessonsAfterSecond = readFileSync(join(testDir, '.ralph', 'lessons.json'), 'utf-8')
     const progressAfterSecond = readFileSync(join(testDir, '.ralph', 'progress.txt'), 'utf-8')
     const promptAfterSecond = readFileSync(join(testDir, 'PROMPT.md'), 'utf-8')
 
     expect(configAfterSecond).toBe(configAfterFirst)
-    expect(signsAfterSecond).toBe(signsAfterFirst)
+    expect(lessonsAfterSecond).toBe(lessonsAfterFirst)
     expect(progressAfterSecond).toBe(progressAfterFirst)
     expect(promptAfterSecond).toBe(promptAfterFirst)
   })
 
-  // Assertion 3: Modified signs.json content is preserved on re-init
-  it('modified signs.json content is preserved after re-init', () => {
+  // Assertion 3: Modified lessons.json content is preserved on re-init
+  it('modified lessons.json content is preserved after re-init', () => {
     // First init
     runRalph('init')
 
-    // Modify signs.json with custom content
-    const customSigns = {
-      signs: [
+    // Modify lessons.json with custom content
+    const customLessons = {
+      lessons: [
         { pattern: 'Always use camelCase', category: 'frontend', addedAt: '2026-01-01' }
       ]
     }
-    writeFileSync(join(testDir, '.ralph', 'signs.json'), JSON.stringify(customSigns, null, 2))
+    writeFileSync(join(testDir, '.ralph', 'lessons.json'), JSON.stringify(customLessons, null, 2))
 
     // Second init
     runRalph('init')
 
-    // Custom signs.json should be preserved
-    const signsContent = readFileSync(join(testDir, '.ralph', 'signs.json'), 'utf-8')
-    const signs = JSON.parse(signsContent)
-    expect(signs.signs).toHaveLength(1)
-    expect(signs.signs[0].pattern).toBe('Always use camelCase')
-    expect(signs.signs[0].category).toBe('frontend')
+    // Custom lessons.json should be preserved
+    const lessonsContent = readFileSync(join(testDir, '.ralph', 'lessons.json'), 'utf-8')
+    const lessons = JSON.parse(lessonsContent)
+    expect(lessons.lessons).toHaveLength(1)
+    expect(lessons.lessons[0].pattern).toBe('Always use camelCase')
+    expect(lessons.lessons[0].category).toBe('frontend')
   })
 
   // Edge case: Existing config.json is not overwritten

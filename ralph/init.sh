@@ -31,12 +31,12 @@ ralph_init() {
     fi
   fi
 
-  # Create signs with defaults (only if missing)
-  if [[ ! -f "$RALPH_DIR/signs.json" ]]; then
-    if [[ -f "$RALPH_TEMPLATES/signs.json" ]]; then
-      cp "$RALPH_TEMPLATES/signs.json" "$RALPH_DIR/signs.json"
+  # Create lessons with defaults (only if missing)
+  if [[ ! -f "$RALPH_DIR/lessons.json" ]]; then
+    if [[ -f "$RALPH_TEMPLATES/lessons.json" ]]; then
+      cp "$RALPH_TEMPLATES/lessons.json" "$RALPH_DIR/lessons.json"
     else
-      echo '{"signs": []}' > "$RALPH_DIR/signs.json"
+      echo '{"lessons": []}' > "$RALPH_DIR/lessons.json"
     fi
   fi
 
@@ -721,8 +721,8 @@ Commands:
   chaos-agent             Run Chaos Agent (adversarial red team testing)
   chaos-agent --plan-only Generate chaos plan without executing
   chaos-agent --no-fix    Find vulnerabilities without fixing
-  sign <pattern> [cat]    Add a learned pattern (sign)
-  signs                   List all learned patterns
+  lesson <pattern> [cat]  Add a learned pattern (lesson)
+  lessons                 List all learned patterns
   backup                  Backup detected databases to .backups/
   backups                 List available database backups
   restore <path>          Restore database from backup
@@ -743,7 +743,7 @@ Examples:
   npx agentic-loop chaos-agent
   npx agentic-loop chaos-agent --no-fix
   npx agentic-loop status
-  npx agentic-loop sign "Always use camelCase" frontend
+  npx agentic-loop lesson "Always use camelCase" frontend
 
 Environment:
   RALPH_DIR       Override .ralph directory location (default: .ralph)

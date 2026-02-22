@@ -39,8 +39,8 @@ npx ralph check          run verification only
 ```
 /tour                    guided setup
 /my-dna                  set preferences
-/sign                    teach Ralph a pattern
-npx ralph signs          view learned patterns
+/lesson                  teach Ralph a pattern
+npx agentic-loop lessons view learned patterns
 ```
 
 ---

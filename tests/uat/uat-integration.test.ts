@@ -23,7 +23,7 @@ beforeEach(() => {
   mkdirSync(join(ralphDir, 'uat', 'screenshots'), { recursive: true })
   mkdirSync(join(ralphDir, 'chaos', 'screenshots'), { recursive: true })
   writeFileSync(join(ralphDir, 'config.json'), JSON.stringify({ checks: {} }))
-  writeFileSync(join(ralphDir, 'signs.json'), '{"signs": []}')
+  writeFileSync(join(ralphDir, 'lessons.json'), '{"lessons": []}')
   writeFileSync(join(testDir, 'PROMPT.md'), '# Test')
   writeFileSync(join(testDir, 'package.json'), JSON.stringify({ name: 'test', version: '0.0.0' }))
 
@@ -47,7 +47,7 @@ const GIT_ENV = {
 }
 
 /**
- * Run a bash script that sources utils.sh, loop.sh (for _inject_signs), and uat.sh
+ * Run a bash script that sources utils.sh, loop.sh (for _inject_lessons), and uat.sh
  * then executes the given code. Sets up RALPH_DIR and RALPH_TEMPLATES.
  */
 function runUatBash(script: string, opts?: { expectFail?: boolean }): { stdout: string; stderr: string; exitCode: number } {
@@ -57,7 +57,7 @@ function runUatBash(script: string, opts?: { expectFail?: boolean }): { stdout: 
     export RALPH_LIB="${join(PROJECT_ROOT, 'ralph')}"
     export RALPH_TEMPLATES="${join(PROJECT_ROOT, 'templates')}"
     source "$RALPH_LIB/utils.sh"
-    source "$RALPH_LIB/signs.sh"
+    source "$RALPH_LIB/lessons.sh"
     source "$RALPH_LIB/loop.sh"
     source "$RALPH_LIB/uat.sh"
     ${script}
@@ -889,11 +889,11 @@ describe('plan archiving (_archive_plan)', () => {
 })
 
 // ============================================================================
-// 13. AUTO-SIGN — chaos-agent learns from fixed vulnerabilities
+// 13. AUTO-LESSON — chaos-agent learns from fixed vulnerabilities
 // ============================================================================
 
-describe('auto-sign from fixed vulnerabilities (_auto_sign_from_case)', () => {
-  it('adds sign to signs.json with category security for chaos mode', () => {
+describe('auto-lesson from fixed vulnerabilities (_auto_lesson_from_case)', () => {
+  it('adds lesson to lessons.json with category security for chaos mode', () => {
     const plan = validPlan({
       discoveryMethod: 'chaos-agent',
       testCases: [{
@@ -915,14 +915,14 @@ describe('auto-sign from fixed vulnerabilities (_auto_sign_from_case)', () => {
 
     runUatBash(`
       _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
-      _auto_sign_from_case "UAT-001"
+      _auto_lesson_from_case "UAT-001"
     `)
 
-    const signs = JSON.parse(readFileSync(join(ralphDir, 'signs.json'), 'utf-8'))
-    expect(signs.signs.length).toBe(1)
-    expect(signs.signs[0].category).toBe('security')
-    expect(signs.signs[0].pattern).toContain('XSS in search input')
-    expect(signs.signs[0].pattern).toContain('Inject script tags')
+    const lessons = JSON.parse(readFileSync(join(ralphDir, 'lessons.json'), 'utf-8'))
+    expect(lessons.lessons.length).toBe(1)
+    expect(lessons.lessons[0].category).toBe('security')
+    expect(lessons.lessons[0].pattern).toContain('XSS in search input')
+    expect(lessons.lessons[0].pattern).toContain('Inject script tags')
   })
 
   it('is a no-op for UAT mode (UAT_CONFIG_NS != chaos)', () => {
@@ -946,11 +946,11 @@ describe('auto-sign from fixed vulnerabilities (_auto_sign_from_case)', () => {
 
     runUatBash(`
       _init_uat_dirs "uat" "UAT"
-      _auto_sign_from_case "UAT-001"
+      _auto_lesson_from_case "UAT-001"
     `)
 
-    const signs = JSON.parse(readFileSync(join(ralphDir, 'signs.json'), 'utf-8'))
-    expect(signs.signs.length).toBe(0)
+    const lessons = JSON.parse(readFileSync(join(ralphDir, 'lessons.json'), 'utf-8'))
+    expect(lessons.lessons.length).toBe(0)
   })
 
   it('does not add duplicate patterns', () => {
@@ -976,12 +976,12 @@ describe('auto-sign from fixed vulnerabilities (_auto_sign_from_case)', () => {
     // Run twice
     runUatBash(`
       _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
-      _auto_sign_from_case "UAT-001"
-      _auto_sign_from_case "UAT-001"
+      _auto_lesson_from_case "UAT-001"
+      _auto_lesson_from_case "UAT-001"
     `)
 
-    const signs = JSON.parse(readFileSync(join(ralphDir, 'signs.json'), 'utf-8'))
-    expect(signs.signs.length).toBe(1)
+    const lessons = JSON.parse(readFileSync(join(ralphDir, 'lessons.json'), 'utf-8'))
+    expect(lessons.lessons.length).toBe(1)
   })
 
   it('builds pattern from title + testApproach', () => {
@@ -1006,11 +1006,11 @@ describe('auto-sign from fixed vulnerabilities (_auto_sign_from_case)', () => {
 
     runUatBash(`
       _init_uat_dirs "chaos" "Chaos Agent" "chaos-agent"
-      _auto_sign_from_case "UAT-001"
+      _auto_lesson_from_case "UAT-001"
     `)
 
-    const signs = JSON.parse(readFileSync(join(ralphDir, 'signs.json'), 'utf-8'))
-    expect(signs.signs[0].pattern).toBe('SQL injection in login -- Use parameterized queries instead of string concatenation')
+    const lessons = JSON.parse(readFileSync(join(ralphDir, 'lessons.json'), 'utf-8'))
+    expect(lessons.lessons[0].pattern).toBe('SQL injection in login -- Use parameterized queries instead of string concatenation')
   })
 })
 

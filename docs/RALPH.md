@@ -11,7 +11,7 @@ Ralph is an autonomous coding agent that implements features from a PRD (Product
 │                                                             │
 │  0. Tint terminal background (macOS Terminal.app only)      │
 │  1. Read prd.json → find next story where passes=false      │
-│  2. Build prompt (story + context + failures + signs)       │
+│  2. Build prompt (story + context + failures + lessons)     │
 │  3. Run Claude (first story fresh, subsequent --continue)   │
 │  4. Run verification pipeline                               │
 │  5. Pass? → commit, next story                              │
@@ -40,7 +40,7 @@ Ralph reads from multiple files to give Claude full context:
 | `.ralph/prd.json` | Stories to implement (the work) |
 | `PROMPT.md` | Base instructions for Claude (how to code) |
 | `.ralph/config.json` | Project settings (URLs, commands, paths) |
-| `.ralph/signs.json` | Learned patterns from past runs |
+| `.ralph/lessons.json` | Learned patterns from past runs |
 | `~/.claude/DNA.md` | Your personal coding preferences |
 | `.ralph/last_failure.txt` | Accumulated failure history across retries |
 
@@ -217,21 +217,21 @@ For FastMCP (MCP server) projects, Ralph auto-detects:
 }
 ```
 
-### signs.json (Learned Patterns)
+### lessons.json (Learned Patterns)
 
 Patterns Ralph learned from failures:
 
 ```json
 {
-  "signs": [
+  "lessons": [
     {
-      "id": "sign-001",
+      "id": "lesson-001",
       "pattern": "Always use camelCase for API response fields",
       "category": "backend",
       "learnedFrom": "TASK-003"
     },
     {
-      "id": "sign-002",
+      "id": "lesson-002",
       "pattern": "Import Button from @/components/ui, not shadcn directly",
       "category": "frontend",
       "learnedFrom": "TASK-007"
@@ -240,9 +240,9 @@ Patterns Ralph learned from failures:
 }
 ```
 
-Add signs manually when you notice patterns:
+Add lessons manually when you notice patterns:
 ```bash
-npx ralph sign "Always run migrations before seeding" backend
+npx ralph lesson "Always run migrations before seeding" backend
 ```
 
 ## The Lean Prompt Model
@@ -262,7 +262,7 @@ Instead of injecting thousands of tokens, Claude **reads files during orientatio
 |---------------------|---------------------------|
 | PROMPT.md (7-step framework) | `.ralph/prd.json` (full story details) |
 | Story ID | `story.contextFiles[]` (idea files, styleguides) |
-| Signs (learned patterns) | `CLAUDE.md` (project conventions) |
+| Lessons (learned patterns) | `CLAUDE.md` (project conventions) |
 | Failure context (if retrying) | `~/.claude/DNA.md` (personal preferences) |
 
 The prompt is piped to Claude:
@@ -368,12 +368,12 @@ Iteration 2: Prompt includes "Previous Iteration Failed" section
 Next story...
 ```
 
-For persistent issues, add a sign:
+For persistent issues, add a lesson:
 ```bash
-npx ralph sign "Import from @/lib/utils not @/utils" frontend
+npx ralph lesson "Import from @/lib/utils not @/utils" frontend
 ```
 
-Or use the `/sign` slash command during a Claude session to add patterns interactively.
+Or use the `/lesson` slash command during a Claude session to add patterns interactively.
 
 Now every future story will see this pattern.
 
@@ -399,9 +399,9 @@ Now every future story will see this pattern.
 | `npx agentic-loop chaos-agent` | Chaos Agent adversarial red team testing |
 | `npx agentic-loop chaos-agent --plan-only` | Generate chaos plan without executing |
 | `npx agentic-loop chaos-agent --no-fix` | Find vulnerabilities without fixing |
-| `npx agentic-loop signs` | List learned patterns |
-| `npx agentic-loop sign "pattern" category` | Add a pattern |
-| `npx agentic-loop unsign "pattern"` | Remove a pattern |
+| `npx agentic-loop lessons` | List learned patterns |
+| `npx agentic-loop lesson "pattern" category` | Add a pattern |
+| `npx agentic-loop forget "pattern"` | Remove a pattern |
 | `npx agentic-loop progress` | Show recent log entries |
 
 ## Configuration Reference
@@ -534,7 +534,7 @@ your-project/
 ├── .ralph/
 │   ├── config.json      # Project settings
 │   ├── prd.json         # Current feature PRD
-│   ├── signs.json       # Learned patterns
+│   ├── lessons.json     # Learned patterns
 │   ├── progress.txt     # Activity log
 │   ├── last_failure.txt # Accumulated errors (for retries)
 │   ├── archive/         # Completed PRDs
@@ -597,7 +597,7 @@ npx ralph check
 ### Performance Tips
 
 1. **Good PROMPT.md** - Clear instructions reduce iterations
-2. **Signs** - Teach patterns early to avoid repeated failures
+2. **Lessons** - Teach patterns early to avoid repeated failures
 3. **Styleguide** - Consistent UI reduces failures
 4. **Atomic stories** - Smaller scope = faster verification
 5. **MCP browser tools** - Claude verifies its own work in real-time

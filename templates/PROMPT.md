@@ -29,7 +29,7 @@ If `.ralph/last_failure.txt` exists, read it carefully. Understand what went wro
 
 ## Step 3: Read Learned Patterns
 
-Read `.ralph/signs.json` - these are patterns learned from past failures. Follow them strictly.
+Read `.ralph/lessons.json` - these are patterns learned from past failures. Follow them strictly.
 
 ---
 

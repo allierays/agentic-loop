@@ -86,7 +86,18 @@ if [[ ! -f ".ralph/config.json" ]]; then
   # Run auto-detection to fill in project-specific values
   _ralph_needs_autoconfig=true
 fi
-[[ ! -f ".ralph/signs.json" ]] && echo '{"signs": []}' > ".ralph/signs.json"
+# Migrate signs.json → lessons.json for existing projects (before creating empty default)
+if [[ -f ".ralph/signs.json" ]] && [[ ! -f ".ralph/lessons.json" ]]; then
+  if command -v jq &>/dev/null; then
+    jq '{lessons: .signs}' ".ralph/signs.json" > ".ralph/lessons.json" && rm -f ".ralph/signs.json"
+  else
+    mv ".ralph/signs.json" ".ralph/lessons.json"
+  fi
+fi
+if [[ -f ".ralph/suggested-signs.txt" ]] && [[ ! -f ".ralph/suggested-lessons.txt" ]]; then
+  mv ".ralph/suggested-signs.txt" ".ralph/suggested-lessons.txt"
+fi
+[[ ! -f ".ralph/lessons.json" ]] && echo '{"lessons": []}' > ".ralph/lessons.json"
 if [[ ! -f "PROMPT.md" ]] && [[ -f "$RALPH_TEMPLATES/PROMPT.md" ]]; then
   cp "$RALPH_TEMPLATES/PROMPT.md" "PROMPT.md"
 fi
@@ -99,7 +110,7 @@ source "$RALPH_LIB/loop.sh"
 source "$RALPH_LIB/prd-check.sh"   # PRD validation before loop
 source "$RALPH_LIB/code-check.sh"  # Code verification after Claude writes
 source "$RALPH_LIB/prd.sh"
-source "$RALPH_LIB/signs.sh"
+source "$RALPH_LIB/lessons.sh"
 source "$RALPH_LIB/test.sh"
 source "$RALPH_LIB/ci.sh"
 
@@ -152,7 +163,7 @@ main() {
         echo ""
         exit 1
       fi
-      # Auto-refresh skills/hooks/signs when the package version changes
+      # Auto-refresh skills/hooks/lessons when the package version changes
       local version_file="$RALPH_DIR/.last_version"
       if [[ ! -f "$version_file" ]] || [[ "$(cat "$version_file" 2>/dev/null)" != "$RALPH_VERSION" ]]; then
         setup_refresh
@@ -208,14 +219,14 @@ main() {
       source "$RALPH_LIB/uat.sh"
       run_chaos "$@"
       ;;
-    sign)
-      ralph_sign "$@"
+    lesson)
+      ralph_lesson "$@"
       ;;
-    signs)
-      ralph_signs "$@"
+    lessons)
+      ralph_lessons "$@"
       ;;
-    unsign)
-      ralph_unsign "$@"
+    forget)
+      ralph_forget "$@"
       ;;
     notify)
       ralph_notify "$@"

@@ -123,7 +123,8 @@ Claude will:
 1. **Ask hardening questions** - Security, scale, scope: "Should it have a captcha?" "What email service?" "What fields?"
 2. **Explore your codebase** - Find existing patterns, routes, components, and conventions
 3. **Split into stories** - Small, testable tasks saved to `.ralph/prd.json`
-4. **Open for your approval**
+4. **Run prd-check automatically** - Structural validation, cross-reference against learned lessons, auto-fix issues
+5. **Open for your approval**
 
 You can also point to a plan file if you've already written one:
 
@@ -332,29 +333,29 @@ npx agentic-loop config show
 
 ---
 
-## Step 9: Teach Ralph with Signs
+## Step 9: Teach Ralph with Lessons
 
-**Signs** are learned patterns - things Ralph should always remember across every story and every loop run. Once added, they're automatically injected into every Claude prompt.
+**Lessons** are learned patterns - things Ralph should always remember across every story and every loop run. Once added, they're automatically injected into every Claude prompt.
 
-Ralph already suggests signs for you. After each story, it analyzes what happened and logs potential patterns to `.ralph/suggested-signs.txt`. Review these suggestions and promote the ones worth keeping:
-
-```
-/sign "Stop using moment.js - use date-fns instead" frontend
-```
-
-You can also add signs yourself when you notice the same mistake happening more than once. Describe it in plain language - you don't need to know the fix, just the pattern you're seeing:
+Ralph already suggests lessons for you. After each story, it analyzes what happened and logs potential patterns to `.ralph/suggested-lessons.txt`. Review these suggestions and promote the ones worth keeping:
 
 ```
-/sign "The database client is at src/lib/db, not src/db" general
+/lesson "Stop using moment.js - use date-fns instead" frontend
 ```
 
-To see what signs are active:
+You can also add lessons yourself when you notice the same mistake happening more than once. Describe it in plain language - you don't need to know the fix, just the pattern you're seeing:
+
+```
+/lesson "The database client is at src/lib/db, not src/db" general
+```
+
+To see what lessons are active:
 
 ```bash
-npx agentic-loop signs
+npx agentic-loop lessons
 ```
 
-Signs live in `.ralph/signs.json` and persist across loop runs. The more you teach Ralph about your project's conventions, the fewer retries you'll need.
+Lessons live in `.ralph/lessons.json` and persist across loop runs. The more you teach Ralph about your project's conventions, the fewer retries you'll need.
 
 ---
 
@@ -363,7 +364,7 @@ Signs live in `.ralph/signs.json` and persist across loop runs. The more you tea
 Now that you've:
 - Fixed any issues from the first run
 - Tuned your config
-- Added signs for recurring patterns
+- Added lessons for recurring patterns
 
 Run the loop again:
 
@@ -373,10 +374,10 @@ npx agentic-loop run
 
 Ralph continues from where it left off. Completed stories are skipped. Failed stories are retried with:
 - The accumulated failure context from previous attempts
-- Your new signs injected into every prompt
+- Your new lessons injected into every prompt
 - Updated config settings
 
-Each loop run should go smoother than the last. Over time, your signs and config build up a project-specific knowledge base that makes Ralph increasingly effective.
+Each loop run should go smoother than the last. Over time, your lessons and config build up a project-specific knowledge base that makes Ralph increasingly effective.
 
 ---
 
@@ -454,7 +455,7 @@ Here's how the two terminals work together - you think, the loop builds:
 │                              │    │                              │
 │  5. Paste failures here      │    │  ← failures happen           │
 │     "Why did this fail?"     │    │                              │
-│  6. /sign "learned pattern"  │    │                              │
+│  6. /lesson "learned pattern"│    │                              │
 │                              │    │  7. npx agentic-loop run     │
 │                              │    │     [continues...]           │
 │                              │    │                              │
@@ -473,7 +474,7 @@ Here's how the two terminals work together - you think, the loop builds:
 ## What's Next
 
 - **Take the tour:** Run `/tour` in Claude Code for a guided walkthrough of all features
-- **Validate your PRD:** Run `/prd-check` to catch story issues before the loop runs
+- **Re-validate your PRD:** Run `/prd-check` after manual edits to `.ralph/prd.json` (runs automatically during `/prd`)
 - **Add custom checks:** Write your own PRD validation rules - see [PRD Check](PRD-CHECK.md)
 - **Run a quality check:** Use `/vibe-check` after the loop completes to catch AI-generated anti-patterns
 - **Test your features:** Run `npx agentic-loop uat` to verify features work - see [UAT & Chaos Agent](UAT.md)

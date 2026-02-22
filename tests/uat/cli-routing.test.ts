@@ -15,7 +15,7 @@ beforeEach(() => {
   mkdirSync(join(testDir, '.ralph', 'archive'), { recursive: true })
   mkdirSync(join(testDir, '.ralph', 'screenshots'), { recursive: true })
   writeFileSync(join(testDir, '.ralph', 'config.json'), JSON.stringify({ checks: {} }))
-  writeFileSync(join(testDir, '.ralph', 'signs.json'), '{"signs": []}')
+  writeFileSync(join(testDir, '.ralph', 'lessons.json'), '{"lessons": []}')
   writeFileSync(join(testDir, 'PROMPT.md'), '# Test')
   // Create package.json so version command works
   writeFileSync(join(testDir, 'package.json'), JSON.stringify({ name: 'test', version: '0.0.0' }))

@@ -40,8 +40,8 @@ If you move your project or clone on a new machine, reinstall hooks with `npx ra
 | `warn-secrets.sh` | PostToolUse | Warns about hardcoded secrets/API keys |
 | `warn-urls.sh` | PostToolUse | Warns about hardcoded localhost URLs |
 | `warn-empty-catch.sh` | PostToolUse | Warns about empty catch/except blocks |
-| `inject-context.sh` | SessionStart | Loads signs + progress into session context |
-| `save-learnings.sh` | Stop | Extracts learnings for potential signs |
+| `inject-context.sh` | SessionStart | Loads lessons + progress into session context |
+| `save-learnings.sh` | Stop | Extracts learnings for potential lessons |
 | `log-tools.sh` | PostToolUse | Logs tool usage to .ralph/tool-log.txt |
 
 ### Security Hooks (synced with pre-commit)
@@ -93,7 +93,7 @@ If you prefer manual setup, add to `~/.claude/settings.json` or `.claude/setting
 
 Claude Code hooks produce:
 - `.ralph/tool-log.txt` - Record of all tools used in session
-- `.ralph/suggested-signs.txt` - Potential patterns to add as signs
+- `.ralph/suggested-lessons.txt` - Potential patterns to add as lessons
 
 ---
 

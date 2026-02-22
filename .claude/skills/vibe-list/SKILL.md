@@ -13,7 +13,7 @@ Print this complete reference for the user. Do not add any commentary.
 | Command | Description |
 |---------|-------------|
 | `/prd [feature]` | Brainstorm feature, generate executable PRD for Ralph |
-| `/sign`| Add a learned pattern for Ralph to remember |
+| `/lesson`| Add a learned pattern for Ralph to remember |
 | `/my-dna` | Set up your personal style preferences |
 | `/vibe-check` | Audit code quality before shipping |
 | `/review` | Code review with OWASP security checks |
@@ -58,12 +58,12 @@ Print this complete reference for the user. Do not add any commentary.
 | `npx ralph check` | Run all configured checks |
 | `npx ralph verify TASK-001` | Verify a specific task |
 
-### Signs (Learned Patterns)
+### Lessons (Learned Patterns)
 | Command | Description |
 |---------|-------------|
-| `npx ralph signs` | List all learned patterns |
-| `npx ralph sign "pattern" [cat]` | Add pattern with optional category |
-| `npx ralph unsign <id or text>` | Remove a sign by ID or text match |
+| `npx ralph lessons` | List all learned patterns |
+| `npx ralph lesson "pattern" [cat]` | Add pattern with optional category |
+| `npx ralph forget <id or text>` | Remove a lesson by ID or text match |
 
 ---
 
@@ -135,20 +135,20 @@ Creates `~/.claude/DNA.md` - applies to all your projects.
 
 ---
 
-## Signs Examples
+## Lessons Examples
 
 ```bash
 # Add patterns Ralph should follow
-npx ralph sign "Always use camelCase in WebSocket responses" frontend
-npx ralph sign "Run migrations before seeding" backend
-npx ralph sign "Check for null before accessing nested props" general
+npx ralph lesson "Always use camelCase in WebSocket responses" frontend
+npx ralph lesson "Run migrations before seeding" backend
+npx ralph lesson "Check for null before accessing nested props" general
 
 # List learned patterns
-npx ralph signs
+npx ralph lessons
 
-# Remove a sign
-npx ralph unsign sign-001
-npx ralph unsign "camelCase"
+# Remove a lesson
+npx ralph forget lesson-001
+npx ralph forget "camelCase"
 ```
 
 ---
@@ -187,7 +187,7 @@ npx ralph unsign "camelCase"
 .ralph/
 ├── config.json      # Verification checks, settings
 ├── prd.json         # Current feature PRD
-├── signs.json       # Learned patterns
+├── lessons.json     # Learned patterns
 ├── progress.txt     # Activity log
 ├── archive/         # Completed PRDs
 └── screenshots/     # Browser verification captures

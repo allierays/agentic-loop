@@ -2,6 +2,8 @@
 
 Before writing any code, Ralph validates every story. This catches issues that would otherwise cause dozens of failed retries.
 
+> **Note:** `/prd` now runs prd-check automatically during PRD generation (Step 7c). The standalone `/prd-check` command is for re-validation after you've manually edited `.ralph/prd.json`.
+
 ## What It Catches
 
 | What It Catches | The Problem Without It | What Ralph Does |
@@ -32,9 +34,15 @@ Optimizing test coverage for 3 stories...
 ✓ Test coverage optimized (backup at .ralph/prd.json.20240115-143022.bak)
 ```
 
+## When It Runs
+
+- **Automatically** during `/prd` (Step 7c) — structural validation + lessons cross-reference, with auto-fix
+- **At loop start** via `npx agentic-loop run` — runs once before any code is written
+- **On demand** via `/prd-check` — for re-validation after manual edits
+
 ## Run On Demand
 
-Use `/prd-check` in Claude Code or from the CLI:
+Use `/prd-check` in Claude Code or from the CLI after manually editing `.ralph/prd.json`:
 
 ```bash
 npx agentic-loop prd-check              # Validate with auto-fix
@@ -106,6 +114,6 @@ In `.ralph/config.json`:
 
 ## See Also
 
-- [Customizing Ralph](customizing-ralph.md) - Signs, custom checks, /prd
+- [Customizing Ralph](customizing-ralph.md) - Lessons, custom checks, /prd
 - [Code Check](CODE-CHECK.md) - Verification after each story
 - [How Ralph Works](RALPH.md) - Full architecture details

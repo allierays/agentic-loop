@@ -99,7 +99,7 @@ Ralph works through stories autonomously:
               │  Build prompt with:     │
               │  - Story details        │
               │  - Previous errors      │◄──────────────┐
-              │  - Signs (patterns)     │               │
+              │  - Lessons (patterns)   │               │
               └─────────────────────────┘               │
                             │                          │
                             ▼                          │
@@ -191,7 +191,7 @@ Pre-commit hooks run automatically on `git commit`:
 | `/styleguide` | Generate design system reference |
 | `/vibe-help` | Quick reference cheatsheet |
 | `ralph status` | Check progress |
-| `ralph signs` | List learned patterns |
+| `ralph lessons` | List learned patterns |
 
 ---
 

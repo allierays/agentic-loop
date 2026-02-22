@@ -187,14 +187,14 @@
       "edgeCases": [
         "Second init says 'already initialized'",
         "Existing config.json is not overwritten",
-        "Existing signs.json is not overwritten",
+        "Existing lessons.json is not overwritten",
         "Custom PROMPT.md content is preserved",
         "progress.txt is not reset on re-init"
       ],
       "assertions": [
         {
           "input": "ralph init in empty directory",
-          "expected": "Creates .ralph/config.json, .ralph/signs.json, .ralph/progress.txt, PROMPT.md",
+          "expected": "Creates .ralph/config.json, .ralph/lessons.json, .ralph/progress.txt, PROMPT.md",
           "strategy": "structural"
         },
         {
@@ -203,8 +203,8 @@
           "strategy": "keyword"
         },
         {
-          "input": "Modify signs.json then ralph init again",
-          "expected": "Modified signs.json content is preserved (not overwritten)",
+          "input": "Modify lessons.json then ralph init again",
+          "expected": "Modified lessons.json content is preserved (not overwritten)",
           "strategy": "structural"
         }
       ],

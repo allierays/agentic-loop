@@ -2,8 +2,8 @@
 # save-learnings.sh - Extract potential learnings from session transcript
 # Hook: Stop
 #
-# This hook analyzes the transcript for patterns that might be worth saving as signs.
-# It logs suggestions to .ralph/suggested-signs.txt for human review.
+# This hook analyzes the transcript for patterns that might be worth saving as lessons.
+# It logs suggestions to .ralph/suggested-lessons.txt for human review.
 
 set -euo pipefail
 
@@ -27,9 +27,9 @@ if [[ -f "$TRANSCRIPT_PATH" ]]; then
   PATTERNS=$(grep -E "(the issue was|I learned|the problem was|fixed by|solution was)" "$TRANSCRIPT_PATH" 2>/dev/null | tail -5 || true)
 
   if [[ -n "$PATTERNS" ]]; then
-    echo "" >> "$RALPH_DIR/suggested-signs.txt"
-    echo "=== Session $(date '+%Y-%m-%d %H:%M:%S') ===" >> "$RALPH_DIR/suggested-signs.txt"
-    echo "$PATTERNS" >> "$RALPH_DIR/suggested-signs.txt"
+    echo "" >> "$RALPH_DIR/suggested-lessons.txt"
+    echo "=== Session $(date '+%Y-%m-%d %H:%M:%S') ===" >> "$RALPH_DIR/suggested-lessons.txt"
+    echo "$PATTERNS" >> "$RALPH_DIR/suggested-lessons.txt"
   fi
 fi
 

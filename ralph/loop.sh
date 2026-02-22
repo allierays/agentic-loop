@@ -93,7 +93,7 @@ check_for_updates() {
       print_success "  Updated to v$latest — restarting..."
       echo ""
       # Re-exec ralph.sh — version-change detection in the run path
-      # will auto-refresh skills, hooks, and signs from the new package
+      # will auto-refresh skills, hooks, and lessons from the new package
       local ralph_bin
       ralph_bin="$(cd "$(dirname "${BASH_SOURCE[0]}")/../bin" && pwd)/ralph.sh"
       exec "$ralph_bin" run "$@"
@@ -325,20 +325,20 @@ _is_trivial_failure() {
   return 1
 }
 
-# Check if a proposed sign pattern is a duplicate of existing signs
+# Check if a proposed lesson pattern is a duplicate of existing lessons
 # Returns 0 (is duplicate) if pattern is too similar to existing
-_sign_is_duplicate() {
+_lesson_is_duplicate() {
   local pattern="$1"
 
-  [[ ! -f "$RALPH_DIR/signs.json" ]] && return 1
+  [[ ! -f "$RALPH_DIR/lessons.json" ]] && return 1
 
   # Normalize: lowercase, strip punctuation
   local normalized
   normalized=$(printf '%s\n' "$pattern" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9 ]//g' | tr -s ' ')
 
-  # Check each existing sign
+  # Check each existing lesson
   local existing_patterns
-  existing_patterns=$(jq -r '.signs[].pattern' "$RALPH_DIR/signs.json" 2>/dev/null)
+  existing_patterns=$(jq -r '.lessons[].pattern' "$RALPH_DIR/lessons.json" 2>/dev/null)
 
   while IFS= read -r existing; do
     [[ -z "$existing" ]] && continue
@@ -382,18 +382,18 @@ _sign_is_duplicate() {
   return 1
 }
 
-# Auto-promote a sign from retry failure context
+# Auto-promote a lesson from retry failure context
 # Called when a story passes after multiple retries
-_maybe_promote_sign() {
+_maybe_promote_lesson() {
   local story="$1"
   local retries="$2"
   local config="$RALPH_DIR/config.json"
 
-  # Check config: read .autoPromoteSigns directly (avoid get_config - its // operator
+  # Check config: read .autoPromoteLessons directly (avoid get_config - its // operator
   # treats false as falsy and returns the default). Default to true if key is absent/null.
   if [[ -f "$config" ]]; then
     local auto_promote
-    auto_promote=$(jq -r '.autoPromoteSigns' "$config" 2>/dev/null)
+    auto_promote=$(jq -r '.autoPromoteLessons' "$config" 2>/dev/null)
     if [[ "$auto_promote" == "false" ]]; then
       return 0
     fi
@@ -404,33 +404,33 @@ _maybe_promote_sign() {
   if [[ ! -f "$RALPH_DIR/last_failure.txt" ]]; then
     return 0
   fi
-  failure_context=$(head -"$MAX_SIGN_CONTEXT_LINES" "$RALPH_DIR/last_failure.txt")
+  failure_context=$(head -"$MAX_LESSON_CONTEXT_LINES" "$RALPH_DIR/last_failure.txt")
 
   # Skip trivial failures (lint/format only)
   if _is_trivial_failure "$failure_context"; then
-    log_progress "$story" "SIGN_AUTO" "Skipped - trivial failure (lint/format only)"
+    log_progress "$story" "LESSON_AUTO" "Skipped - trivial failure (lint/format only)"
     return 0
   fi
 
-  # Load existing sign patterns for dedup context
-  local existing_signs=""
-  if [[ -f "$RALPH_DIR/signs.json" ]]; then
-    existing_signs=$(jq -r '.signs[].pattern' "$RALPH_DIR/signs.json" 2>/dev/null | head -"$MAX_SIGN_DEDUP_EXISTING")
+  # Load existing lesson patterns for dedup context
+  local existing_lessons=""
+  if [[ -f "$RALPH_DIR/lessons.json" ]]; then
+    existing_lessons=$(jq -r '.lessons[].pattern' "$RALPH_DIR/lessons.json" 2>/dev/null | head -"$MAX_LESSON_DEDUP_EXISTING")
   fi
 
   # Build extraction prompt
   local prompt
   prompt="You are analyzing a development failure that was resolved after $retries attempts.
 
-Extract ONE reusable pattern (a \"sign\") that would prevent this failure in future stories.
+Extract ONE reusable pattern (a \"lesson\") that would prevent this failure in future stories.
 
 ## Failure Context
 \`\`\`
 $failure_context
 \`\`\`
 
-## Existing Signs (do NOT duplicate these)
-$existing_signs
+## Existing Lessons (do NOT duplicate these)
+$existing_lessons
 
 ## Rules
 - Extract a single, actionable pattern that prevents this class of failure
@@ -463,14 +463,14 @@ PATTERN: <pattern>"
 
   # Call Claude with timeout (one-shot, non-interactive)
   local response
-  response=$(printf '%s\n' "$prompt" | run_with_timeout "$SIGN_EXTRACTION_TIMEOUT_SECONDS" claude -p 2>/dev/null) || {
-    log_progress "$story" "SIGN_AUTO" "Skipped - Claude extraction timed out"
+  response=$(printf '%s\n' "$prompt" | run_with_timeout "$LESSON_EXTRACTION_TIMEOUT_SECONDS" claude -p 2>/dev/null) || {
+    log_progress "$story" "LESSON_AUTO" "Skipped - Claude extraction timed out"
     return 0
   }
 
   # Check for NONE response
   if printf '%s\n' "$response" | grep -qi '^NONE'; then
-    log_progress "$story" "SIGN_AUTO" "Skipped - no actionable pattern found"
+    log_progress "$story" "LESSON_AUTO" "Skipped - no actionable pattern found"
     return 0
   fi
 
@@ -481,7 +481,7 @@ PATTERN: <pattern>"
 
   # Validate extracted values
   if [[ -z "$category" || -z "$pattern" ]]; then
-    log_progress "$story" "SIGN_AUTO" "Skipped - could not parse Claude response"
+    log_progress "$story" "LESSON_AUTO" "Skipped - could not parse Claude response"
     return 0
   fi
 
@@ -489,29 +489,29 @@ PATTERN: <pattern>"
   case "$category" in
     backend|frontend|testing|general|database|security) ;;
     *)
-      log_progress "$story" "SIGN_AUTO" "Skipped - invalid category: $category"
+      log_progress "$story" "LESSON_AUTO" "Skipped - invalid category: $category"
       return 0
       ;;
   esac
 
-  # Reject signs that contain credentials or secrets
+  # Reject lessons that contain credentials or secrets
   if echo "$pattern" | grep -qiE '([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}|password[[:space:]]*[:=]|[[:space:]][A-Za-z0-9_]*_?(pass|pwd|token|secret|key|api.?key)[[:space:]]*[:=]|sk-[a-zA-Z0-9]{20,}|ghp_[a-zA-Z0-9]{36})'; then
-    log_progress "$story" "SIGN_AUTO" "Skipped - pattern contains credentials"
+    log_progress "$story" "LESSON_AUTO" "Skipped - pattern contains credentials"
     return 0
   fi
 
   # Check for duplicates before adding
-  if _sign_is_duplicate "$pattern"; then
-    log_progress "$story" "SIGN_AUTO" "Skipped - duplicate of existing sign"
+  if _lesson_is_duplicate "$pattern"; then
+    log_progress "$story" "LESSON_AUTO" "Skipped - duplicate of existing lesson"
     return 0
   fi
 
-  # Add the sign (3rd arg = autoPromoted, 4th arg = learnedFrom override)
-  if ralph_sign "$pattern" "$category" "true" "$story"; then
-    log_progress "$story" "SIGN_AUTO" "Added [$category]: $pattern"
-    print_info "Auto-promoted sign: [$category] $pattern"
+  # Add the lesson (3rd arg = autoPromoted, 4th arg = learnedFrom override)
+  if ralph_lesson "$pattern" "$category" "true" "$story"; then
+    log_progress "$story" "LESSON_AUTO" "Added [$category]: $pattern"
+    print_info "Auto-promoted lesson: [$category] $pattern"
   else
-    log_progress "$story" "SIGN_AUTO" "Failed to add sign"
+    log_progress "$story" "LESSON_AUTO" "Failed to add lesson"
   fi
 
   return 0
@@ -1197,11 +1197,9 @@ run_loop() {
           done <<< "$tool_entries"
 
         elif [[ "$msg_type" == "result" ]]; then
-          local cost duration_ms
-          cost=$(jq -r '.total_cost_usd // empty' <<< "$line" 2>/dev/null)
+          local duration_ms
           duration_ms=$(jq -r '.duration_ms // empty' <<< "$line" 2>/dev/null)
-          local cost_str="" dur_str=""
-          [[ -n "$cost" ]] && cost_str=$(printf '$%.2f' "$cost")
+          local dur_str=""
           if [[ -n "$duration_ms" ]]; then
             local total_secs=$(( duration_ms / 1000 ))
             if [[ $total_secs -ge 60 ]]; then
@@ -1211,12 +1209,10 @@ run_loop() {
             fi
           fi
           echo ""
-          if [[ -n "$cost_str" && -n "$dur_str" ]]; then
-            echo -e "  ${green}✓ Done${nc} ${dim}(${cost_str}, ${dur_str})${nc}"
-          elif [[ -n "$cost_str" ]]; then
-            echo -e "  ${green}✓ Done${nc} ${dim}(${cost_str})${nc}"
-          elif [[ -n "$dur_str" ]]; then
+          if [[ -n "$dur_str" ]]; then
             echo -e "  ${green}✓ Done${nc} ${dim}(${dur_str})${nc}"
+          else
+            echo -e "  ${green}✓ Done${nc}"
           fi
         fi
       done
@@ -1393,9 +1389,9 @@ run_loop() {
       update_json "$RALPH_DIR/prd.json" \
         --arg id "$story" '(.stories[] | select(.id==$id)) |= . + {passes: true, retryCount: 0}'
 
-      # Auto-promote sign if story required retries
+      # Auto-promote lesson if story required retries
       if [[ $consecutive_failures -gt 1 && -f "$RALPH_DIR/last_failure.txt" ]]; then
-        _maybe_promote_sign "$story" "$consecutive_failures"
+        _maybe_promote_lesson "$story" "$consecutive_failures"
       fi
 
       # Clear failure context on success
@@ -1622,22 +1618,22 @@ _build_delta_prompt() {
   echo "Read full story details from \`.ralph/prd.json\`"
 }
 
-# Helper: Inject signs (learned patterns) - ALWAYS inject these
-_inject_signs() {
-  [[ ! -f "$RALPH_DIR/signs.json" ]] && return
+# Helper: Inject lessons (learned patterns) - ALWAYS inject these
+_inject_lessons() {
+  [[ ! -f "$RALPH_DIR/lessons.json" ]] && return
 
-  local sign_count
-  sign_count=$(jq '.signs | length' "$RALPH_DIR/signs.json" 2>/dev/null || echo "0")
-  [[ "$sign_count" == "0" ]] && return
+  local lesson_count
+  lesson_count=$(jq '.lessons | length' "$RALPH_DIR/lessons.json" 2>/dev/null || echo "0")
+  [[ "$lesson_count" == "0" ]] && return
 
   echo ""
-  echo "## Signs (Learned Patterns) - FOLLOW THESE"
+  echo "## Lessons (Learned Patterns) - FOLLOW THESE"
   echo ""
-  jq -r '.signs[] | "- [\(.category)] \(.pattern)"' "$RALPH_DIR/signs.json" 2>/dev/null
+  jq -r '.lessons[] | "- [\(.category)] \(.pattern)"' "$RALPH_DIR/lessons.json" 2>/dev/null
 }
 
 # Build the prompt - LEAN version
-# Claude reads context from prd.json, we just provide the story ID and signs
+# Claude reads context from prd.json, we just provide the story ID and lessons
 # Usage: build_prompt <story_id> [failure_context] [is_continuation]
 build_prompt() {
   local story="$1"
@@ -1709,8 +1705,8 @@ build_prompt() {
   echo '  ```'
   echo "  Ralph will stop the loop so the issue can be resolved."
 
-  # Signs are critical - always inject to prevent repeated mistakes
-  _inject_signs
+  # Lessons are critical - always inject to prevent repeated mistakes
+  _inject_lessons
 }
 
 # Print story completion summary

@@ -30,38 +30,38 @@ Ralph works through stories one at a time, top to bottom, and marks each one as 
 
 ---
 
-## Signs — teaching Ralph from experience
+## Lessons — teaching Ralph from experience
 
-Signs are short rules that Ralph remembers across every story. When something goes wrong (or you notice a pattern Ralph keeps missing), add a sign so it doesn't happen again.
+Lessons are short rules that Ralph remembers across every story. When something goes wrong (or you notice a pattern Ralph keeps missing), add a lesson so it doesn't happen again.
 
-**Add a sign from the command line:**
-
-```bash
-ralph sign 'Always use bcrypt cost 10+ for passwords' backend
-ralph sign 'Never hardcode API URLs — use environment variables' general
-ralph sign 'Add data-testid attributes for Playwright selectors' frontend
-```
-
-**Or use the /sign command** inside a Claude session.
-
-**List your signs:**
+**Add a lesson from the command line:**
 
 ```bash
-ralph signs
+ralph lesson 'Always use bcrypt cost 10+ for passwords' backend
+ralph lesson 'Never hardcode API URLs — use environment variables' general
+ralph lesson 'Add data-testid attributes for Playwright selectors' frontend
 ```
 
-**Remove a sign:**
+**Or use the /lesson command** inside a Claude session.
+
+**List your lessons:**
 
 ```bash
-ralph unsign sign-001
-ralph unsign 'bcrypt'   # matches by keyword
+ralph lessons
 ```
 
-Signs are stored in `.ralph/signs.json`. Ralph injects them into Claude's context before every story, so they act like project-wide coding standards that Ralph follows automatically.
+**Remove a lesson:**
 
-Ralph can also learn signs on its own. When a story fails and Ralph figures out why, it may auto-promote a pattern as a new sign. These show up in `.ralph/suggested-signs.txt` first.
+```bash
+ralph forget lesson-001
+ralph forget 'bcrypt'   # matches by keyword
+```
 
-**When to add a sign:** whenever you find yourself correcting the same mistake twice.
+Lessons are stored in `.ralph/lessons.json`. Ralph injects them into Claude's context before every story, so they act like project-wide coding standards that Ralph follows automatically.
+
+Ralph can also learn lessons on its own. When a story fails and Ralph figures out why, it may auto-promote a pattern as a new lesson. These show up in `.ralph/suggested-lessons.txt` first.
+
+**When to add a lesson:** whenever you find yourself correcting the same mistake twice.
 
 ---
 
@@ -149,5 +149,5 @@ fi
 | What | When to use | What it produces |
 |------|------------|-----------------|
 | `/prd` | Turning an idea into executable stories | `.ralph/prd.json` |
-| `ralph sign` | Ralph keeps making the same mistake | `.ralph/signs.json` entry |
+| `ralph lesson` | Ralph keeps making the same mistake | `.ralph/lessons.json` entry |
 | Custom checks | Your project has rules Ralph doesn't know about | Validation warnings in PRD check |

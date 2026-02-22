@@ -22,7 +22,7 @@ describe('install flow', () => {
         'vibe-help',
         'vibe-list',
         'prd',
-        'sign'
+        'lesson'
       ]
 
       requiredSkills.forEach(skill => {
@@ -90,7 +90,7 @@ describe('install flow', () => {
         'loop.sh',
         'code-check.sh',
         'prd.sh',
-        'signs.sh',
+        'lessons.sh',
         'setup.sh',
         'test.sh'
       ]
@@ -173,11 +173,11 @@ describe('simulated install', () => {
     const srcConfig = join(PROJECT_ROOT, 'templates', 'config', 'node.json')
     writeFileSync(join(ralphDir, 'config.json'), readFileSync(srcConfig))
 
-    // Create signs.json
-    writeFileSync(join(ralphDir, 'signs.json'), '{"signs": []}')
+    // Create lessons.json
+    writeFileSync(join(ralphDir, 'lessons.json'), '{"lessons": []}')
 
     expect(existsSync(join(ralphDir, 'config.json'))).toBe(true)
-    expect(existsSync(join(ralphDir, 'signs.json'))).toBe(true)
+    expect(existsSync(join(ralphDir, 'lessons.json'))).toBe(true)
   })
 
   it('quick-setup creates .pre-commit-config.yaml', () => {

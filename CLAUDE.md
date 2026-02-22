@@ -54,7 +54,7 @@ ralph/
   backup.sh     # Database backup/restore
   init.sh       # Project initialization
   prd.sh        # PRD generation
-  signs.sh      # Learned patterns
+  lessons.sh    # Learned patterns
 ```
 
 ### Key Patterns

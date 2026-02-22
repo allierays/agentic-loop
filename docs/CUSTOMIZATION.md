@@ -26,7 +26,7 @@ Each time Ralph starts or processes a story, it automatically:
 - **Runs preflight checks** — verifies API/frontend connectivity, Docker services, database migrations, and timeout utilities before starting
 - **Validates your PRD** — checks for missing test steps, vague requirements, and structural issues. If it finds problems, Claude auto-fixes them
 - **Verifies code after Claude writes it** — runs a 5-step pipeline: lint, unit tests, PRD test steps, API smoke test, frontend smoke test
-- **Learns from retries** — when a story fails then passes after retries, Ralph extracts what went wrong as a "sign" and remembers it for future stories
+- **Learns from retries** — when a story fails then passes after retries, Ralph extracts what went wrong as a "lesson" and remembers it for future stories
 
 ---
 
@@ -60,17 +60,17 @@ This creates an HTML file you can open in your browser to see everything at a gl
 
 ### Teach Ralph From Its Mistakes
 
-When Ralph keeps making the same mistake — wrong import path, wrong naming convention, anything — you can teach it with `/sign`:
+When Ralph keeps making the same mistake — wrong import path, wrong naming convention, anything — you can teach it with `/lesson`:
 
 ```
-/sign "Always use camelCase for API response fields" backend
+/lesson "Always use camelCase for API response fields" backend
 ```
 
 ```
-/sign "Import Button from @/components/ui, not shadcn directly" frontend
+/lesson "Import Button from @/components/ui, not shadcn directly" frontend
 ```
 
-Think of signs as sticky notes for Ralph. They get included in every prompt so it doesn't forget. Ralph also learns signs automatically — when a story fails then succeeds after retries, it extracts what went wrong and saves it to `.ralph/signs.json`.
+Think of lessons as sticky notes for Ralph. They get included in every prompt so it doesn't forget. Ralph also learns lessons automatically — when a story fails then succeeds after retries, it extracts what went wrong and saves it to `.ralph/lessons.json`.
 
 ---
 
@@ -142,12 +142,12 @@ These aren't part of the automated loop — they're tools you can use whenever y
 | Preflight checks | Start of `npx agentic-loop run` | Automatic |
 | PRD validation + auto-fix | Start of loop | Automatic |
 | Code verification (5-step) | After Claude writes each story | Automatic |
-| Sign auto-promotion | After story retry succeeds | Automatic |
+| Lesson auto-promotion | After story retry succeeds | Automatic |
 | `/color` | When you run it | Manual |
 | `/tab-rename` | When you run it | Manual |
 | `/my-dna` | When you run it | Manual |
 | `/styleguide` | When you run it | Manual |
-| `/sign` | When you run it | Manual |
+| `/lesson` | When you run it | Manual |
 | Custom PRD checks | When you create them | Manual (then runs automatically) |
 | `/vibe-check` | When you run it | Manual |
 | `/review` | When you run it | Manual |

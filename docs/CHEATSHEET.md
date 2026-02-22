@@ -7,7 +7,7 @@ Quick reference for all commands.
 ## The Workflow
 
 ```
-/prd "your feature"            → Brainstorm & generate PRD
+/prd "your feature"            → Brainstorm, generate & validate PRD
 npx agentic-loop run           → Autonomous coding loop
 npx agentic-loop status        → Check progress
 /vibe-check                    → Audit before shipping
@@ -36,8 +36,8 @@ npx agentic-loop status        → Check progress
 | `npx agentic-loop uat --plan-only` | Generate UAT plan without executing |
 | `npx agentic-loop chaos-agent` | Chaos Agent red team (adversarial testing) |
 | `npx agentic-loop chaos-agent --plan-only` | Generate chaos plan without executing |
-| `npx agentic-loop signs` | List learned patterns |
-| `npx agentic-loop sign "pattern" category` | Add a pattern |
+| `npx agentic-loop lessons` | List learned patterns |
+| `npx agentic-loop lesson "pattern" category` | Add a pattern |
 | `npx agentic-loop progress` | Show recent log entries |
 
 ---
@@ -46,12 +46,12 @@ npx agentic-loop status        → Check progress
 
 | Command | Purpose |
 |---------|---------|
-| `/prd` | Brainstorm, harden, and generate PRD from description, idea file, or plan file |
-| `/prd-check` | Validate PRD before running the loop |
+| `/prd` | Brainstorm, harden, generate & validate PRD (runs prd-check automatically) |
+| `/prd-check` | Re-validate PRD after manual edits |
 | `/tour` | Interactive walkthrough |
 | `/vibe-check` | Code quality audit |
 | `/review` | Security-focused code review |
-| `/sign` | Add a learned pattern |
+| `/lesson` | Add a learned pattern |
 | `/explain` | Explain code line by line |
 | `/styleguide` | Generate UI component reference |
 | `/color` | Pick Ralph's terminal background tint |

@@ -1092,7 +1092,7 @@ _run_green_phase() {
       print_success "$case_id: Fixed! Test passes and nothing else broke"
       _mark_passed "$case_id"
       _track_fixed_files "$case_id"
-      _auto_sign_from_case "$case_id"
+      _auto_lesson_from_case "$case_id"
       UAT_BUGS_FIXED=$((UAT_BUGS_FIXED + 1))
       _commit_result "$case_id" "$test_file"
       UAT_CASES_PASSED=$((UAT_CASES_PASSED + 1))
@@ -1660,8 +1660,8 @@ PROMPT_SECTION
   echo "" >> "$prompt_file"
   echo "Read \`.ralph/config.json\` for URLs and directories." >> "$prompt_file"
 
-  # Inject signs
-  _inject_signs >> "$prompt_file"
+  # Inject lessons
+  _inject_lessons >> "$prompt_file"
 }
 
 _build_green_prompt() {
@@ -1714,8 +1714,8 @@ PROMPT_SECTION
     echo '```' >> "$prompt_file"
   fi
 
-  # Inject signs
-  _inject_signs >> "$prompt_file"
+  # Inject lessons
+  _inject_lessons >> "$prompt_file"
 }
 
 # ============================================================================
@@ -1787,11 +1787,9 @@ _parse_uat_activity() {
       done <<< "$tool_entries"
 
     elif [[ "$msg_type" == "result" ]]; then
-      local cost duration_ms
-      cost=$(jq -r '.total_cost_usd // empty' <<< "$line" 2>/dev/null)
+      local duration_ms
       duration_ms=$(jq -r '.duration_ms // empty' <<< "$line" 2>/dev/null)
-      local cost_str="" dur_str=""
-      [[ -n "$cost" ]] && cost_str=$(printf '$%.2f' "$cost")
+      local dur_str=""
       if [[ -n "$duration_ms" ]]; then
         local total_secs=$(( duration_ms / 1000 ))
         if [[ $total_secs -ge 60 ]]; then
@@ -1801,10 +1799,10 @@ _parse_uat_activity() {
         fi
       fi
       echo ""
-      if [[ -n "$cost_str" && -n "$dur_str" ]]; then
-        echo -e "  ${green}✓ Done${nc} ${dim}(${cost_str}, ${dur_str})${nc}"
-      elif [[ -n "$cost_str" ]]; then
-        echo -e "  ${green}✓ Done${nc} ${dim}(${cost_str})${nc}"
+      if [[ -n "$dur_str" ]]; then
+        echo -e "  ${green}✓ Done${nc} ${dim}(${dur_str})${nc}"
+      else
+        echo -e "  ${green}✓ Done${nc}"
       fi
     fi
   done
@@ -2415,12 +2413,12 @@ _chaos_docker_down() {
 }
 
 # ============================================================================
-# SELF-LEARNING: ARCHIVE, AUTO-SIGN, HISTORY
+# SELF-LEARNING: ARCHIVE, AUTO-LESSON, HISTORY
 # ============================================================================
 
-# Auto-add a sign when chaos-agent fixes a vulnerability (GREEN success only).
-# UAT mode is skipped — functional test titles are too generic to be useful signs.
-_auto_sign_from_case() {
+# Auto-add a lesson when chaos-agent fixes a vulnerability (GREEN success only).
+# UAT mode is skipped — functional test titles are too generic to be useful lessons.
+_auto_lesson_from_case() {
   local case_id="$1"
 
   # Only for chaos-agent — security findings are high-signal
@@ -2447,17 +2445,17 @@ _auto_sign_from_case() {
   [[ ${#pattern} -gt 200 ]] && pattern="${pattern:0:200}"
 
   # Check for duplicates
-  if _sign_is_duplicate "$pattern"; then
-    _log_uat "$case_id" "AUTO_SIGN: Skipped duplicate — $pattern"
+  if _lesson_is_duplicate "$pattern"; then
+    _log_uat "$case_id" "AUTO_LESSON: Skipped duplicate — $pattern"
     return 0
   fi
 
-  # Add sign with output suppressed (redirect to log)
-  if ralph_sign "$pattern" "security" "true" "$case_id" > /dev/null 2>&1; then
-    _log_uat "$case_id" "AUTO_SIGN: Added [security] $pattern"
+  # Add lesson with output suppressed (redirect to log)
+  if ralph_lesson "$pattern" "security" "true" "$case_id" > /dev/null 2>&1; then
+    _log_uat "$case_id" "AUTO_LESSON: Added [security] $pattern"
     print_info "Learned: [security] $pattern"
   else
-    _log_uat "$case_id" "AUTO_SIGN: Failed to add sign"
+    _log_uat "$case_id" "AUTO_LESSON: Failed to add lesson"
   fi
 }
 
@@ -2651,8 +2649,8 @@ You have access to prior run history above. Follow these rules:
 DO_NOT_REPEAT
   fi
 
-  # Inject signs
-  _inject_signs >> "$prompt_file"
+  # Inject lessons
+  _inject_lessons >> "$prompt_file"
 }
 
 _log_uat() {

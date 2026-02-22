@@ -21,7 +21,7 @@ import { checkSnakeCaseTs } from './check-snake-case-ts.js';
 import { checkUnsafeHtml } from './check-unsafe-html.js';
 import { checkDockerPlatform } from './check-docker-platform.js';
 import { checkHardcodedAiModels } from './check-hardcoded-ai-models.js';
-import { checkSignsSecrets } from './check-signs-secrets.js';
+import { checkLessonsSecrets } from './check-lessons-secrets.js';
 
 /** All available hooks */
 export const hooks: Hook[] = [
@@ -49,8 +49,8 @@ export const hooks: Hook[] = [
   // AI/LLM
   checkHardcodedAiModels,
 
-  // Signs
-  checkSignsSecrets,
+  // Lessons
+  checkLessonsSecrets,
 ];
 
 /** Get hooks filtered by file extension */
@@ -75,5 +75,5 @@ export {
   checkUnsafeHtml,
   checkDockerPlatform,
   checkHardcodedAiModels,
-  checkSignsSecrets,
+  checkLessonsSecrets,
 };

@@ -118,6 +118,19 @@ _migrate_credentials_to_env() {
   echo ""
 }
 
+# One-time migration: signs.json → lessons.json, suggested-signs.txt → suggested-lessons.txt
+_migrate_signs_to_lessons() {
+  if [[ -f ".ralph/signs.json" ]] && [[ ! -f ".ralph/lessons.json" ]]; then
+    jq '{lessons: .signs}' ".ralph/signs.json" > ".ralph/lessons.json"
+    rm -f ".ralph/signs.json"
+    echo "  Migrated .ralph/signs.json → .ralph/lessons.json"
+  fi
+  if [[ -f ".ralph/suggested-signs.txt" ]] && [[ ! -f ".ralph/suggested-lessons.txt" ]]; then
+    mv ".ralph/suggested-signs.txt" ".ralph/suggested-lessons.txt"
+    echo "  Migrated .ralph/suggested-signs.txt → .ralph/suggested-lessons.txt"
+  fi
+}
+
 # Lightweight refresh after auto-update — syncs files from the new package version
 # without re-running interactive or first-time-only setup steps.
 setup_refresh() {
@@ -132,25 +145,28 @@ setup_refresh() {
   # Re-copy hooks (scripts + settings.json wiring)
   setup_claude_hooks "$pkg_root"
 
-  # Merge any new default signs
-  if [[ -f ".ralph/signs.json" ]] && [[ -f "$pkg_root/templates/signs.json" ]] && command -v jq &>/dev/null; then
-    local existing_ids new_signs_added=0
-    existing_ids=$(jq -r '.signs[].id // empty' ".ralph/signs.json" 2>/dev/null | tr '\n' '|')
+  # Migrate signs.json → lessons.json (one-time rename for existing projects)
+  _migrate_signs_to_lessons
 
-    while IFS= read -r sign; do
-      local sign_id
-      sign_id=$(echo "$sign" | jq -r '.id // empty')
-      if [[ -n "$sign_id" && ! "$existing_ids" =~ "$sign_id" ]]; then
+  # Merge any new default lessons
+  if [[ -f ".ralph/lessons.json" ]] && [[ -f "$pkg_root/templates/lessons.json" ]] && command -v jq &>/dev/null; then
+    local existing_ids new_lessons_added=0
+    existing_ids=$(jq -r '.lessons[].id // empty' ".ralph/lessons.json" 2>/dev/null | tr '\n' '|')
+
+    while IFS= read -r lesson; do
+      local lesson_id
+      lesson_id=$(echo "$lesson" | jq -r '.id // empty')
+      if [[ -n "$lesson_id" && ! "$existing_ids" =~ "$lesson_id" ]]; then
         local tmp_file
         tmp_file=$(mktemp)
-        jq --argjson new_sign "$sign" '.signs += [$new_sign]' ".ralph/signs.json" > "$tmp_file"
-        mv "$tmp_file" ".ralph/signs.json"
-        ((new_signs_added++)) || true
+        jq --argjson new_lesson "$lesson" '.lessons += [$new_lesson]' ".ralph/lessons.json" > "$tmp_file"
+        mv "$tmp_file" ".ralph/lessons.json"
+        ((new_lessons_added++)) || true
       fi
-    done < <(jq -c '.signs[]' "$pkg_root/templates/signs.json" 2>/dev/null)
+    done < <(jq -c '.lessons[]' "$pkg_root/templates/lessons.json" 2>/dev/null)
 
-    if [[ $new_signs_added -gt 0 ]]; then
-      echo "  Merged $new_signs_added new sign(s)"
+    if [[ $new_lessons_added -gt 0 ]]; then
+      echo "  Merged $new_lessons_added new lesson(s)"
     fi
   fi
 
@@ -272,36 +288,39 @@ setup_ralph_dir() {
     export RALPH_DETECTED_TYPE="$detected_type"
   fi
 
-  # Copy or merge signs template
-  if [[ ! -f ".ralph/signs.json" ]]; then
-    if [[ -f "$pkg_root/templates/signs.json" ]]; then
-      cp "$pkg_root/templates/signs.json" ".ralph/signs.json"
-    else
-      echo '{"signs": []}' > ".ralph/signs.json"
-    fi
-    echo "  Created .ralph/signs.json"
-  else
-    # Merge new default signs into existing file
-    if [[ -f "$pkg_root/templates/signs.json" ]] && command -v jq &>/dev/null; then
-      local existing_ids new_signs_added=0
-      existing_ids=$(jq -r '.signs[].id // empty' ".ralph/signs.json" 2>/dev/null | tr '\n' '|')
+  # Migrate signs.json → lessons.json (one-time rename for existing projects)
+  _migrate_signs_to_lessons
 
-      # Add signs from template that don't exist locally
-      while IFS= read -r sign; do
-        local sign_id
-        sign_id=$(echo "$sign" | jq -r '.id // empty')
-        if [[ -n "$sign_id" && ! "$existing_ids" =~ "$sign_id" ]]; then
-          # Add this sign to local file
+  # Copy or merge lessons template
+  if [[ ! -f ".ralph/lessons.json" ]]; then
+    if [[ -f "$pkg_root/templates/lessons.json" ]]; then
+      cp "$pkg_root/templates/lessons.json" ".ralph/lessons.json"
+    else
+      echo '{"lessons": []}' > ".ralph/lessons.json"
+    fi
+    echo "  Created .ralph/lessons.json"
+  else
+    # Merge new default lessons into existing file
+    if [[ -f "$pkg_root/templates/lessons.json" ]] && command -v jq &>/dev/null; then
+      local existing_ids new_lessons_added=0
+      existing_ids=$(jq -r '.lessons[].id // empty' ".ralph/lessons.json" 2>/dev/null | tr '\n' '|')
+
+      # Add lessons from template that don't exist locally
+      while IFS= read -r lesson; do
+        local lesson_id
+        lesson_id=$(echo "$lesson" | jq -r '.id // empty')
+        if [[ -n "$lesson_id" && ! "$existing_ids" =~ "$lesson_id" ]]; then
+          # Add this lesson to local file
           local tmp_file
           tmp_file=$(mktemp)
-          jq --argjson new_sign "$sign" '.signs += [$new_sign]' ".ralph/signs.json" > "$tmp_file"
-          mv "$tmp_file" ".ralph/signs.json"
-          ((new_signs_added++)) || true
+          jq --argjson new_lesson "$lesson" '.lessons += [$new_lesson]' ".ralph/lessons.json" > "$tmp_file"
+          mv "$tmp_file" ".ralph/lessons.json"
+          ((new_lessons_added++)) || true
         fi
-      done < <(jq -c '.signs[]' "$pkg_root/templates/signs.json" 2>/dev/null)
+      done < <(jq -c '.lessons[]' "$pkg_root/templates/lessons.json" 2>/dev/null)
 
-      if [[ $new_signs_added -gt 0 ]]; then
-        echo "  Merged $new_signs_added new sign(s) into .ralph/signs.json"
+      if [[ $new_lessons_added -gt 0 ]]; then
+        echo "  Merged $new_lessons_added new lesson(s) into .ralph/lessons.json"
       fi
     fi
   fi
@@ -354,7 +373,7 @@ setup_gitignore() {
     ".ralph/archive/"
     ".ralph/progress.txt"
     ".ralph/tool-log.txt"
-    ".ralph/suggested-signs.txt"
+    ".ralph/suggested-lessons.txt"
     ".ralph/.preflight_cache"
     ".ralph/.last_version"
     ".ralph/.lock"

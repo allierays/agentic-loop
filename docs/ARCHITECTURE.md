@@ -39,7 +39,7 @@ Agentic-loop is a system that lets you describe a feature in plain English, have
 │ bin/         │ ralph/       │ src/         │ templates/    │
 │ agentic-     │ loop.sh      │ checks/      │ config/       │
 │ loop.sh      │ prd-check.sh │ cli.ts       │ PROMPT.md     │
-│ ralph.sh     │ code-check.sh│              │ signs.json    │
+│ ralph.sh     │ code-check.sh│              │ lessons.json  │
 └──────────────┴──────────────┴──────────────┴───────────────┘
 ```
 
@@ -170,7 +170,7 @@ Setup detects your project type and configures everything:
 │                                                                          │
 │  2. Create .ralph/ directory                                             │
 │     - config.json (URLs, directories, check settings)                    │
-│     - signs.json (default learned patterns)                              │
+│     - lessons.json (default learned patterns)                            │
 │     - hooks/ (Claude Code hooks)                                         │
 │                                                                          │
 │  3. Create .claude/ directory                                            │
@@ -194,7 +194,7 @@ Setup detects your project type and configures everything:
 
 | Function | What it does |
 |----------|--------------|
-| `setup_ralph_dir()` | Create `.ralph/` with config.json, signs.json based on detected project type |
+| `setup_ralph_dir()` | Create `.ralph/` with config.json, lessons.json based on detected project type |
 | `setup_gitignore()` | Add agentic-loop files to .gitignore |
 | `setup_claude_hooks()` | Copy hooks to `.ralph/hooks/` and configure `.claude/settings.json` |
 | `setup_slash_commands()` | Copy slash commands to `.claude/skills/` |
@@ -262,7 +262,7 @@ User runs: npx agentic-loop run
         build_prompt()               ← Assemble what to send to Claude
         - templates/PROMPT.md        ← "How to work" instructions
         - Story ID (e.g., TASK-001)  ← "What to build" (Claude reads full details)
-        - Signs from signs.json      ← Patterns to follow
+        - Lessons from lessons.json  ← Patterns to follow
         - Failure context            ← If this is a retry, include the error
                 │
                 ▼
@@ -307,7 +307,7 @@ The main CLI. When you run `npx agentic-loop <command>`, this script routes to t
 | `check` | `ralph/code-check.sh` | Run verification without Claude (useful for debugging) |
 | `verify TASK-001` | `ralph/code-check.sh` | Verify a specific story |
 | `test` | `ralph/test.sh` | Run full test suite (like CI would) |
-| `signs` | `ralph/signs.sh` | List/add/remove learned patterns |
+| `lessons` | `ralph/lessons.sh` | List/add/remove learned patterns |
 | `ci install` | `ralph/ci.sh` | Generate GitHub Actions workflow files |
 
 ### bin/vibe-check.js
@@ -440,14 +440,14 @@ Instead of injecting everything into the prompt, we give Claude minimal instruct
 **What we inject** (small, ~500 tokens):
 - `templates/PROMPT.md` - The 7-step framework ("how to work")
 - Story ID (e.g., "TASK-001") - Just the ID, not the full story
-- Signs - Learned patterns to follow
+- Lessons - Learned patterns to follow
 - Failure context - If retrying, include the error
 
 **What Claude reads during Orient step** (Claude actively reads these):
 - `.ralph/prd.json` - Full story details, tech stack, constraints
 - `story.contextFiles[]` - Idea files, styleguides, mockups
 - `CLAUDE.md` - Project conventions
-- `.ralph/signs.json` - Full list of patterns
+- `.ralph/lessons.json` - Full list of patterns
 
 ### build_prompt() in ralph/loop.sh
 
@@ -463,8 +463,8 @@ This function assembles the prompt text:
 │ ## Previous Iteration Failed        │  ← Only if retrying
 │ [Error output from last attempt]    │
 ├─────────────────────────────────────┤
-│ ## Signs (Learned Patterns)         │
-│ - [backend] Use camelCase for API   │  ← From signs.json
+│ ## Lessons (Learned Patterns)       │
+│ - [backend] Use camelCase for API   │  ← From lessons.json
 │ - [frontend] Add data-testid attrs  │
 └─────────────────────────────────────┘
 ```
@@ -475,7 +475,7 @@ The 7-step framework Claude follows:
 
 1. **Orient** - Read prd.json, find your story, read contextFiles
 2. **Check for Failures** - If last_failure.txt exists, read it and understand what went wrong
-3. **Read Learned Patterns** - Read signs.json, follow these strictly
+3. **Read Learned Patterns** - Read lessons.json, follow these strictly
 4. **Verify Prerequisites** - Make sure servers are running, dependencies installed
 5. **Implement** - Write code according to acceptanceCriteria
 6. **Verify** - Run the testSteps, use browser tools if specified
@@ -501,7 +501,7 @@ When you type `/prd "add auth"` in Claude Code:
 | `prd.md` | `/prd` | Brainstorm, harden, and generate PRD (single source of truth for schema) |
 | `review.md` | `/review` | Security-focused code review (OWASP top 10) |
 | `vibe-check.md` | `/vibe-check` | Quick code quality audit |
-| `sign.md` | `/sign` | Add a learned pattern |
+| `lesson.md` | `/lesson` | Add a learned pattern |
 | `explain.md` | `/explain` | Explain code line by line |
 | `styleguide.md` | `/styleguide` | Generate UI component reference page |
 | `my-dna.md` | `/my-dna` | Set up personal coding preferences |
@@ -696,13 +696,13 @@ Example CLAUDE.md files showing coding conventions for different stacks:
 - `CLAUDE-django.md` - Python Django
 - `CLAUDE-fullstack.md` - Combined frontend + backend
 
-### templates/signs.json
+### templates/lessons.json
 
 Default learned patterns every project starts with:
 
 ```json
 {
-  "signs": [
+  "lessons": [
     {"pattern": "Never hardcode AI model names - use config", "category": "backend"},
     {"pattern": "Use environment variables for secrets", "category": "general"},
     {"pattern": "Handle loading, error, and empty states in UI", "category": "frontend"},
@@ -733,15 +733,15 @@ The PRD (Product Requirements Document). Contains:
 
 Schema is defined in `.claude/skills/prd/SKILL.md`.
 
-### .ralph/signs.json
+### .ralph/lessons.json
 
 Learned patterns. These get injected into every prompt so Claude doesn't repeat mistakes:
 
 ```json
 {
-  "signs": [
+  "lessons": [
     {
-      "id": "sign-001",
+      "id": "lesson-001",
       "pattern": "Always use camelCase for API response fields",
       "category": "backend",
       "learnedFrom": "TASK-003"
@@ -750,7 +750,7 @@ Learned patterns. These get injected into every prompt so Claude doesn't repeat 
 }
 ```
 
-Add new signs: `npx agentic-loop sign "pattern" category`
+Add new lessons: `npx agentic-loop lesson "pattern" category`
 
 ### .ralph/progress.txt
 

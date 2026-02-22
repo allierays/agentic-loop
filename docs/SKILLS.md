@@ -31,7 +31,9 @@ Claude will:
 2. Ask hardening questions (security, scale, scope)
 3. Explore your codebase
 4. Split into stories in `.ralph/prd.json`
-5. Open for your approval
+5. Run prd-check validation automatically (structural checks + lessons cross-reference)
+6. Auto-fix any issues found
+7. Open for your approval
 
 ---
 
@@ -64,7 +66,7 @@ Great for new users. Explains:
 
 ### `/prd-check`
 
-**Validate your PRD** on demand before running the loop.
+**Re-validate your PRD** after manual edits. (Runs automatically as part of `/prd`.)
 
 ```
 /prd-check
@@ -75,7 +77,7 @@ Claude will:
 2. Present any issues found
 3. Ask if you want to fix them
 
-Use this to catch story quality issues interactively instead of waiting for them to fail during `ralph run`. Also runs any custom checks in `.ralph/checks/prd/`.
+Note: `/prd` now runs prd-check automatically during generation, so you only need `/prd-check` standalone when you've manually edited `.ralph/prd.json` and want to re-validate. Also runs any custom checks in `.ralph/checks/prd/`.
 
 ---
 
@@ -170,16 +172,16 @@ Great for ensuring consistent UI across AI-generated code.
 
 ---
 
-### `/sign`
+### `/lesson`
 
 **Add a learned pattern** that Ralph will remember for future stories.
 
 ```
-/sign "Always use environment variables for API keys" backend
-/sign "Import from @/components, not relative paths" frontend
+/lesson "Always use environment variables for API keys" backend
+/lesson "Import from @/components, not relative paths" frontend
 ```
 
-Signs are stored in `.ralph/signs.json` and injected into every Claude session. Use this to teach patterns from past failures.
+Lessons are stored in `.ralph/lessons.json` and injected into every Claude session. Use this to teach patterns from past failures.
 
 ---
 
@@ -260,15 +262,15 @@ Hooks that block will prevent the commit. Warnings let you commit but alert you.
 
 | Command | Purpose |
 |---------|---------|
-| `/prd` | Brainstorm → Harden → PRD → Ready for Ralph |
-| `/prd-check` | Validate PRD before running the loop |
+| `/prd` | Brainstorm → Harden → PRD → Validate → Ready for Ralph |
+| `/prd-check` | Re-validate PRD after manual edits |
 | `/vibe-help` | Quick reference cheatsheet |
 | `/tour` | Interactive walkthrough |
 | `/vibe-check` | Code quality audit |
 | `/review` | Deep code review |
 | `/explain` | Explain code line by line |
 | `/styleguide` | Generate design system |
-| `/sign` | Add a learned pattern |
+| `/lesson` | Add a learned pattern |
 | `/my-dna` | Set up personal coding preferences |
 | `/color` | Pick Ralph's terminal background tint |
 | `/tab-rename` | Rename terminal tab |

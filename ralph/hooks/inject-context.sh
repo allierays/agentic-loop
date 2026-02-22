@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# inject-context.sh - Inject signs and recent progress at session start
+# inject-context.sh - Inject lessons and recent progress at session start
 # Hook: SessionStart
 
 set -euo pipefail
@@ -10,11 +10,11 @@ RALPH_DIR="$CWD/.ralph"
 
 CONTEXT=""
 
-# Inject signs (learned patterns)
-if [[ -f "$RALPH_DIR/signs.json" ]]; then
-  SIGNS=$(jq -r '.signs[]? | "- [\(.category)] \(.pattern)"' "$RALPH_DIR/signs.json" 2>/dev/null | head -20)
-  if [[ -n "$SIGNS" ]]; then
-    CONTEXT="## Learned Patterns (Signs)\nApply these lessons:\n$SIGNS\n\n"
+# Inject lessons (learned patterns)
+if [[ -f "$RALPH_DIR/lessons.json" ]]; then
+  LESSONS=$(jq -r '.lessons[]? | "- [\(.category)] \(.pattern)"' "$RALPH_DIR/lessons.json" 2>/dev/null | head -20)
+  if [[ -n "$LESSONS" ]]; then
+    CONTEXT="## Learned Patterns (Lessons)\nApply these lessons:\n$LESSONS\n\n"
   fi
 fi
 

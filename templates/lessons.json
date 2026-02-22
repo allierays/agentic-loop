@@ -1,56 +1,56 @@
 {
-  "signs": [
+  "lessons": [
     {
-      "id": "sign-001",
+      "id": "lesson-001",
       "pattern": "NEVER hardcode AI model names (gpt-4, claude-3, gemini, etc) - always use environment variables or settings",
       "category": "backend",
       "learnedFrom": null,
       "createdAt": "2026-01-20T00:00:00-08:00"
     },
     {
-      "id": "sign-002",
+      "id": "lesson-002",
       "pattern": "Use environment variables for all API keys and secrets, never hardcode them",
       "category": "general",
       "learnedFrom": null,
       "createdAt": "2026-01-20T00:00:00-08:00"
     },
     {
-      "id": "sign-003",
+      "id": "lesson-003",
       "pattern": "Always handle loading, error, and empty states for async operations",
       "category": "frontend",
       "learnedFrom": null,
       "createdAt": "2026-01-20T00:00:00-08:00"
     },
     {
-      "id": "sign-004",
+      "id": "lesson-004",
       "pattern": "ALWAYS transform API responses from snake_case to camelCase at the boundary. Create a transform function: `const user = { userName: data.user_name, createdAt: data.created_at }`. NEVER use snake_case properties directly in TypeScript code like `data.user_name` - always map to camelCase first.",
       "category": "frontend",
       "learnedFrom": null,
       "createdAt": "2026-01-20T00:00:00-08:00"
     },
     {
-      "id": "sign-005",
+      "id": "lesson-005",
       "pattern": "Add data-testid attributes to interactive elements for Playwright e2e tests",
       "category": "frontend",
       "learnedFrom": null,
       "createdAt": "2026-01-20T00:00:00-08:00"
     },
     {
-      "id": "sign-006",
+      "id": "lesson-006",
       "pattern": "Never use 'any' type in TypeScript - create proper interfaces and types instead",
       "category": "frontend",
       "learnedFrom": null,
       "createdAt": "2026-01-20T00:00:00-08:00"
     },
     {
-      "id": "sign-007",
+      "id": "lesson-007",
       "pattern": "When removing or modifying UI elements, grep for related tests and update them - stale tests that check for removed elements will fail",
       "category": "testing",
       "learnedFrom": null,
       "createdAt": "2026-01-25T00:00:00-08:00"
     },
     {
-      "id": "sign-008",
+      "id": "lesson-008",
       "pattern": "NEVER use import-checks as test steps (python -c 'from X import Y', hasattr, test -f). These only verify a symbol exists, not that it works. A function that raises on every call still passes an import check. Always use real behavioral tests: curl for API endpoints, pytest with actual function calls, or Playwright for UI.",
       "category": "testing",
       "learnedFrom": "Okta SSO PRD review — all 4 backend stories had import-check testSteps that would pass even with completely broken code",

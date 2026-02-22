@@ -25,15 +25,15 @@ You describe what you want to build. Claude Code writes a PRD (Product Requireme
 │                                        │                                         │
 │  2. /prd plans/my-feature              │  ┌──────────────────────────────────┐   │
 │     → Hardening questions              │  │ Read prd.json → get next story   │   │
-│     → Generates .ralph/prd.json        │  │ Load PROMPT.md, signs, config    │   │
-│                                        │  │ Load last_failure.txt (if retry) │   │
-│  3. /prd-check                         │  │ Build prompt with full context   │   │
-│     → Validate stories                 │  │ Spawn Claude → write code        │   │
-│     → Cross-ref signs                  │  │                                  │   │
-│     → Auto-fix issues                  │  │ code-check:                      │   │
+│     → Generates .ralph/prd.json        │  │ Load PROMPT.md, lessons, config  │   │
+│     → Runs prd-check automatically     │  │ Load last_failure.txt (if retry) │   │
+│     → Cross-refs lessons, auto-fixes   │  │ Build prompt with full context   │   │
+│                                        │  │ Spawn Claude → write code        │   │
+│  3. /prd-check (re-validate)           │  │                                  │   │
+│     → Standalone after manual edits    │  │ code-check:                      │   │
 │                                        │  │   [1] Lint                       │   │
 │  ENHANCE AS YOU LEARN                  │  │   [2] Tests                      │   │
-│  /sign        → teach patterns         │  │   [3] PRD test steps             │   │
+│  /lesson      → teach patterns         │  │   [3] PRD test steps             │   │
 │  /my-dna      → your coding style      │  │   [4] API smoke                  │   │
 │  /styleguide  → UI consistency         │  │   [5] Frontend smoke             │   │
 │  /color       → terminal tint          │  │                                  │   │
@@ -47,10 +47,10 @@ You describe what you want to build. Claude Code writes a PRD (Product Requireme
 └────────────────────────────────────────┴─────────────────────────────────────────┘
 ```
 
-**Terminal 1** is where you plan and generate. Plan mode lets you think through a feature with Claude before committing to code. `/prd` turns that plan into executable stories. `/prd-check` validates them.
+**Terminal 1** is where you plan and generate. Plan mode lets you think through a feature with Claude before committing to code. `/prd` turns that plan into executable stories and automatically validates them (prd-check, lessons cross-reference). `/prd-check` is available standalone for re-validation after manual edits.
 **Terminal 2** is where Ralph executes autonomously — coding, testing, and committing each story in a loop.
 
-The loop gets smarter over time. When Ralph struggles with something, teach it with `/sign`. Tune timeouts and checks in `config.json`. Capture your coding style with `/my-dna`.
+The loop gets smarter over time. When Ralph struggles with something, teach it with `/lesson`. Tune timeouts and checks in `config.json`. Capture your coding style with `/my-dna`.
 
 ---
 
@@ -70,10 +70,10 @@ claude --dangerously-skip-permissions
 # 1. Use plan mode to think through your feature
 #    Claude explores the codebase, you discuss, plan saved to docs/plans/
 
-# 2. Turn the plan into executable stories
+# 2. Turn the plan into executable stories (runs prd-check automatically)
 /prd plans/my-feature
 
-# 3. Validate before running
+# 3. Re-validate after manual edits (optional)
 /prd-check
 ```
 
@@ -85,7 +85,7 @@ npx agentic-loop run --quiet # Same, but suppress activity feed
 
 Ralph shows a live activity feed as it works — what files it's reading, what code it's writing, and why. Use `--quiet` to suppress it. On macOS Terminal.app, Ralph tints the terminal background dark teal so you can tell the two terminals apart at a glance — the original color is restored when the loop ends.
 
-> **Tip:** Plan first, then generate. Use plan mode to explore and think, `/prd` to create stories, `/prd-check` to validate, and `ralph run` to execute.
+> **Tip:** Plan first, then generate. Use plan mode to explore and think, `/prd` to create and validate stories, and `ralph run` to execute. Use `/prd-check` to re-validate after manual edits.
 
 ---
 

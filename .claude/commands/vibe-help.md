@@ -41,8 +41,8 @@ npx ralph chaos-agent          adversarial red team testing
 ```
 /tour                    guided setup
 /my-dna                  set preferences
-/sign                    teach Ralph a pattern
-npx ralph signs          view learned patterns
+/lesson                  teach Ralph a pattern
+npx ralph lessons        view learned patterns
 ```
 
 ---

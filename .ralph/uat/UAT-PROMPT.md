@@ -18,7 +18,7 @@ ralph/
   code-check.sh     # Post-Claude verification pipeline (lint, tests, API smoke)
   prd-check.sh      # PRD validation
   prd.sh            # PRD generation
-  signs.sh          # Learned patterns
+  lessons.sh        # Learned patterns
   backup.sh         # Database backup/restore
   ci.sh             # CI integration
   test.sh           # Test execution
@@ -77,7 +77,7 @@ _migrate_config
 ### ralph init (init.sh)
 - Creates `.ralph/` directory structure
 - Copies config template based on detected project type
-- Creates `signs.json`, `progress.txt`, `PROMPT.md`
+- Creates `lessons.json`, `progress.txt`, `PROMPT.md`
 - Idempotent: second call says "already initialized"
 
 ## CLI Commands & Expected Behavior
@@ -92,7 +92,7 @@ _migrate_config
 | `ralph -v` | Same as version | 0 |
 | `ralph status` | Feature status + story progress | 0 |
 | `ralph check` | Run verification pipeline | 0 |
-| `ralph signs` | List signs or "No signs" | 0 |
+| `ralph lessons` | List lessons or "No lessons" | 0 |
 | `ralph progress` | Last 50 lines of progress.txt | 0 |
 | `ralph stop` | Creates `.ralph/.stop` signal file | 0 |
 | `ralph skip` | Creates `.ralph/.skip` signal file | 0 |
@@ -142,7 +142,7 @@ In `bin/ralph.sh` (lines 43-62):
 ## Observations from Exploration
 
 ### Side Effects
-- `ralph stop` and `ralph skip` trigger the full startup sequence (config auto-detection, file creation) even in directories without prior `ralph init`. This creates `.ralph/config.json`, `PROMPT.md`, `signs.json` as a side effect. Whether this is intended behavior or a bug depends on design intent.
+- `ralph stop` and `ralph skip` trigger the full startup sequence (config auto-detection, file creation) even in directories without prior `ralph init`. This creates `.ralph/config.json`, `PROMPT.md`, `lessons.json` as a side effect. Whether this is intended behavior or a bug depends on design intent.
 
 ### Help Text Consistency
 - `bin/agentic-loop.sh` header comments document run flags (lines 8-12)

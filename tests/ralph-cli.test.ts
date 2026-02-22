@@ -58,11 +58,11 @@ describe('ralph CLI', () => {
       expect(existsSync(join(testDir, '.ralph', 'config.json'))).toBe(true)
     })
 
-    it('creates signs.json', () => {
-      expect(existsSync(join(testDir, '.ralph', 'signs.json'))).toBe(true)
-      const signs = JSON.parse(readFileSync(join(testDir, '.ralph', 'signs.json'), 'utf-8'))
-      expect(signs).toHaveProperty('signs')
-      expect(Array.isArray(signs.signs)).toBe(true)
+    it('creates lessons.json', () => {
+      expect(existsSync(join(testDir, '.ralph', 'lessons.json'))).toBe(true)
+      const lessons = JSON.parse(readFileSync(join(testDir, '.ralph', 'lessons.json'), 'utf-8'))
+      expect(lessons).toHaveProperty('lessons')
+      expect(Array.isArray(lessons.lessons)).toBe(true)
     })
 
     it('creates progress.txt', () => {
