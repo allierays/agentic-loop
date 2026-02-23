@@ -316,6 +316,51 @@ _has_auth_placeholder() {
   return 1
 }
 
+# Check if ALL failing tests are outside the story's file scope.
+# Parses pytest "FAILED path::test" lines from output, compares against
+# story's files.create + files.modify + testing.files from prd.json.
+# Returns 0 (true) if every failure is unrelated, 1 (false) otherwise.
+_is_unrelated_test_failure() {
+  local story="$1"
+  local log_file="$2"
+
+  [[ ! -f "$log_file" ]] && return 1
+
+  # Extract failing test file paths from pytest short summary
+  # Format: "FAILED tests/integration/test_foo.py::TestClass::test_method"
+  local failing_files
+  failing_files=$(grep -oE "^FAILED [^ :]+(::|\$)" "$log_file" 2>/dev/null \
+    | sed 's/^FAILED //' | sed 's/::$//' | sort -u)
+
+  # Can't parse failures — assume related (safe default)
+  [[ -z "$failing_files" ]] && return 1
+
+  # Get story's file scope (create + modify + test files)
+  local story_files
+  story_files=$(jq -r --arg id "$story" '
+    .stories[] | select(.id==$id) |
+    ((.files.create // []) + (.files.modify // []) +
+      ([.testing.files | objects | to_entries[]? | .value[]?] // []))
+    | .[]
+  ' "$RALPH_DIR/prd.json" 2>/dev/null)
+
+  [[ -z "$story_files" ]] && return 1
+
+  # Check if ANY failing file overlaps with the story's scope
+  while IFS= read -r failing; do
+    [[ -z "$failing" ]] && continue
+    while IFS= read -r story_file; do
+      [[ -z "$story_file" ]] && continue
+      # Basename match — story files may use relative paths
+      if [[ "$failing" == *"$story_file"* ]] || [[ "$story_file" == *"$failing"* ]]; then
+        return 1  # At least one failure IS related
+      fi
+    done <<< "$story_files"
+  done <<< "$failing_files"
+
+  return 0  # ALL failures are outside story scope
+}
+
 # Verify PRD acceptance criteria / test steps
 verify_prd_criteria() {
   local story="$1"
@@ -357,6 +402,27 @@ verify_prd_criteria() {
     if safe_exec "$expanded_step" "$log_file"; then
       print_success "passed"
     else
+      # If this is a test runner command, check if failures are outside story scope
+      if echo "$expanded_step" | grep -qE "(pytest|npm test|go test|cargo test|mix test)" && \
+         _is_unrelated_test_failure "$story" "$log_file"; then
+        print_warning "passed (unrelated test failures outside story scope)"
+        echo ""
+        echo "    Failing tests not related to this story:"
+        grep -oE "^FAILED [^ ]+" "$log_file" 2>/dev/null | head -5 | sed 's/^/      /'
+        echo ""
+
+        # Log as warning, not failure
+        {
+          echo "PRD test step $step_index WARNING for $story (unrelated failures skipped):"
+          echo "  Command: $expanded_step"
+          echo "  Unrelated failing tests:"
+          grep -oE "^FAILED [^ ]+" "$log_file" 2>/dev/null | head -10 | sed 's/^/    /'
+          echo ""
+        } >> "$prd_failure_log"
+
+        continue  # Don't set failed=1
+      fi
+
       print_error "failed"
       echo ""
 

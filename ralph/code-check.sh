@@ -312,4 +312,22 @@ _detect_structural_errors() {
       echo ">>> ACTION NEEDED: Start required services before retrying"
     } >> "$context_file"
   fi
+
+  # Unrelated test failures — integration tests, auth timeouts, etc.
+  if echo "$error_content" | grep -qiE "(AUTHENTICATION REQUIRED|Failed: Timeout.*pytest-timeout)" && \
+     ! grep -q ">>> STRUCTURAL ISSUE: Unrelated test failure" "$context_file" 2>/dev/null; then
+    echo ""
+    print_warning "STRUCTURAL ISSUE DETECTED: Unrelated test failure (auth/timeout)"
+    echo ""
+    echo "  A test failed due to missing authentication or timeout — not a code bug."
+    echo "  Consider scoping testSteps to unit tests only (e.g., pytest tests/unit/ -x)"
+    echo ""
+
+    {
+      echo ""
+      echo ">>> STRUCTURAL ISSUE: Unrelated test failure (auth timeout or missing credentials)"
+      echo ">>> ACTION NEEDED: Scope testSteps to unit tests — use 'pytest tests/unit/ -x' instead of 'pytest -x'"
+      echo ">>> This is NOT a code bug — an integration test needs live auth credentials"
+    } >> "$context_file"
+  fi
 }
