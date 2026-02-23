@@ -12,7 +12,7 @@ The user wants to change Ralph's terminal background tint - the color applied du
 
 Read `.ralph/config.json` and check for `terminalTint`. Show the current setting:
 - If set: "Current tint: `{value}`"
-- If not set: "Current tint: `#1a2e2e` (default dark teal)"
+- If not set: "Current tint: `#1a1a2e` (default dark navy)"
 
 ## Step 2: Ask Color Preference
 
@@ -21,8 +21,8 @@ Use AskUserQuestion:
 **Question:** "What color should Ralph's terminal background be?"
 **Header:** "Tint color"
 **Options:**
-- **Dark Teal (default)** - "`#1a2e2e` - subtle blue-green, easy on the eyes"
-- **Dark Purple** - "`#1a1a2e` - cool and distinct from standard dark themes"
+- **Dark Navy (default)** - "`#1a1a2e` - cool and distinct, easy on the eyes"
+- **Dark Teal** - "`#1a2e2e` - subtle blue-green undertone"
 - **Dark Red** - "`#2e1a1a` - warm undertone, clearly different"
 - **Off** - "Disable terminal tinting entirely"
 
@@ -32,7 +32,7 @@ If the user selects "Other", ask them to provide a hex color (e.g., `#2e2e1a`).
 
 If the user provided a custom hex:
 - Must match `#` followed by exactly 6 hex characters (`/^#[0-9a-fA-F]{6}$/`)
-- If invalid, say "That doesn't look like a valid hex color (e.g., `#1a2e2e`). Try again." and re-ask.
+- If invalid, say "That doesn't look like a valid hex color (e.g., `#1a1a2e`). Try again." and re-ask.
 
 ## Step 4: Save to Config
 

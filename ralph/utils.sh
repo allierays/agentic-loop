@@ -51,7 +51,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Terminal background theming for Ralph
-# Saves original background color and applies a teal tint to visually
+# Saves original background color and applies a navy tint to visually
 # distinguish the Ralph terminal from Claude Code.
 # Only works in macOS Terminal.app — no-op on Linux, iTerm2, VS Code, etc.
 # Note: AppleScript targets "front window" (focused window) not the specific
@@ -61,7 +61,7 @@ _ORIGINAL_TERMINAL_BG=""
 _ORIGINAL_TERMINAL_FG=""
 
 set_terminal_bg() {
-  local hex="${1:-#1a2e2e}"  # Default: subtle dark teal
+  local hex="${1:-#1a1a2e}"  # Default: subtle dark navy
 
   # Only works in Terminal.app
   [[ "$TERM_PROGRAM" != "Apple_Terminal" ]] && return 0

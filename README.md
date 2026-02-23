@@ -83,7 +83,7 @@ npx agentic-loop run         # Execute PRDs autonomously (spins up claude -p)
 npx agentic-loop run --quiet # Same, but suppress activity feed
 ```
 
-Ralph shows a live activity feed as it works — what files it's reading, what code it's writing, and why. Use `--quiet` to suppress it. On macOS Terminal.app, Ralph tints the terminal background dark teal so you can tell the two terminals apart at a glance — the original color is restored when the loop ends.
+Ralph shows a live activity feed as it works — what files it's reading, what code it's writing, and why. Use `--quiet` to suppress it. On macOS Terminal.app, Ralph tints the terminal background dark navy so you can tell the two terminals apart at a glance — the original color is restored when the loop ends.
 
 > **Tip:** Plan first, then generate. Use plan mode to explore and think, `/prd` to create and validate stories, and `ralph run` to execute. Use `/prd-check` to re-validate after manual edits.
 

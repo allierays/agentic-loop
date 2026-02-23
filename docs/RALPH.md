@@ -473,7 +473,7 @@ Use `{config.urls.backend}` and `{config.urls.frontend}` in testSteps. Ralph exp
 | `playwright.enabled` | `true` | Enable e2e tests |
 | `styleguide` | `""` | Path to styleguide for frontend stories |
 | `maxSessionSeconds` | `600` | Claude session timeout |
-| `terminalTint` | `"#1a2e2e"` | Terminal background hex color, or `"off"` to disable |
+| `terminalTint` | `"#1a1a2e"` | Terminal background hex color, or `"off"` to disable |
 
 ### Test Credentials
 

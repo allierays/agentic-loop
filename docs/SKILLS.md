@@ -211,7 +211,7 @@ Your DNA is read during every Ralph session, so code reflects your personal styl
 /color
 ```
 
-Choose from presets (dark teal, purple, red) or enter a custom hex. macOS Terminal.app only.
+Choose from presets (dark navy, teal, red) or enter a custom hex. macOS Terminal.app only.
 
 ---
 

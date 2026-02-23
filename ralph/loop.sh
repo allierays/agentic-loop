@@ -748,7 +748,7 @@ run_loop() {
 
   # Tint terminal background so Ralph's terminal is visually distinct
   local tint_color
-  tint_color=$(get_config '.terminalTint' "#1a2e2e")
+  tint_color=$(get_config '.terminalTint' "#1a1a2e")
   if [[ "$tint_color" != "off" ]]; then
     set_terminal_bg "$tint_color"
   fi
