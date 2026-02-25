@@ -29,8 +29,8 @@ You describe what you want to build. Claude Code writes a PRD (Product Requireme
 │     → Runs prd-check automatically     │  │ Load last_failure.txt (if retry) │   │
 │     → Cross-refs lessons, auto-fixes   │  │ Build prompt with full context   │   │
 │                                        │  │ Spawn Claude → write code        │   │
-│  3. /prd-check (re-validate)           │  │                                  │   │
-│     → Standalone after manual edits    │  │ code-check:                      │   │
+│                                        │  │                                  │   │
+│                                        │  │ code-check:                      │   │
 │                                        │  │   [1] Lint                       │   │
 │  ENHANCE AS YOU LEARN                  │  │   [2] Tests                      │   │
 │  /lesson      → teach patterns         │  │   [3] PRD test steps             │   │
